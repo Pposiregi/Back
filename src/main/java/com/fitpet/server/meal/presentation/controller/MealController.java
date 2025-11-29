@@ -5,6 +5,7 @@ import com.fitpet.server.meal.presentation.dto.request.MealCreateRequest;
 import com.fitpet.server.meal.presentation.dto.request.MealUpdateRequest;
 import com.fitpet.server.meal.presentation.dto.response.MealCreateResponse;
 import com.fitpet.server.meal.presentation.dto.response.MealUpdateResponse;
+import com.fitpet.server.shared.annotation.AuthUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -22,10 +23,10 @@ import org.springframework.web.bind.annotation.RestController;
 public class MealController {
 
     private final MealService mealService;
-    private final Long userId = 3L;
 
     @PostMapping
     public ResponseEntity<MealCreateResponse> createMeal(
+            @AuthUser Long userId,
             @Valid @RequestBody MealCreateRequest request) {
         MealCreateResponse response = mealService.createMeal(userId, request);
         return ResponseEntity.ok(response);
@@ -33,6 +34,7 @@ public class MealController {
 
     @PatchMapping("/{mealId}")
     public ResponseEntity<Object> updateMeal(
+            @AuthUser Long userId,
             @PathVariable Long mealId,
             @Valid @RequestBody MealUpdateRequest request) {
 
@@ -42,6 +44,7 @@ public class MealController {
 
     @DeleteMapping("/{mealId}")
     public ResponseEntity<Void> deleteMeal(
+            @AuthUser Long userId,
             @PathVariable Long mealId) {
         mealService.deleteMeal(userId, mealId);
         return ResponseEntity.noContent().build();

@@ -41,8 +41,8 @@ public class ActivityNotificationScheduler {
 
     private final Random random = new Random();
 
-    //@Scheduled(cron = "0 0 20 * * ?", zone = "Asia/Seoul") // 매일 20시 정각
-    @Scheduled(cron = "0 * * * * ?", zone = "Asia/Seoul") // Test용 매분 실행
+    @Scheduled(cron = "0 0 20 * * ?", zone = "Asia/Seoul") // 매일 20시 정각
+    //@Scheduled(cron = "0 * * * * ?", zone = "Asia/Seoul") // Test용 매분 실행
     public void scheduleStepEncouragement() {
         log.info("[스케줄러 시작] 걷기 독려 알림 (목표 50% 미만 사용자)");
 
