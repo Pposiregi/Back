@@ -18,14 +18,13 @@ public class AuthInterceptor implements HandlerInterceptor {
     private final JwtTokenProvider jwtTokenProvider;
     public static final String DEV_HEADER = "dev-user-id";
 
-    // 현재 활성화된 프로파일(환경) 정보를 가져옵니다. 기본값은 'prod'입니다.
     @Value("${spring.profiles.active:prod}")
     private String activeProfile;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
             throws Exception {
-        
+
         if (isDevEnvironment()) {
             String devUserId = request.getHeader(DEV_HEADER);
             if (StringUtils.hasText(devUserId)) {
@@ -61,7 +60,6 @@ public class AuthInterceptor implements HandlerInterceptor {
         return null;
     }
 
-    // 개발 관련 환경인지 확인하는 헬퍼 메서드
     private boolean isDevEnvironment() {
         return "dev".equals(activeProfile) || "local".equals(activeProfile) || "test".equals(activeProfile);
     }
