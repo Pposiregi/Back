@@ -9,6 +9,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
@@ -26,10 +27,15 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @EntityListeners(AuditingEntityListener.class)
 @DynamicUpdate
 @Table(name = "users",
-        uniqueConstraints = {
-                @UniqueConstraint(name = "uk_users_email", columnNames = "email"),
-                @UniqueConstraint(name = "uk_oauth_provider_uid", columnNames = {"provider", "provider_uid"})
-        })
+    uniqueConstraints = {
+        @UniqueConstraint(name = "uk_users_email", columnNames = "email"),
+        @UniqueConstraint(name = "uk_oauth_provider_uid", columnNames = {"provider", "provider_uid"})
+    },
+    indexes = {
+        @Index(name = "idx_users_nickname", columnList = "nick_name"),
+        @Index(name = "idx_users_daily_step", columnList = "daily_step_count DESC, updated_at ASC"),
+        @Index(name = "idx_users_gender_daily_step", columnList = "gender, daily_step_count DESC, updated_at ASC")
+    })
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
@@ -97,12 +103,12 @@ public class User {
 
     @CreatedDate
     @Column(name = "created_at", updatable = false,
-            columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP")
+        columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP")
     private LocalDateTime createdAt;
 
     @LastModifiedDate
     @Column(name = "updated_at",
-            columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
+        columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
     private LocalDateTime updatedAt;
 
     @Default
@@ -119,16 +125,16 @@ public class User {
 
     // 사용자가 입력을 하지 않은 경우(빈값) 대비
     public void update(
-            String email,
-            String nickname,
-            Integer age,
-            Gender gender,
-            Double weightKg,
-            Double targetWeightKg,
-            Double heightCm,
-            Double pbf,
-            Double targetPbf,
-            Integer targetStepCount
+        String email,
+        String nickname,
+        Integer age,
+        Gender gender,
+        Double weightKg,
+        Double targetWeightKg,
+        Double heightCm,
+        Double pbf,
+        Double targetPbf,
+        Integer targetStepCount
     ) {
         if (email != null && !email.isBlank()) {
             this.email = email;
@@ -209,7 +215,7 @@ public class User {
     public void updateLastAccessedAt() {
         this.lastAccessedAt = LocalDateTime.now();
     }
-    
+
     public void changeActivityNotificationSetting(boolean allowed) {
         this.allowActivityNotification = allowed;
     }
