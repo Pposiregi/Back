@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -17,13 +18,26 @@ public class AuthInterceptor implements HandlerInterceptor {
     private final JwtTokenProvider jwtTokenProvider;
     public static final String DEV_HEADER = "dev-user-id";
 
+    // 현재 활성화된 프로파일(환경) 정보를 가져옵니다. 기본값은 'prod'입니다.
+    @Value("${spring.profiles.active:prod}")
+    private String activeProfile;
+
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
             throws Exception {
-        String devUserId = request.getHeader(DEV_HEADER);
-        if (StringUtils.hasText(devUserId)) {
-            request.setAttribute("userId", Long.parseLong(devUserId));
-            return true;
+        
+        if (isDevEnvironment()) {
+            String devUserId = request.getHeader(DEV_HEADER);
+            if (StringUtils.hasText(devUserId)) {
+                try {
+                    request.setAttribute("userId", Long.parseLong(devUserId));
+                    return true;
+                } catch (NumberFormatException e) {
+                    log.warn("Invalid dev-user-id header value: {}", devUserId);
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid dev-user-id format");
+                    return false;
+                }
+            }
         }
 
         String token = resolveToken(request);
@@ -45,5 +59,10 @@ public class AuthInterceptor implements HandlerInterceptor {
             return bearerToken.substring(7);
         }
         return null;
+    }
+
+    // 개발 관련 환경인지 확인하는 헬퍼 메서드
+    private boolean isDevEnvironment() {
+        return "dev".equals(activeProfile) || "local".equals(activeProfile) || "test".equals(activeProfile);
     }
 }
