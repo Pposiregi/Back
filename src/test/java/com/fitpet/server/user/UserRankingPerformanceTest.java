@@ -22,7 +22,7 @@ import org.springframework.util.StopWatch;
 class UserRankingPerformanceTest {
 
     private static final int TARGET_USER_COUNT = 0;      // 생성할 전체 유저 수
-    private static final int RANKING_CALL_COUNT = 100;   // 랭킹 API 반복 호출 횟수
+    private static final int RANKING_CALL_COUNT = 1000;   // 랭킹 API 반복 호출 횟수
 
     @Autowired
     private UserJpaRepository userJpaRepository;

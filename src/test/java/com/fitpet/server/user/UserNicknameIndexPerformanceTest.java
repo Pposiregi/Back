@@ -13,7 +13,7 @@ import org.springframework.util.StopWatch;
 @ActiveProfiles("local")
 class UserNicknameIndexPerformanceTest {
 
-    private static final int LOOKUP_ITERATION = 100;   // 닉네임 조회 반복 횟수
+    private static final int LOOKUP_ITERATION = 1000;   // 닉네임 조회 반복 횟수
 
     @Autowired
     private UserJpaRepository userJpaRepository;
