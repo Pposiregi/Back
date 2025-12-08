@@ -78,12 +78,6 @@ public class UserController {
     ) {
         log.info("[UserController] 현재 사용자 정보 입력 요청: id: {}", userId);
 
-        // 이미 가입 완료된 유저인지 확인하는 로직 (Service로 옮기는 것도 고려해볼 만함)
-        if (userService.isRegistrationComplete(userId)) {
-            // 이미 완료된 경우 400 Bad Request 또는 409 Conflict가 더 적절할 수 있으나, 기존 유지 시 401
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
-        }
-
         UserDto user = userService.inputInfo(userId, userInputInfoRequest);
 
         log.info("[UserController] 현재 사용자 정보 입력 완료: id: {}", userId);
