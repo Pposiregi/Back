@@ -7,6 +7,7 @@ import com.fitpet.server.badge.presentation.dto.BadgeCheckDto;
 import com.fitpet.server.badge.presentation.dto.BadgeCreateRequest;
 import com.fitpet.server.badge.presentation.dto.BadgeDto;
 import com.fitpet.server.badge.presentation.dto.BadgeUpdateRequest;
+import com.fitpet.server.shared.annotation.AuthUser;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
@@ -65,15 +66,19 @@ public class BadgeController {
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/users/{userId}/assign")
-    public ResponseEntity<BadgeCheckDto> assignBadge(@PathVariable Long userId,
-                                                     @Valid @RequestBody BadgeCheckCreateRequest request) {
+    @PostMapping("/assign")
+    public ResponseEntity<BadgeCheckDto> assignBadge(
+            @AuthUser Long userId,
+            @Valid @RequestBody BadgeCheckCreateRequest request) {
+
         BadgeCheckDto response = badgeCheckService.assignBadge(userId, request);
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/users/{userId}")
-    public ResponseEntity<List<BadgeCheckDto>> getUserBadges(@PathVariable Long userId) {
+    @GetMapping("/users")
+    public ResponseEntity<List<BadgeCheckDto>> getUserBadges(
+            @AuthUser Long userId
+    ) {
         return ResponseEntity.ok(badgeCheckService.getUserBadges(userId));
     }
 
