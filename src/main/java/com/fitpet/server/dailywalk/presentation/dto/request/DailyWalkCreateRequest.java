@@ -9,8 +9,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public record DailyWalkCreateRequest(
-        @NotNull Long userId,
-
         @NotNull @PositiveOrZero Integer step,
 
         @NotNull
