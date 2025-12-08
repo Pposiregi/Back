@@ -77,10 +77,18 @@ public class MissionCheckServiceImpl implements MissionCheckService {
     }
 
     @Override
-    public void deleteMissionCheck(Long missionCheckId) {
+    public void deleteMissionCheck(Long userId, Long missionCheckId) {
         MissionCheck missionCheck = missionCheckRepository.findById(missionCheckId)
                 .orElseThrow(MissionCheckNotFoundException::new);
+
+        if (!missionCheck.getUser().getId().equals(userId)) {
+            log.warn("[MissionCheckService] 삭제 권한 없음: 요청자 userId={}, 기록 소유자 userId={}, checkId={}",
+                    userId, missionCheck.getUser().getId(), missionCheckId);
+            //TODO: 적절한 예외로 수정해야 함
+            throw new RuntimeException("본인의 미션 기록만 삭제할 수 있습니다.");
+        }
+
         missionCheckRepository.delete(missionCheck);
-        log.info("[MissionCheckService] 수행 여부 삭제: missionCheckId={}", missionCheckId);
+        log.info("[MissionCheckService] 수행 여부 삭제: missionCheckId={}, userId={}", missionCheckId, userId);
     }
 }

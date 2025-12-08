@@ -108,9 +108,11 @@ public class MissionController {
     }
 
     @DeleteMapping("/checks/{missionCheckId}")
-    public ResponseEntity<Void> deleteMissionCheck(@PathVariable Long missionCheckId) {
-
-        missionCheckService.deleteMissionCheck(missionCheckId);
+    public ResponseEntity<Void> deleteMissionCheck(
+            @AuthUser Long userId,
+            @PathVariable Long missionCheckId
+    ) {
+        missionCheckService.deleteMissionCheck(userId, missionCheckId);
 
         log.info("[MissionController] 미션 수행 기록 삭제 완료: missionCheckId={}", missionCheckId);
 

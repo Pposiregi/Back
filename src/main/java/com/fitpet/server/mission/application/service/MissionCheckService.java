@@ -10,5 +10,5 @@ public interface MissionCheckService {
 
     List<MissionCheckDto> getMissionChecks(Long userId);
 
-    void deleteMissionCheck(Long missionCheckId);
+    void deleteMissionCheck(Long userId, Long missionCheckId);
 }
