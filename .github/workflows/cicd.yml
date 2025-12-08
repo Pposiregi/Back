@@ -57,7 +57,7 @@ jobs:
           script_stop: true
           script: |
             # 1. Spring Profile 설정
-            export SPRING_PROFILES_ACTIVE=dev
+            export SPRING_PROFILES_ACTIVE="${{ secrets.SPRING_PROFILES_ACTIVE }}"
             
             # 2. DB 설정
             export DB_URL="${{ secrets.DB_URL }}"
