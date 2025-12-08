@@ -27,7 +27,8 @@ public interface PetMapper {
     @Mappings({
             @Mapping(target = "petId", source = "id"),
             @Mapping(target = "ownerId", source = "owner.id"),
-            @Mapping(target = "color", source = "color")
+            @Mapping(target = "color", source = "color"),
+            @Mapping(target = "expression", source = "expression")
     })
     PetDto toDto(Pet pet);
 }

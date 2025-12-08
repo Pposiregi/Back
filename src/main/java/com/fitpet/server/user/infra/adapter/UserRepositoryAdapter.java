@@ -1,12 +1,15 @@
 package com.fitpet.server.user.infra.adapter;
 
+import com.fitpet.server.user.domain.entity.Gender;
 import com.fitpet.server.user.domain.entity.User;
 import com.fitpet.server.user.domain.repository.UserRepository;
 import com.fitpet.server.user.infra.jpa.UserJpaRepository;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
@@ -80,4 +83,18 @@ public class UserRepositoryAdapter implements UserRepository {
         return jpa.findInactiveUsers(inactiveSince, pageable);
     }
 
+    @Override
+    public List<User> findTopRankers(int limit) {
+        return jpa.findTopRankers(PageRequest.of(0, limit));
+    }
+
+    @Override
+    public long countByDailyStepCountGreaterThan(int dailyStepCount) {
+        return jpa.countByDailyStepCountGreaterThan(dailyStepCount);
+    }
+
+    @Override
+    public List<User> findTopRankersByGender(Gender gender, int limit) {
+        return jpa.findTopRankersByGender(gender, PageRequest.of(0, limit));
+    }
 }

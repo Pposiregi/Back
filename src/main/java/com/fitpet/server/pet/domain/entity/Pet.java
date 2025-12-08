@@ -20,6 +20,7 @@ import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Builder.Default;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
@@ -67,6 +68,11 @@ public class Pet {
     @Column(name = "exp", nullable = true)
     private Long exp; // 기본 0
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "expression", nullable = false, length = 20)
+    @Default
+    private PetExpression expression = PetExpression.NEUTRAL;
+
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -87,6 +93,12 @@ public class Pet {
         }
     }
 
+    public void changeExpression(PetExpression newExpression) {
+        if (newExpression != null) {
+            this.expression = newExpression;
+        }
+    }
+
     public void addExp(long amount) {
         if (amount <= 0) {
             return;
@@ -101,6 +113,9 @@ public class Pet {
     void prePersist() {
         if (this.exp == null) {
             this.exp = 0L;
+        }
+        if (this.expression == null) {
+            this.expression = PetExpression.NEUTRAL;
         }
     }
 }

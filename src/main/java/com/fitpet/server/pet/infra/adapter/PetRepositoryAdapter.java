@@ -23,6 +23,11 @@ public class PetRepositoryAdapter implements PetRepository {
     }
 
     @Override
+    public Optional<Pet> findByOwnerId(Long ownerId) {
+        return jpa.findByOwnerId(ownerId);
+    }
+
+    @Override
     public void delete(Pet pet) {
         jpa.delete(pet);
     }

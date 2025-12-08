@@ -8,5 +8,7 @@ public interface PetRepository {
 
     Optional<Pet> findById(Long petId);
 
+    Optional<Pet> findByOwnerId(Long ownerId);
+
     void delete(Pet pet);
 }

@@ -1,6 +1,10 @@
 package com.fitpet.server.user.application.service;
 
+import com.fitpet.server.user.application.dto.GenderRankingResult;
+import com.fitpet.server.user.application.dto.RankingResult;
+import com.fitpet.server.user.application.dto.UserRanking;
 import com.fitpet.server.user.application.mapper.UserMapper;
+import com.fitpet.server.user.domain.entity.Gender;
 import com.fitpet.server.user.domain.entity.RegistrationStatus;
 import com.fitpet.server.user.domain.entity.User;
 import com.fitpet.server.user.domain.exception.DuplicateEmailException;
@@ -11,6 +15,7 @@ import com.fitpet.server.user.presentation.dto.UserCreateRequest;
 import com.fitpet.server.user.presentation.dto.UserDto;
 import com.fitpet.server.user.presentation.dto.UserInputInfoRequest;
 import com.fitpet.server.user.presentation.dto.UserUpdateRequest;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -116,6 +121,45 @@ public class UserServiceImpl implements UserService {
         return user.getRegistrationStatus() == RegistrationStatus.COMPLETE;
     }
 
+
+    @Override
+    @Transactional(readOnly = true)
+    public RankingResult getDailyStepRanking(Long targetUserId, int limit) {
+        User user = userRepository.findById(targetUserId)
+                .orElseThrow(UserNotFoundException::new);
+
+        int myStepCount = user.getDailyStepCount() == null ? 0 : user.getDailyStepCount();
+
+        List<UserRanking> top10 = userRepository.findTopRankers(limit)
+                .stream()
+                .map(u -> new UserRanking(
+                        u.getId(),
+                        u.getNickname(),
+                        u.getDailyStepCount() == null ? 0 : u.getDailyStepCount()
+                ))
+                .toList();
+
+        long higherCount = userRepository.countByDailyStepCountGreaterThan(myStepCount);
+        int myRank = (int) higherCount + 1;
+
+        return new RankingResult(top10, myRank);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public GenderRankingResult getGenderDailyStepRanking(Gender gender, int limit) {
+
+        List<UserRanking> top10 = userRepository.findTopRankersByGender(gender, limit)
+                .stream()
+                .map(u -> new UserRanking(
+                        u.getId(),
+                        u.getNickname(),
+                        u.getDailyStepCount() == null ? 0 : u.getDailyStepCount()
+                ))
+                .toList();
+
+        return new GenderRankingResult(top10);
+    }
 
     private void validateUserCreateRequest(UserCreateRequest request) {
         if (userRepository.existsByEmail(request.email())) {

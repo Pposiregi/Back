@@ -1,7 +1,9 @@
 package com.fitpet.server.user.infra.jpa;
 
+import com.fitpet.server.user.domain.entity.Gender;
 import com.fitpet.server.user.domain.entity.User;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -45,4 +47,13 @@ public interface UserJpaRepository extends JpaRepository<User, Long> {
             @Param("inactiveSince") LocalDateTime inactiveSince,
             Pageable pageable
     );
+
+    @Query("SELECT u FROM User u ORDER BY u.dailyStepCount DESC, u.updatedAt ASC")
+    List<User> findTopRankers(Pageable pageable);
+
+    @Query("SELECT u FROM User u WHERE u.gender = :gender ORDER BY u.dailyStepCount DESC, u.updatedAt ASC")
+    List<User> findTopRankersByGender(@Param("gender") Gender gender, Pageable pageable);
+
+    long countByDailyStepCountGreaterThan(int dailyStepCount);
+
 }

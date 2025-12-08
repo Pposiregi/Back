@@ -13,18 +13,18 @@ public interface UserMapper {
 
 
     @Mappings({
-            @Mapping(target = "id", ignore = true),
-            @Mapping(target = "provider", ignore = true),
-            @Mapping(target = "providerUid", ignore = true),
-            @Mapping(target = "deviceToken", ignore = true),
-            @Mapping(target = "refreshToken", ignore = true),
-            @Mapping(target = "registrationStatus", ignore = true),
-            @Mapping(target = "password", ignore = true),
-            @Mapping(target = "createdAt", ignore = true),
-            @Mapping(target = "updatedAt", ignore = true),
-            @Mapping(target = "dailyStepCount", ignore = true),
-            @Mapping(target = "allowActivityNotification", ignore = true),
-            @Mapping(target = "lastAccessedAt", ignore = true)
+      @Mapping(target = "id", ignore = true),
+      @Mapping(target = "provider", ignore = true),
+      @Mapping(target = "providerUid", ignore = true),
+      @Mapping(target = "deviceToken", ignore = true),
+      @Mapping(target = "refreshToken", ignore = true),
+      @Mapping(target = "registrationStatus", ignore = true),
+      @Mapping(target = "password", ignore = true),
+      @Mapping(target = "createdAt", ignore = true),
+      @Mapping(target = "updatedAt", ignore = true),
+      @Mapping(target = "dailyStepCount", ignore = true),
+      @Mapping(target = "allowActivityNotification", ignore = true),
+      @Mapping(target = "lastAccessedAt", ignore = true)
     })
     User toEntity(UserCreateRequest request);
 

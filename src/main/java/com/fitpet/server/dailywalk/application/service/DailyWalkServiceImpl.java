@@ -8,6 +8,8 @@ import com.fitpet.server.dailywalk.presentation.dto.request.DailyWalkCreateReque
 import com.fitpet.server.dailywalk.presentation.dto.request.DailyWalkStepUpdateRequest;
 import com.fitpet.server.dailywalk.presentation.dto.response.DailyStepSummaryResponse;
 import com.fitpet.server.dailywalk.presentation.dto.response.DailyWalkResponse;
+import com.fitpet.server.pet.application.service.PetExpressionService;
+import com.fitpet.server.pet.domain.entity.PetExpression;
 import com.fitpet.server.shared.exception.BusinessException;
 import com.fitpet.server.shared.exception.ErrorCode;
 import com.fitpet.server.user.domain.entity.User;
@@ -35,6 +37,7 @@ public class DailyWalkServiceImpl implements DailyWalkService {
     private final DailyWalkRepository dailyWalkRepository;
     private final UserRepository userRepository;
     private final DailyWalkMapper dailyWalkMapper;
+    private final PetExpressionService petExpressionService;
 
 
     @Override
@@ -120,7 +123,7 @@ public class DailyWalkServiceImpl implements DailyWalkService {
             walk.update(req.step(), req.distanceKm(), req.burnCalories());
 
             if (date.equals(LocalDate.now())) {
-                user.updateDailyStepCount(req.step());
+                handleDailyStepUpdate(user, req.step());
             }
 
             log.info("[DailyWalkService] 업데이트 완료: id={}, userId={}, createdAt={}",
@@ -132,7 +135,7 @@ public class DailyWalkServiceImpl implements DailyWalkService {
         DailyWalk saved = dailyWalkRepository.save(walk);
 
         if (date.equals(LocalDate.now())) {
-            user.updateDailyStepCount(req.step());
+            handleDailyStepUpdate(user, req.step());
         }
 
         log.info("[DailyWalkService] 저장 완료: dailyWalkId={}, userId={}, createdAt={}",
@@ -171,7 +174,7 @@ public class DailyWalkServiceImpl implements DailyWalkService {
         }
 
         if (req.date().equals(LocalDate.now())) {
-            user.updateDailyStepCount(req.step());
+            handleDailyStepUpdate(user, req.step());
         }
 
         log.info("[DailyWalkService] 걸음수 수정 완료: userId={}, req={}", userId, req);
@@ -187,5 +190,13 @@ public class DailyWalkServiceImpl implements DailyWalkService {
 
         dailyWalkRepository.deleteById(dailyWalkId);
         log.info("[DailyWalkService] 삭제 완료: dailyWalkId={}", dailyWalkId);
+    }
+
+    private void handleDailyStepUpdate(User user, int newStep) {
+        user.updateDailyStepCount(newStep);
+        Integer target = user.getTargetStepCount();
+        if (target != null && newStep >= target) {
+            petExpressionService.updateExpression(user.getId(), PetExpression.PROUD);
+        }
     }
 }
