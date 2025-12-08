@@ -59,10 +59,9 @@ public class DailyWalkController {
 
     @PostMapping
     public ResponseEntity<DailyWalkResponse> create(
-            @AuthUser Long userId, // 토큰에서 추출한 ID를 서비스로 전달
+            @AuthUser Long userId,
             @RequestBody @Valid DailyWalkCreateRequest req
     ) {
-        // 서비스 메서드 시그니처 변경 필요: createDailyWalk(req) -> createDailyWalk(userId, req)
         DailyWalkResponse saved = dailyWalkService.createDailyWalk(userId, req);
 
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
@@ -84,10 +83,9 @@ public class DailyWalkController {
 
     @DeleteMapping("/{dailyWalkId}")
     public ResponseEntity<Void> delete(
-            @AuthUser Long userId, // 소유권 확인을 위해 userId 전달
+            @AuthUser Long userId,
             @PathVariable Long dailyWalkId
     ) {
-        // 서비스 메서드 시그니처 변경 권장: deleteDailyWalk(dailyWalkId) -> deleteDailyWalk(userId, dailyWalkId)
         dailyWalkService.deleteDailyWalk(userId, dailyWalkId);
         return ResponseEntity.noContent().build();
     }

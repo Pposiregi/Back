@@ -17,7 +17,6 @@ public class DailyWalkRepositoryAdapter implements DailyWalkRepository {
 
     private final DailyWalkJpaRepository jpaRepository;
 
-
     @Override
     public List<DailyWalk> findAllByUser_Id(Long userId) {
         return jpaRepository.findAllByUser_Id(userId);
@@ -48,10 +47,20 @@ public class DailyWalkRepositoryAdapter implements DailyWalkRepository {
     public List<DailyWalk> findByUserAndDateBetween(User user, LocalDate start, LocalDate end) {
         return jpaRepository.findByUserAndDateBetween(user, start, end);
     }
+    
+    @Override
+    public Optional<DailyWalk> findById(Long id) {
+        return jpaRepository.findById(id);
+    }
 
     @Override
     public boolean existsById(Long id) {
         return jpaRepository.existsById(id);
+    }
+
+    @Override
+    public void delete(DailyWalk dailyWalk) {
+        jpaRepository.delete(dailyWalk);
     }
 
     @Override

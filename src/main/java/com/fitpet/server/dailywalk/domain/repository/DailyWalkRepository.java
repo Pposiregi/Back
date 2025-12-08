@@ -22,8 +22,12 @@ public interface DailyWalkRepository {
     DailyWalk save(DailyWalk dailyWalk);
 
     List<DailyWalk> findByUserAndDateBetween(User user, LocalDate start, LocalDate end);
+    
+    Optional<DailyWalk> findById(Long id);
 
     boolean existsById(Long id);
+
+    void delete(DailyWalk dailyWalk);
 
     void deleteById(Long id);
 
