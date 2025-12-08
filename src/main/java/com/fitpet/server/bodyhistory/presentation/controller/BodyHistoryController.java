@@ -1,10 +1,16 @@
 package com.fitpet.server.bodyhistory.presentation.controller;
 
-
+import com.fitpet.server.bodyhistory.application.service.BodyHistoryService;
+import com.fitpet.server.bodyhistory.presentation.dto.request.BodyHistoryCreateRequest;
+import com.fitpet.server.bodyhistory.presentation.dto.request.BodyHistoryUpdateRequest;
+import com.fitpet.server.bodyhistory.presentation.dto.response.BodyHistoryResponse;
+import com.fitpet.server.shared.annotation.AuthUser;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.PastOrPresent;
 import java.net.URI;
 import java.time.LocalDate;
 import java.util.List;
-
+import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -19,34 +25,28 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import com.fitpet.server.bodyhistory.application.service.BodyHistoryService;
-import com.fitpet.server.bodyhistory.presentation.dto.request.BodyHistoryCreateRequest;
-import com.fitpet.server.bodyhistory.presentation.dto.request.BodyHistoryUpdateRequest;
-import com.fitpet.server.bodyhistory.presentation.dto.response.BodyHistoryResponse;
-
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.PastOrPresent;
-import lombok.RequiredArgsConstructor;
-
 @RestController
-@RequestMapping("/body-histories") 
+@RequestMapping("/body-histories")
 @RequiredArgsConstructor
 @Validated
 public class BodyHistoryController {
+
     private final BodyHistoryService bodyHistoryService;
 
-    @GetMapping("/users/{userId}")
-    public ResponseEntity<List<BodyHistoryResponse>> listByUser(@PathVariable Long userId) {
+    @GetMapping
+    public ResponseEntity<List<BodyHistoryResponse>> listByUser(@AuthUser Long userId) {
         List<BodyHistoryResponse> body = bodyHistoryService.findAllBodyHistoriesByUserId(userId);
         return ResponseEntity.ok(body);
     }
 
-    @GetMapping("/users/{userId}/date")
+    @GetMapping("/date")
     public ResponseEntity<BodyHistoryResponse> getByUserAndDate(
-            @PathVariable Long userId,
+            @AuthUser Long userId,
             @RequestParam("date") @PastOrPresent @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
     ) {
-        List<BodyHistoryResponse> body = bodyHistoryService.findMonthlyBodyHistories(userId, date.getYear(), date.getMonthValue());
+        List<BodyHistoryResponse> body = bodyHistoryService.findMonthlyBodyHistories(userId, date.getYear(),
+                date.getMonthValue());
+
         if (body.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
@@ -78,5 +78,4 @@ public class BodyHistoryController {
         bodyHistoryService.deleteBodyHistory(historyId);
         return ResponseEntity.noContent().build();
     }
-
 }
