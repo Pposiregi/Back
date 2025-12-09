@@ -18,10 +18,12 @@ import com.fitpet.server.user.presentation.dto.UserUpdateRequest;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @RequiredArgsConstructor
@@ -93,6 +95,11 @@ public class UserServiceImpl implements UserService {
     public UserDto inputInfo(Long userId, UserInputInfoRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(UserNotFoundException::new);
+
+        if (user.getRegistrationStatus() == RegistrationStatus.COMPLETE) {
+            log.warn("사용자 정보 입력 실패 - 이미 가입 완료된 사용자: id: {}", userId);
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "이미 가입이 완료된 사용자입니다.");
+        }
 
         if (userRepository.existsByNicknameAndIdNot(request.nickname(), userId)) {
             log.warn("사용자 정보 입력 실패 - 닉네임 중복: {} (요청자 id: {})", maskNickname(request.nickname()), userId);

@@ -4,6 +4,7 @@ import com.fitpet.server.pet.application.service.PetService;
 import com.fitpet.server.pet.presentation.dto.PetCreateRequest;
 import com.fitpet.server.pet.presentation.dto.PetDto;
 import com.fitpet.server.pet.presentation.dto.PetUpdateRequest;
+import com.fitpet.server.shared.annotation.AuthUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,14 +24,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/pets")
 @Slf4j
 public class PetController {
+
     private final PetService petService;
 
-    @PostMapping("/{userId}")
+    @PostMapping
     public ResponseEntity<PetDto> create(
-            @PathVariable Long userId,
+            @AuthUser Long userId,
             @Valid @RequestBody PetCreateRequest request
     ) {
-
         log.info("[PetController] 펫 생성 요청 : petName = {} , petType = {},  ownerId = {}",
                 request.name(), request.petType(), userId);
 
@@ -44,13 +45,15 @@ public class PetController {
                 .body(createdPet);
     }
 
-    @DeleteMapping("/{userId}/{petId}")
+    @DeleteMapping("/{petId}")
     public ResponseEntity<Void> delete(
-            @PathVariable Long userId,
+            @AuthUser Long userId,
             @PathVariable Long petId
     ) {
         log.info("[PetController] 펫 삭제 요청 : userId = {}, petId = {}", userId, petId);
+
         petService.deletePet(userId, petId);
+
         log.info("[PetController] 펫 삭제 완료 : userId = {}, petId = {}", userId, petId);
 
         return ResponseEntity
@@ -58,26 +61,32 @@ public class PetController {
                 .build();
     }
 
-    @GetMapping("/{userId}/{petId}")
+    @GetMapping("/{petId}")
     public ResponseEntity<PetDto> read(
-            @PathVariable Long userId,
+            @AuthUser Long userId,
             @PathVariable Long petId
     ) {
         log.info("[PetController] 펫 조회 요청 : userId = {}, petId = {}", userId, petId);
+
         PetDto pet = petService.findPet(userId, petId);
+
         log.info("[PetController] 펫 조회 완료 : userId = {}, petId = {}", userId, petId);
+
         return ResponseEntity.ok().body(pet);
     }
 
-    @PatchMapping("/{userId}/{petId}")
+    @PatchMapping("/{petId}")
     public ResponseEntity<PetDto> update(
-            @PathVariable Long userId,
+            @AuthUser Long userId,
             @PathVariable Long petId,
             @Valid @RequestBody PetUpdateRequest request
     ) {
         log.info("[PetController] 펫 수정 요청 : userId = {}, petId = {}", userId, petId);
+
         PetDto pet = petService.updatePet(userId, petId, request);
+
         log.info("[PetController] 펫 수정 완료 : userId = {}, petId = {}", userId, petId);
+
         return ResponseEntity.ok().body(pet);
     }
 }

@@ -7,6 +7,7 @@ import com.fitpet.server.mission.presentation.dto.MissionCheckRequest;
 import com.fitpet.server.mission.presentation.dto.MissionCreateRequest;
 import com.fitpet.server.mission.presentation.dto.MissionDto;
 import com.fitpet.server.mission.presentation.dto.MissionUpdateRequest;
+import com.fitpet.server.shared.annotation.AuthUser;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
@@ -37,7 +38,7 @@ public class MissionController {
         log.info("[MissionController] 미션 생성 요청: title={}, type={}", request.title(), request.type());
         MissionDto created = missionService.createMission(request);
         log.info("[MissionController] 미션 생성 완료: missionId={}, title={}, type={}", created.missionId(),
-            created.title(), created.type());
+                created.title(), created.type());
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{missionId}")
                 .buildAndExpand(created.missionId())
@@ -65,7 +66,7 @@ public class MissionController {
     public ResponseEntity<MissionDto> updateMission(@PathVariable Long missionId,
                                                     @Valid @RequestBody MissionUpdateRequest request) {
         log.info("[MissionController] 미션 수정 요청: missionId={}, title={}, type={}", missionId, request.title(),
-            request.type());
+                request.type());
         MissionDto updated = missionService.updateMission(missionId, request);
         log.info("[MissionController] 미션 수정 완료: missionId={}", missionId);
         return ResponseEntity.ok(updated);
@@ -78,30 +79,43 @@ public class MissionController {
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/{missionId}/users/{userId}/checks")
-    public ResponseEntity<MissionCheckDto> upsertMissionCheck(@PathVariable Long missionId,
-                                                              @PathVariable Long userId,
-                                                              @Valid @RequestBody MissionCheckRequest request) {
+    @PostMapping("/{missionId}/checks")
+    public ResponseEntity<MissionCheckDto> upsertMissionCheck(
+            @PathVariable Long missionId,
+            @AuthUser Long userId, // URL 대신 토큰에서 추출
+            @Valid @RequestBody MissionCheckRequest request) {
+
         log.info("[MissionController] 미션 수행 여부 저장 요청: missionId={}, userId={}, date={}, completed={}",
-            missionId, userId, request.checkDate(), request.completed());
+                missionId, userId, request.checkDate(), request.completed());
+
         MissionCheckDto response = missionCheckService.upsertMissionCheck(missionId, userId, request);
+
         log.info("[MissionController] 미션 수행 여부 저장 완료: missionCheckId={}, missionId={}, userId={}",
-            response.missionCheckId(), missionId, userId);
+                response.missionCheckId(), missionId, userId);
+
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/users/{userId}/checks")
-    public ResponseEntity<List<MissionCheckDto>> getMissionChecks(@PathVariable Long userId) {
+    @GetMapping("/checks")
+    public ResponseEntity<List<MissionCheckDto>> getMissionChecks(@AuthUser Long userId) {
         log.info("[MissionController] 사용자 수행 기록 조회 요청: userId={}", userId);
+
         List<MissionCheckDto> responses = missionCheckService.getMissionChecks(userId);
+
         log.info("[MissionController] 사용자 수행 기록 조회 완료: userId={}, count={}", userId, responses.size());
+
         return ResponseEntity.ok(responses);
     }
 
     @DeleteMapping("/checks/{missionCheckId}")
-    public ResponseEntity<Void> deleteMissionCheck(@PathVariable Long missionCheckId) {
-        missionCheckService.deleteMissionCheck(missionCheckId);
+    public ResponseEntity<Void> deleteMissionCheck(
+            @AuthUser Long userId,
+            @PathVariable Long missionCheckId
+    ) {
+        missionCheckService.deleteMissionCheck(userId, missionCheckId);
+
         log.info("[MissionController] 미션 수행 기록 삭제 완료: missionCheckId={}", missionCheckId);
+
         return ResponseEntity.noContent().build();
     }
 }

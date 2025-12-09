@@ -5,6 +5,7 @@ import com.fitpet.server.dailywalk.presentation.dto.request.DailyWalkCreateReque
 import com.fitpet.server.dailywalk.presentation.dto.request.DailyWalkStepUpdateRequest;
 import com.fitpet.server.dailywalk.presentation.dto.response.DailyStepSummaryResponse;
 import com.fitpet.server.dailywalk.presentation.dto.response.DailyWalkResponse;
+import com.fitpet.server.shared.annotation.AuthUser;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.PastOrPresent;
 import java.net.URI;
@@ -25,7 +26,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-
 @RestController
 @RequestMapping("/daily/walks")
 @RequiredArgsConstructor
@@ -34,21 +34,21 @@ public class DailyWalkController {
 
     private final DailyWalkService dailyWalkService;
 
-    @GetMapping("/users/{userId}")
-    public ResponseEntity<List<DailyWalkResponse>> listByUser(@PathVariable Long userId) {
+    @GetMapping
+    public ResponseEntity<List<DailyWalkResponse>> listByUser(@AuthUser Long userId) {
         List<DailyWalkResponse> body = dailyWalkService.getAllByUserId(userId);
         return ResponseEntity.ok(body);
     }
 
-    @GetMapping("/users/{userId}/steps/weekly")
-    public ResponseEntity<List<DailyStepSummaryResponse>> getWeeklySteps(@PathVariable Long userId) {
+    @GetMapping("/steps/weekly")
+    public ResponseEntity<List<DailyStepSummaryResponse>> getWeeklySteps(@AuthUser Long userId) {
         List<DailyStepSummaryResponse> body = dailyWalkService.getWeeklySteps(userId);
         return ResponseEntity.ok(body);
     }
 
-    @GetMapping("/users/{userId}/date")
+    @GetMapping("/date")
     public ResponseEntity<DailyWalkResponse> getByUserAndDate(
-            @PathVariable Long userId,
+            @AuthUser Long userId,
             @RequestParam("date")
             @PastOrPresent
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
@@ -58,8 +58,11 @@ public class DailyWalkController {
     }
 
     @PostMapping
-    public ResponseEntity<DailyWalkResponse> create(@RequestBody @Valid DailyWalkCreateRequest req) {
-        DailyWalkResponse saved = dailyWalkService.createDailyWalk(req);
+    public ResponseEntity<DailyWalkResponse> create(
+            @AuthUser Long userId,
+            @RequestBody @Valid DailyWalkCreateRequest req
+    ) {
+        DailyWalkResponse saved = dailyWalkService.createDailyWalk(userId, req);
 
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
@@ -69,16 +72,21 @@ public class DailyWalkController {
         return ResponseEntity.created(location).body(saved);
     }
 
-    @PatchMapping("/users/{userId}/step")
-    public ResponseEntity<Void> updateStepByUserAndDate(@PathVariable Long userId,
-                                                        @RequestBody @Valid DailyWalkStepUpdateRequest req) {
+    @PatchMapping("/step")
+    public ResponseEntity<Void> updateStepByUserAndDate(
+            @AuthUser Long userId,
+            @RequestBody @Valid DailyWalkStepUpdateRequest req
+    ) {
         dailyWalkService.updateDailyWalkStep(userId, req);
         return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{dailyWalkId}")
-    public ResponseEntity<Void> delete(@PathVariable Long dailyWalkId) {
-        dailyWalkService.deleteDailyWalk(dailyWalkId);
+    public ResponseEntity<Void> delete(
+            @AuthUser Long userId,
+            @PathVariable Long dailyWalkId
+    ) {
+        dailyWalkService.deleteDailyWalk(userId, dailyWalkId);
         return ResponseEntity.noContent().build();
     }
 }

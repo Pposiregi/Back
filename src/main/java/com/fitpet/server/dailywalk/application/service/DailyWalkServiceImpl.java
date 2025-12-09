@@ -39,7 +39,6 @@ public class DailyWalkServiceImpl implements DailyWalkService {
     private final DailyWalkMapper dailyWalkMapper;
     private final PetExpressionService petExpressionService;
 
-
     @Override
     @Transactional(readOnly = true)
     public List<DailyWalkResponse> getAllByUserId(@NotNull Long userId) {
@@ -97,15 +96,14 @@ public class DailyWalkServiceImpl implements DailyWalkService {
                 .toList();
     }
 
-
     @Override
-    public DailyWalkResponse createDailyWalk(DailyWalkCreateRequest req) {
+    public DailyWalkResponse createDailyWalk(Long userId, DailyWalkCreateRequest req) {
         log.debug("[DailyWalkService] 생성 요청: userId={}, step={}, distanceKm={}, burnCalories={}, date={}",
-                req.userId(), req.step(), req.distanceKm(), req.burnCalories(), req.date());
+                userId, req.step(), req.distanceKm(), req.burnCalories(), req.date());
 
-        User user = userRepository.findById(req.userId())
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> {
-                    log.warn("[DailyWalkService] 생성 실패 - 사용자 없음: userId={}", req.userId());
+                    log.warn("[DailyWalkService] 생성 실패 - 사용자 없음: userId={}", userId);
                     return new BusinessException(ErrorCode.USER_NOT_FOUND);
                 });
 
@@ -115,7 +113,7 @@ public class DailyWalkServiceImpl implements DailyWalkService {
 
         Optional<DailyWalk> existing =
                 dailyWalkRepository.findByUser_IdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
-                        req.userId(), startOfDay, endOfDay);
+                        userId, startOfDay, endOfDay);
 
         if (existing.isPresent()) {
             DailyWalk walk = existing.get();
@@ -127,7 +125,7 @@ public class DailyWalkServiceImpl implements DailyWalkService {
             }
 
             log.info("[DailyWalkService] 업데이트 완료: id={}, userId={}, createdAt={}",
-                    walk.getId(), req.userId(), walk.getCreatedAt());
+                    walk.getId(), userId, walk.getCreatedAt());
             return DailyWalkResponse.from(walk);
         }
 
@@ -181,14 +179,20 @@ public class DailyWalkServiceImpl implements DailyWalkService {
     }
 
     @Override
-    public void deleteDailyWalk(@NotNull Long dailyWalkId) {
-        log.debug("[DailyWalkService] 삭제 요청: dailyWalkId={}", dailyWalkId);
-        if (!dailyWalkRepository.existsById(dailyWalkId)) {
-            log.warn("[DailyWalkService] 삭제 실패(대상 없음): dailyWalkId={}", dailyWalkId);
-            throw new DailyWalkNotFoundException();
+    public void deleteDailyWalk(@NotNull Long userId, @NotNull Long dailyWalkId) {
+        log.debug("[DailyWalkService] 삭제 요청: userId={}, dailyWalkId={}", userId, dailyWalkId);
+
+        DailyWalk dailyWalk = dailyWalkRepository.findById(dailyWalkId)
+                .orElseThrow(DailyWalkNotFoundException::new);
+
+        if (!dailyWalk.getUser().getId().equals(userId)) {
+            log.warn("[DailyWalkService] 삭제 실패(권한 없음): userId={}, ownerId={}, dailyWalkId={}",
+                    userId, dailyWalk.getUser().getId(), dailyWalkId);
+            //TODO: 예외수정하기
+            throw new RuntimeException("본인의 산책 기록만 삭제할 수 있습니다.");
         }
 
-        dailyWalkRepository.deleteById(dailyWalkId);
+        dailyWalkRepository.delete(dailyWalk);
         log.info("[DailyWalkService] 삭제 완료: dailyWalkId={}", dailyWalkId);
     }
 
