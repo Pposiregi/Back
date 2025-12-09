@@ -24,10 +24,10 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
 @Table(
-        name = "daily_walk",
-        uniqueConstraints = {
-                @UniqueConstraint(columnNames = {"user_id", "created_at"})
-        }
+    name = "daily_walk",
+    uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"user_id", "created_at"})
+    }
 )
 @Getter
 @NoArgsConstructor
