@@ -29,7 +29,8 @@ public class AuthController {
 
     private ResponseEntity<TokenResponse> withRefreshCookie(TokenResponse tokens) {
         ResponseCookie cookie = ResponseCookie.from("REFRESH_TOKEN", tokens.serverRefreshToken())
-            .httpOnly(true).secure(true)   // 운영할 때 반드시 true (HTTPS)
+            //TODO : 프론트 측 개발 끝난 후 secure true로 변경
+            .httpOnly(true).secure(false)   // 운영할 때 반드시 true (HTTPS)
             .sameSite("None")              // 크로스 도메인일 때
             .path("/")
             .maxAge(Duration.ofMillis(jwtTokenProvider.getRefreshExpirationMs()))
@@ -64,7 +65,8 @@ public class AuthController {
         authService.logout(accessToken);
 
         ResponseCookie expire = ResponseCookie.from("REFRESH_TOKEN", "")
-            .httpOnly(true).secure(true)
+            //TODO : 프론트 측 개발 끝난 후 secure true로 변경
+            .httpOnly(true).secure(false)
             .sameSite("None").path("/")
             .maxAge(0)
             .build();
