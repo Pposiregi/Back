@@ -66,7 +66,6 @@ public class AlramServiceImpl implements AlramService {
         }
 
         AlramMessage alramToSave = alramMapper.toAlramMessage(requestDto, user);
-        alramToSave.setUser(user);
 
         AlramMessage savedAlram = alramRepository.save(alramToSave);
         log.info("[AlramService] 알림 발송 내역 저장 완료 (ID: {})", savedAlram.getId());
