@@ -18,6 +18,7 @@ public interface AlramMapper {
     Notification toNotification(AlramRequestDto requestDto);
 
     @Mapping(source = "requestDto.body", target = "message")
+    @Mapping(source = "user", target = "user")
     AlramMessage toAlramMessage(AlramRequestDto requestDto, User user);
 
     @Mapping(source = "savedAlram.id", target = "alramId")
