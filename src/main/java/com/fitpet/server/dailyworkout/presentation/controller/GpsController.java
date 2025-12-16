@@ -11,10 +11,13 @@ import com.fitpet.server.dailyworkout.presentation.dto.response.SessionEndRespon
 import com.fitpet.server.shared.annotation.AuthUser;
 import com.fitpet.server.shared.security.UserDetailsImpl;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -25,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/gps")
 @RequiredArgsConstructor
+@Validated
 public class GpsController {
 
     private final GpsSessionService gpsSessionService;
@@ -54,8 +58,8 @@ public class GpsController {
     @GetMapping("/sessions")
     public ResponseEntity<List<GpsSessionSummaryResponse>> getMonthlySessions(
         @AuthUser Long userId,
-        @RequestParam int year,
-        @RequestParam int month
+        @RequestParam @Min(2025) @Max(2100) int year,
+        @RequestParam @Min(1) @Max(12) int month
     ) {
         List<GpsSessionSummaryResponse> sessions = gpsSessionService.getMonthlySessions(userId, year, month);
         return ResponseEntity.ok(sessions);
