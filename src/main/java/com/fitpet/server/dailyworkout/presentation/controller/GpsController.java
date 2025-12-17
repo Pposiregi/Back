@@ -5,20 +5,20 @@ import com.fitpet.server.dailyworkout.presentation.dto.request.GpsLogRequest;
 import com.fitpet.server.dailyworkout.presentation.dto.request.SessionEndRequest;
 import com.fitpet.server.dailyworkout.presentation.dto.request.SessionStartRequest;
 import com.fitpet.server.dailyworkout.presentation.dto.response.GpsLogResponse;
+import com.fitpet.server.dailyworkout.presentation.dto.response.GpsSessionDetailResponse;
 import com.fitpet.server.dailyworkout.presentation.dto.response.GpsSessionStartResponse;
 import com.fitpet.server.dailyworkout.presentation.dto.response.GpsSessionSummaryResponse;
 import com.fitpet.server.dailyworkout.presentation.dto.response.SessionEndResponse;
 import com.fitpet.server.shared.annotation.AuthUser;
-import com.fitpet.server.shared.security.UserDetailsImpl;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -35,11 +35,10 @@ public class GpsController {
 
     @PostMapping("/start")
     public ResponseEntity<GpsSessionStartResponse> startSession(
-        @AuthenticationPrincipal UserDetailsImpl userDetails,
+        @AuthUser Long userId,
         @Valid @RequestBody SessionStartRequest request
     ) {
-        //Long currentUserId = userDetails.getUserId();
-        GpsSessionStartResponse response = gpsSessionService.startSession(request);
+        GpsSessionStartResponse response = gpsSessionService.startSession(userId, request);
         return ResponseEntity.ok(response);
     }
 
@@ -63,5 +62,14 @@ public class GpsController {
     ) {
         List<GpsSessionSummaryResponse> sessions = gpsSessionService.getMonthlySessions(userId, year, month);
         return ResponseEntity.ok(sessions);
+    }
+
+    @GetMapping("/sessions/{sessionId}")
+    public ResponseEntity<GpsSessionDetailResponse> getSessionDetail(
+        @AuthUser Long userId,
+        @PathVariable Long sessionId
+    ) {
+        GpsSessionDetailResponse response = gpsSessionService.getSessionDetail(userId, sessionId);
+        return ResponseEntity.ok(response);
     }
 }
