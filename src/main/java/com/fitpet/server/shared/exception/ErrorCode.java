@@ -15,6 +15,7 @@ public enum ErrorCode {
     DAILY_WALK_ALREADY_EXISTS(HttpStatus.CONFLICT, "D002", "해당 날짜의 걸음 기록이 이미 존재합니다."),
 
     SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "W001", "해당 운동 세션을 찾을 수 없습니다."),
+    SESSION_ACCESS_DENIED(HttpStatus.FORBIDDEN, "W002", "해당 운동 세션에 대한 권한이 없습니다."),
 
     BODY_HISTORY_NOT_FOUND(HttpStatus.NOT_FOUND, "B001", "해당 신체 기록을 찾을 수 없습니다."),
     BODY_HISTORY_ALREADY_EXISTS(HttpStatus.CONFLICT, "B002", "해당 날짜의 신체 기록이 이미 존재합니다."),
