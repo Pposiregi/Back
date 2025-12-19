@@ -8,7 +8,7 @@ import com.fitpet.server.termsmaster.domain.entity.Terms;
 import com.fitpet.server.termsmaster.domain.repository.TermsAgreementRepository;
 import com.fitpet.server.termsmaster.domain.repository.TermsRepository;
 import com.fitpet.server.user.domain.entity.User;
-import java.time.LocalDate;
+import com.fitpet.server.user.domain.repository.UserRepository;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -22,27 +22,31 @@ public class TermsAgreementService {
 
     private final TermsRepository termsRepository;
     private final TermsAgreementRepository termsAgreementRepository;
+    private final UserRepository userRepository;
 
-    public void saveTermsAgreements(User user, List<TermsAgreementCommand> requests) {
-        List<Terms> activeTerms = termsRepository.findAllActiveTerms(LocalDate.now());
+    public void saveTermsAgreements(Long userId, List<TermsAgreementCommand> commands) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        List<Terms> activeTerms = termsRepository.findAllActiveTerms(java.time.LocalDate.now());
 
         List<TermsAgreement> agreementsToSave = new ArrayList<>();
 
-        for (TermsAgreementCommand request : requests) {
+        for (TermsAgreementCommand command : commands) {
             Terms terms = activeTerms.stream()
-                    .filter(t -> t.getId().equals(request.termsId()))
+                    .filter(t -> t.getId().equals(command.termsId()))
                     .findFirst()
                     .orElseThrow(() -> new BusinessException(ErrorCode.TERMS_NOT_FOUND));
 
-            // 필수 약관 검증
-            if (terms.getCode().isRequired() && !request.isAgreed()) {
+            if (terms.getCode().isRequired() && !command.isAgreed()) {
                 throw new BusinessException(ErrorCode.REQUIRED_TERMS_NOT_AGREED);
             }
 
             agreementsToSave.add(TermsAgreement.builder()
                     .user(user)
                     .terms(terms)
-                    .isAgreed(request.isAgreed())
+                    .isAgreed(command.isAgreed())
                     .build());
         }
 
