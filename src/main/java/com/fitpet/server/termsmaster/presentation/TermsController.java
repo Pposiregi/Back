@@ -1,4 +1,4 @@
-package com.fitpet.server.termsmaster.presentation.controller;
+package com.fitpet.server.termsmaster.presentation;
 
 import com.fitpet.server.shared.annotation.AuthUser;
 import com.fitpet.server.termsmaster.application.dto.TermsAgreementCommand;
