@@ -2,9 +2,9 @@ package com.fitpet.server.termsmaster.application.service;
 
 import com.fitpet.server.shared.exception.BusinessException;
 import com.fitpet.server.shared.exception.ErrorCode;
-import com.fitpet.server.terms.domain.entity.TermsAgreement;
 import com.fitpet.server.termsmaster.application.dto.TermsAgreementCommand;
 import com.fitpet.server.termsmaster.domain.entity.Terms;
+import com.fitpet.server.termsmaster.domain.entity.TermsAgreement;
 import com.fitpet.server.termsmaster.domain.repository.TermsAgreementRepository;
 import com.fitpet.server.termsmaster.domain.repository.TermsRepository;
 import com.fitpet.server.user.domain.entity.User;

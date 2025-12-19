@@ -1,6 +1,5 @@
-package com.fitpet.server.terms.domain.entity;
+package com.fitpet.server.termsmaster.domain.entity;
 
-import com.fitpet.server.termsmaster.domain.entity.Terms;
 import com.fitpet.server.user.domain.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
