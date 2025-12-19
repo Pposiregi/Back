@@ -34,7 +34,9 @@ public class SecurityConfig {
             "/alram/**",
             "/pets/**",
             "/missions/**",
-            "/badges/**"
+            "/badges/**",
+            "/terms/**",
+
     };
 
     @Bean
