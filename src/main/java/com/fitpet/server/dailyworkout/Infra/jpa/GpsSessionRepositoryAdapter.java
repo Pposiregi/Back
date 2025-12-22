@@ -26,6 +26,11 @@ public class GpsSessionRepositoryAdapter implements GpsSessionRepository {
     }
 
     @Override
+    public List<GpsSession> findMonthlySessions(User user, LocalDateTime start, LocalDateTime end) {
+        return gpsSessionJpaRepository.findMonthlySessions(user, start, end);
+    }
+
+    @Override
     public Optional<GpsSession> findById(Long id) {
         return gpsSessionJpaRepository.findById(id);
     }

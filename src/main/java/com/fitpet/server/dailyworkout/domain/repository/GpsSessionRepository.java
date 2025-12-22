@@ -12,5 +12,7 @@ public interface GpsSessionRepository {
 
     List<GpsSession> findByUserAndStartTimeBetween(User user, LocalDateTime start, LocalDateTime end);
 
+    List<GpsSession> findMonthlySessions(User user, LocalDateTime start, LocalDateTime end);
+
     Optional<GpsSession> findById(Long id);
 }
