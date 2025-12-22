@@ -24,20 +24,21 @@ public class SecurityConfig {
     };
 
     private static final String[] PERMIT_URL_ARRAY = {
-        "/auth/**",
-        "/users/**",
-        "/index.html",
-        "/error",
-        "/daily/**",
-        "/body-histories/**",
-        "/actuator/**",
-        "/gps/**",
-        "/report/**",
-        "/meal/**",
-        "/alram/**",
-        "/pets/**",
-        "/missions/**",
-        "/badges/**"
+            "/auth/**",
+            "/users/**",
+            "/index.html",
+            "/error",
+            "/daily/**",
+            "/body-histories/**",
+            "/actuator/**",
+            "/gps/**",
+            "/report/**",
+            "/meal/**",
+            "/alram/**",
+            "/pets/**",
+            "/missions/**",
+            "/badges/**",
+            "/terms/**",
     };
 
     @Bean
