@@ -1,5 +1,8 @@
 package com.fitpet.server.shared.config;
 
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.FileSystemResource;
+
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.firebase.FirebaseApp;
@@ -29,7 +32,10 @@ public class FcmConfig {
     @PostConstruct
     public void initialize() {
         try {
-            ClassPathResource resource = new ClassPathResource(serviceAccountKeyPath);
+            //ClassPathResource resource = new ClassPathResource(serviceAccountKeyPath);
+            // 2025.12.24 KKR]  GCP 설정파일 읽기위함
+            Resource resource = new FileSystemResource(serviceAccountKeyPath);
+
 
             if (!resource.exists()) {
                 throw new RuntimeException("❌ FCM 키 파일을 찾을 수 없습니다. 경로를 확인해주세요: " + serviceAccountKeyPath);
