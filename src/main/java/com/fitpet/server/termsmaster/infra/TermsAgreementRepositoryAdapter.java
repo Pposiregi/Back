@@ -1,6 +1,6 @@
 package com.fitpet.server.termsmaster.infra;
 
-import com.fitpet.server.terms.domain.entity.TermsAgreement;
+import com.fitpet.server.termsmaster.domain.entity.TermsAgreement;
 import com.fitpet.server.termsmaster.domain.repository.TermsAgreementRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
