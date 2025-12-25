@@ -42,7 +42,16 @@ public class FcmConfig {
 //            ClassPathResource resource = new ClassPathResource(serviceAccountKeyPath);
 
             // 2025.12.24 KKR]  GCP 설정파일 읽기위함
-            Resource resource = resourceLoader.getResource(serviceAccountKeyPath);
+            Resource resource;
+            if (serviceAccountKeyPath.startsWith("classpath:")) {
+                resource = resourceLoader.getResource(serviceAccountKeyPath);
+            } else if (serviceAccountKeyPath.startsWith("file:")) {
+                resource = resourceLoader.getResource(serviceAccountKeyPath);
+            } else if (serviceAccountKeyPath.startsWith("/")) {
+                resource = new FileSystemResource(serviceAccountKeyPath);
+            } else {
+                resource = resourceLoader.getResource("file:" + serviceAccountKeyPath);
+            }
 
             if (!resource.exists()) {
                 throw new RuntimeException("❌ FCM 키 파일을 찾을 수 없습니다. 경로를 확인해주세요: " + serviceAccountKeyPath);
