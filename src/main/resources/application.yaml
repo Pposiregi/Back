@@ -3,12 +3,12 @@ spring:
     active: local
   main:
     web-application-type: servlet
-
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -17,6 +17,12 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.MySQLDialect
+
+  cloud:
+    gcp:
+      sql:
+        instance-connection-name: ${GCP_SQL_CONNECTION_NAME}
+        database-name: ${DB_NAME}
   data:
     redis:
       host: localhost
