@@ -82,5 +82,5 @@ aws:
     bucket: fitpet-bucket
 
 fcm:
-  service-account-key-path: "/fcm/firebase-service-account-key.json"
+  service-account-key-path: ${FCM_PATH}
   project-id: fitp-9e7ad

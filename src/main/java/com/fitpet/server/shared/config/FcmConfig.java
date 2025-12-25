@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.ResourceLoader;
 
 @Slf4j
 @Configuration
@@ -29,13 +30,19 @@ public class FcmConfig {
 
     private FirebaseApp firebaseApp;
 
+    private final ResourceLoader resourceLoader;
+
+    public FcmConfig(ResourceLoader resourceLoader) {
+        this.resourceLoader = resourceLoader;
+    }
+
     @PostConstruct
     public void initialize() {
         try {
-            //ClassPathResource resource = new ClassPathResource(serviceAccountKeyPath);
-            // 2025.12.24 KKR]  GCP 설정파일 읽기위함
-            Resource resource = new FileSystemResource(serviceAccountKeyPath);
+//            ClassPathResource resource = new ClassPathResource(serviceAccountKeyPath);
 
+            // 2025.12.24 KKR]  GCP 설정파일 읽기위함
+            Resource resource = resourceLoader.getResource(serviceAccountKeyPath);
 
             if (!resource.exists()) {
                 throw new RuntimeException("❌ FCM 키 파일을 찾을 수 없습니다. 경로를 확인해주세요: " + serviceAccountKeyPath);
