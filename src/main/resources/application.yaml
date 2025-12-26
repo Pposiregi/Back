@@ -1,10 +1,9 @@
 spring:
   profiles:
-    active: local
+    active:  ${ACTIVE_PROFILE}
   main:
     web-application-type: servlet
   datasource:
-    url: jdbc:mysql:///${DB_NAME}?socketFactory=com.google.cloud.sql.mysql.SocketFactory&cloudSqlInstance=${CLOUDSQL_INSTANCE}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
   jpa:
