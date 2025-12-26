@@ -42,7 +42,7 @@ public class UserDeviceServiceImpl implements UserDeviceService {
                                     .deviceToken(command.getDeviceToken())
                                     .deviceOs(command.getDeviceOs())
                                     .lastLoginAt(LocalDateTime.now())
-                                    .isDeleted(false)
+                                    .deleted(false)
                                     .build());
                         }
                 );

@@ -13,10 +13,10 @@ public interface UserDeviceRepository extends JpaRepository<UserDevice, Long> {
     Optional<UserDevice> findByUserAndDeviceUuid(User user, String deviceUuid);
 
     // 유저의 모든 기기 조회
-    @Query("SELECT ud.deviceToken FROM UserDevice ud WHERE ud.user.id = :userId AND ud.isDeleted = false")
+    @Query("SELECT ud.deviceToken FROM UserDevice ud WHERE ud.user.id = :userId AND ud.deleted = false")
     List<String> findAllTokensByUserId(@Param("userId") Long userId);
 
     // 배치용
-    @Query("SELECT ud.deviceToken FROM UserDevice ud WHERE ud.user IN :users AND ud.isDeleted = false")
+    @Query("SELECT ud.deviceToken FROM UserDevice ud WHERE ud.user IN :users AND ud.deleted = false")
     List<String> findAllTokensByUsers(@Param("users") List<User> users);
 }
