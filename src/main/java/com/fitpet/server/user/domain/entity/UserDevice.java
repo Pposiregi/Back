@@ -53,7 +53,7 @@ public class UserDevice {
     private LocalDateTime lastLoginAt;
 
     @Column(name = "is_deleted", nullable = false)
-    private boolean isDeleted;
+    private boolean deleted;
 
     @CreatedDate
     @Column(name = "created_at", updatable = false)
@@ -65,16 +65,16 @@ public class UserDevice {
 
     public void updateToken(String newToken) {
         this.deviceToken = newToken;
-        this.isDeleted = false;
+        this.deleted = false;
     }
 
     public void loginSuccess(String token) {
         this.deviceToken = token;
         this.lastLoginAt = LocalDateTime.now();
-        this.isDeleted = false;
+        this.deleted = false;
     }
 
     public void disconnect() {
-        this.isDeleted = true;
+        this.deleted = true;
     }
 }
