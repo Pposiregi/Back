@@ -3,11 +3,11 @@ package com.fitpet.server.user.presentation.controller;
 import com.fitpet.server.shared.annotation.AuthUser;
 import com.fitpet.server.user.application.dto.DeviceTokenCommand;
 import com.fitpet.server.user.application.service.UserDeviceService;
+import com.fitpet.server.user.presentation.dto.DeviceDeleteRequestDto;
 import com.fitpet.server.user.presentation.dto.DeviceTokenRequestDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -65,15 +65,9 @@ public class UserDeviceController {
     @DeleteMapping("/push-token")
     public ResponseEntity<Void> deactivateDevice(
             @AuthUser Long userId,
-            @RequestBody Map<String, String> request
+            @RequestBody @Valid DeviceDeleteRequestDto request
     ) {
-        String deviceUuid = request.get("device_uuid");
-
-        if (deviceUuid == null || deviceUuid.isBlank()) {
-            throw new IllegalArgumentException("device_uuid는 필수입니다.");
-        }
-
-        userDeviceService.deactivateDevice(userId, deviceUuid);
+        userDeviceService.deactivateDevice(userId, request.deviceUuid());
 
         return ResponseEntity.noContent().build();
     }
