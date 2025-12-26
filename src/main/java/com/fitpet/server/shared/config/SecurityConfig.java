@@ -82,11 +82,19 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // 일단 배포 문제 잡기용(임시). 이후 도메인 고정
-        config.setAllowedOriginPatterns(List.of("*"));
+        // 추후 도메인 고정
+        config.setAllowedOriginPatterns(List.of("https://*.run.app"));
+
+        // Method 허용
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        
+        // Header 허용
         config.setAllowedHeaders(List.of("*"));
-        config.setExposedHeaders(List.of("dev-user-id"));
+        
+        // 응답 Header 허용
+        config.setExposedHeaders(List.of("Authorization", "dev-user-id"));
+        
+        // 쿠키 인증 안 쓸 때
         config.setAllowCredentials(false); // credentials 쓸 거면 Origin을 명시해야 함
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
