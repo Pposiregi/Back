@@ -48,9 +48,7 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .csrf(AbstractHttpConfigurer::disable)
+        http.csrf(AbstractHttpConfigurer::disable)
             .httpBasic(AbstractHttpConfigurer::disable)
             .formLogin(AbstractHttpConfigurer::disable)
             .sessionManagement(session -> session
@@ -77,26 +75,5 @@ public class SecurityConfig {
         return web -> web.ignoring()
             .requestMatchers(PathRequest.toStaticResources().atCommonLocations())
             .requestMatchers(SWAGGER_WHITELIST);
-    }
-
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-
-        // GCP HTTPS 연결을 위하여 추가설정
-        CorsConfiguration config = new CorsConfiguration();
-
-        config.setAllowedOrigins(List.of(
-                "https://back-847805723578.europe-west1.run.app",
-                "http://localhost:3000",
-                "http://localhost:8080"
-        ));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
-        config.setExposedHeaders(List.of("Authorization"));
-        config.setAllowCredentials(false);
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
-        return source;
     }
 }
