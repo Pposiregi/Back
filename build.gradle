@@ -90,6 +90,10 @@ dependencies {
     //FCM
     implementation 'com.google.firebase:firebase-admin:9.3.0'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+
+    // GCP
+    implementation "com.google.cloud.sql:mysql-socket-factory-connector-j-8:1.27.1"
+
 }
 
 tasks.named('test') { useJUnitPlatform() }
