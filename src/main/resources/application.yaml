@@ -1,14 +1,11 @@
 spring:
   profiles:
-    active: local
+    active:  ${ACTIVE_PROFILE}
   main:
     web-application-type: servlet
-
   datasource:
-    url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
-    driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
       ddl-auto: update
@@ -17,6 +14,7 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.MySQLDialect
+
   data:
     redis:
       host: localhost
@@ -55,7 +53,6 @@ jwt:
     secret: ${JWT_REFRESH_SECRET}
     expiration-ms: ${JWT_REFRESH_EXPIRATION_MS}
 
-
 oauth:
   google:
     client-id: ${spring.security.oauth2.client.registration.google.client-id}
@@ -65,7 +62,6 @@ oauth:
 logging:
   level:
     org.springframework.security: DEBUG
-
 
 cloud:
   aws:
@@ -82,5 +78,10 @@ aws:
     bucket: fitpet-bucket
 
 fcm:
-  service-account-key-path: "fcm/firebase-service-account-key.json"
+  service-account-key-path: ${FCM_PATH}
   project-id: fitp-9e7ad
+
+# 2025.12.26 MANDARIN] 현재 페이지 기준 origin API 호출 설정
+springdoc:
+  swagger-ui:
+    disable-swagger-default-url: true
