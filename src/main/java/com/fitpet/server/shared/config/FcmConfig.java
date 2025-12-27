@@ -1,5 +1,8 @@
 package com.fitpet.server.shared.config;
 
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.FileSystemResource;
+
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.firebase.FirebaseApp;
@@ -13,6 +16,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.ResourceLoader;
 
 @Slf4j
 @Configuration
@@ -26,10 +30,28 @@ public class FcmConfig {
 
     private FirebaseApp firebaseApp;
 
+    private final ResourceLoader resourceLoader;
+
+    public FcmConfig(ResourceLoader resourceLoader) {
+        this.resourceLoader = resourceLoader;
+    }
+
     @PostConstruct
     public void initialize() {
         try {
-            ClassPathResource resource = new ClassPathResource(serviceAccountKeyPath);
+//            ClassPathResource resource = new ClassPathResource(serviceAccountKeyPath);
+
+            // 2025.12.24 KKR]  GCP 설정파일 읽기위함
+            Resource resource;
+            if (serviceAccountKeyPath.startsWith("classpath:")) {
+                resource = resourceLoader.getResource(serviceAccountKeyPath);
+            } else if (serviceAccountKeyPath.startsWith("file:")) {
+                resource = resourceLoader.getResource(serviceAccountKeyPath);
+            } else if (serviceAccountKeyPath.startsWith("/")) {
+                resource = new FileSystemResource(serviceAccountKeyPath);
+            } else {
+                resource = resourceLoader.getResource("file:" + serviceAccountKeyPath);
+            }
 
             if (!resource.exists()) {
                 throw new RuntimeException("❌ FCM 키 파일을 찾을 수 없습니다. 경로를 확인해주세요: " + serviceAccountKeyPath);
