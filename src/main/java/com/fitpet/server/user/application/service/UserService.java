@@ -3,10 +3,10 @@ package com.fitpet.server.user.application.service;
 import com.fitpet.server.user.application.dto.GenderRankingResult;
 import com.fitpet.server.user.application.dto.RankingResult;
 import com.fitpet.server.user.domain.entity.Gender;
-import com.fitpet.server.user.presentation.dto.UserCreateRequest;
 import com.fitpet.server.user.presentation.dto.UserDto;
-import com.fitpet.server.user.presentation.dto.UserInputInfoRequest;
-import com.fitpet.server.user.presentation.dto.UserUpdateRequest;
+import com.fitpet.server.user.presentation.dto.request.UserCreateRequest;
+import com.fitpet.server.user.presentation.dto.request.UserInputInfoRequest;
+import com.fitpet.server.user.presentation.dto.request.UserUpdateRequest;
 
 public interface UserService {
     UserDto createUser(UserCreateRequest request);

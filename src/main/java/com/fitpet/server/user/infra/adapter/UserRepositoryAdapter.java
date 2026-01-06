@@ -29,6 +29,10 @@ public class UserRepositoryAdapter implements UserRepository {
         return jpa.findById(id);
     }
 
+    @Override
+    public User getReferenceById(Long id) {
+        return jpa.getReferenceById(id);
+    }
 
     @Override
     public Optional<User> findByEmail(String email) {

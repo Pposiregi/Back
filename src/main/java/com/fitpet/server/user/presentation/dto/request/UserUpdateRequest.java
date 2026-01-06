@@ -1,4 +1,4 @@
-package com.fitpet.server.user.presentation.dto;
+package com.fitpet.server.user.presentation.dto.request;
 
 import com.fitpet.server.user.domain.entity.Gender;
 import jakarta.validation.constraints.Email;

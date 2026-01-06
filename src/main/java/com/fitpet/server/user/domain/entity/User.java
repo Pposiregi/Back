@@ -1,6 +1,6 @@
 package com.fitpet.server.user.domain.entity;
 
-import com.fitpet.server.user.presentation.dto.UserInputInfoRequest;
+import com.fitpet.server.user.presentation.dto.request.UserInputInfoRequest;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -27,15 +27,15 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @EntityListeners(AuditingEntityListener.class)
 @DynamicUpdate
 @Table(name = "users",
-    uniqueConstraints = {
-        @UniqueConstraint(name = "uk_users_email", columnNames = "email"),
-        @UniqueConstraint(name = "uk_oauth_provider_uid", columnNames = {"provider", "provider_uid"})
-    },
-    indexes = {
-        @Index(name = "idx_users_nickname", columnList = "nick_name"),
-        @Index(name = "idx_users_daily_step", columnList = "daily_step_count DESC, updated_at ASC"),
-        @Index(name = "idx_users_gender_daily_step", columnList = "gender, daily_step_count DESC, updated_at ASC")
-    })
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_users_email", columnNames = "email"),
+                @UniqueConstraint(name = "uk_oauth_provider_uid", columnNames = {"provider", "provider_uid"})
+        },
+        indexes = {
+                @Index(name = "idx_users_nickname", columnList = "nick_name"),
+                @Index(name = "idx_users_daily_step", columnList = "daily_step_count DESC, updated_at ASC"),
+                @Index(name = "idx_users_gender_daily_step", columnList = "gender, daily_step_count DESC, updated_at ASC")
+        })
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
@@ -103,12 +103,12 @@ public class User {
 
     @CreatedDate
     @Column(name = "created_at", updatable = false,
-        columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP")
+            columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP")
     private LocalDateTime createdAt;
 
     @LastModifiedDate
     @Column(name = "updated_at",
-        columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
+            columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
     private LocalDateTime updatedAt;
 
     @Default
@@ -125,16 +125,16 @@ public class User {
 
     // 사용자가 입력을 하지 않은 경우(빈값) 대비
     public void update(
-        String email,
-        String nickname,
-        Integer age,
-        Gender gender,
-        Double weightKg,
-        Double targetWeightKg,
-        Double heightCm,
-        Double pbf,
-        Double targetPbf,
-        Integer targetStepCount
+            String email,
+            String nickname,
+            Integer age,
+            Gender gender,
+            Double weightKg,
+            Double targetWeightKg,
+            Double heightCm,
+            Double pbf,
+            Double targetPbf,
+            Integer targetStepCount
     ) {
         if (email != null && !email.isBlank()) {
             this.email = email;

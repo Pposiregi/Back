@@ -21,11 +21,11 @@ import java.util.List;
 public class SecurityConfig {
 
     private static final String[] SWAGGER_WHITELIST = {
-        "/swagger-ui.html",
-        "/swagger-ui/index.html",
-        "/swagger-ui/**",
-        "/v3/api-docs",
-        "/v3/api-docs/**"
+            "/swagger-ui.html",
+            "/swagger-ui/index.html",
+            "/swagger-ui/**",
+            "/v3/api-docs",
+            "/v3/api-docs/**"
     };
 
     private static final String[] PERMIT_URL_ARRAY = {
@@ -44,10 +44,12 @@ public class SecurityConfig {
             "/missions/**",
             "/badges/**",
             "/terms/**",
+            "/devices/**",
     };
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+
         http.cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
             .httpBasic(AbstractHttpConfigurer::disable)
@@ -74,8 +76,8 @@ public class SecurityConfig {
     @Bean
     public WebSecurityCustomizer webSecurityCustomizer() {
         return web -> web.ignoring()
-            .requestMatchers(PathRequest.toStaticResources().atCommonLocations())
-            .requestMatchers(SWAGGER_WHITELIST);
+                .requestMatchers(PathRequest.toStaticResources().atCommonLocations())
+                .requestMatchers(SWAGGER_WHITELIST);
     }
 
     @Bean
