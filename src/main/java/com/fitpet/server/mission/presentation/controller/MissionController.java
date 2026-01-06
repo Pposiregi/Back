@@ -6,10 +6,16 @@ import com.fitpet.server.mission.presentation.dto.MissionCheckDto;
 import com.fitpet.server.mission.presentation.dto.MissionCheckRequest;
 import com.fitpet.server.mission.presentation.dto.MissionCreateRequest;
 import com.fitpet.server.mission.presentation.dto.MissionDto;
+import com.fitpet.server.mission.presentation.dto.MissionProgressListResponse;
+import com.fitpet.server.mission.presentation.dto.MissionProgressResponse;
+import com.fitpet.server.mission.presentation.dto.MissionProgressUpdateItem;
+import com.fitpet.server.mission.presentation.dto.MissionProgressUpdateResponse;
 import com.fitpet.server.mission.presentation.dto.MissionUpdateRequest;
 import com.fitpet.server.shared.annotation.AuthUser;
 import jakarta.validation.Valid;
+import java.math.BigDecimal;
 import java.net.URI;
+import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +27,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -85,8 +92,8 @@ public class MissionController {
             @AuthUser Long userId, // URL 대신 토큰에서 추출
             @Valid @RequestBody MissionCheckRequest request) {
 
-        log.info("[MissionController] 미션 수행 여부 저장 요청: missionId={}, userId={}, date={}, completed={}",
-                missionId, userId, request.checkDate(), request.completed());
+        log.info("[MissionController] 미션 수행 여부 저장 요청: missionId={}, userId={}, actionDate={}, progressValue={}",
+                missionId, userId, request.actionDate(), request.progressValue());
 
         MissionCheckDto response = missionCheckService.upsertMissionCheck(missionId, userId, request);
 
@@ -105,6 +112,37 @@ public class MissionController {
         log.info("[MissionController] 사용자 수행 기록 조회 완료: userId={}, count={}", userId, responses.size());
 
         return ResponseEntity.ok(responses);
+    }
+
+    @GetMapping("/active")
+    public ResponseEntity<MissionProgressListResponse> getActiveMissions(@AuthUser Long userId) {
+        List<MissionProgressResponse> missions = missionCheckService.getActiveMissions(userId, LocalDate.now());
+        return ResponseEntity.ok(new MissionProgressListResponse(missions));
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<MissionProgressListResponse> getMissionHistory(@AuthUser Long userId) {
+        List<MissionProgressResponse> missions = missionCheckService.getCompletedMissions(userId);
+        return ResponseEntity.ok(new MissionProgressListResponse(missions));
+    }
+
+    @PostMapping("/progress/photo")
+    public ResponseEntity<MissionProgressUpdateResponse> updateMealMissions(@AuthUser Long userId) {
+        List<MissionProgressUpdateItem> updated = missionCheckService.updateMealMissions(userId, LocalDate.now());
+        return ResponseEntity.ok(new MissionProgressUpdateResponse(updated));
+    }
+
+    @PostMapping("/progress/step")
+    public ResponseEntity<MissionProgressUpdateResponse> updateStepMissions(
+            @AuthUser Long userId,
+            @RequestParam(defaultValue = "1000") int increment
+    ) {
+        List<MissionProgressUpdateItem> updated = missionCheckService.updateStepMissions(
+                userId,
+                LocalDate.now(),
+                BigDecimal.valueOf(increment)
+        );
+        return ResponseEntity.ok(new MissionProgressUpdateResponse(updated));
     }
 
     @DeleteMapping("/checks/{missionCheckId}")
