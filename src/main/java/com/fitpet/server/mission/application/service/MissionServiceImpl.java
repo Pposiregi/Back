@@ -24,8 +24,8 @@ public class MissionServiceImpl implements MissionService {
 
     @Override
     public MissionDto createMission(MissionCreateRequest request) {
-        log.info("[MissionService] 미션 생성 요청: title={}, type={}, goal={}",
-            request.title(), request.type(), request.goal());
+        log.info("[MissionService] 미션 생성 요청: title={}, type={}, category={}, goal={}",
+            request.title(), request.type(), request.category(), request.goal());
         Mission mission = missionMapper.toEntity(request);
         Mission saved = missionRepository.save(mission);
         log.info("[MissionService] 미션 생성: missionId={}", saved.getId());
@@ -51,11 +51,11 @@ public class MissionServiceImpl implements MissionService {
 
     @Override
     public MissionDto updateMission(Long missionId, MissionUpdateRequest request) {
-        log.info("[MissionService] 미션 수정 요청: missionId={}, title={}, type={}, goal={}",
-            missionId, request.title(), request.type(), request.goal());
+        log.info("[MissionService] 미션 수정 요청: missionId={}, title={}, type={}, category={}, goal={}",
+            missionId, request.title(), request.type(), request.category(), request.goal());
         Mission mission = missionRepository.findById(missionId)
                 .orElseThrow(MissionNotFoundException::new);
-        mission.update(request.title(), request.content(), request.type(), request.goal());
+        mission.update(request.title(), request.content(), request.type(), request.category(), request.goal());
         Mission updated = missionRepository.save(mission);
         log.info("[MissionService] 미션 수정: missionId={}", updated.getId());
         return missionMapper.toDto(updated);
