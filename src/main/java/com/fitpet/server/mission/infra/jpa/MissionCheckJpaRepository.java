@@ -12,14 +12,28 @@ import org.springframework.data.repository.query.Param;
 
 public interface MissionCheckJpaRepository extends JpaRepository<MissionCheck, Long> {
 
-    Optional<MissionCheck> findByMissionIdAndUserIdAndPeriodTypeAndPeriodStart(
-        Long missionId,
-        Long userId,
-        MissionType periodType,
-        LocalDate periodStart
+    @Query("""
+        select mc
+        from MissionCheck mc
+        where mc.mission.id = :missionId
+          and mc.user.id = :userId
+          and mc.periodType = :periodType
+          and mc.periodStart = :periodStart
+        """)
+    Optional<MissionCheck> findByPeriodKey(
+        @Param("missionId") Long missionId,
+        @Param("userId") Long userId,
+        @Param("periodType") MissionType periodType,
+        @Param("periodStart") LocalDate periodStart
     );
 
-    List<MissionCheck> findAllByUserIdOrderByPeriodStartDesc(Long userId);
+    @Query("""
+        select mc
+        from MissionCheck mc
+        where mc.user.id = :userId
+        order by mc.periodStart desc
+        """)
+    List<MissionCheck> findRecentByUser(@Param("userId") Long userId);
 
     @Query("""
         select mc

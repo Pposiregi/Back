@@ -59,7 +59,7 @@ public class MissionCheckServiceImpl implements MissionCheckService {
         boolean shouldCelebrate = false;
 
         MissionCheck missionCheck;
-        var existing = missionCheckRepository.findByMissionIdAndUserIdAndPeriodTypeAndPeriodStart(
+        var existing = missionCheckRepository.findByPeriodKey(
                 missionId,
                 userId,
                 mission.getType(),
@@ -112,7 +112,7 @@ public class MissionCheckServiceImpl implements MissionCheckService {
     @Override
     @Transactional(readOnly = true)
     public List<MissionCheckDto> getMissionChecks(Long userId) {
-        List<MissionCheck> checks = missionCheckRepository.findAllByUserId(userId);
+        List<MissionCheck> checks = missionCheckRepository.findRecentByUser(userId);
         return missionCheckMapper.toDtos(checks);
     }
 

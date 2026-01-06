@@ -13,14 +13,14 @@ public interface MissionCheckRepository {
 
     Optional<MissionCheck> findById(Long missionCheckId);
 
-    Optional<MissionCheck> findByMissionIdAndUserIdAndPeriodTypeAndPeriodStart(
+    Optional<MissionCheck> findByPeriodKey(
         Long missionId,
         Long userId,
         MissionType periodType,
         LocalDate periodStart
     );
 
-    List<MissionCheck> findAllByUserId(Long userId);
+    List<MissionCheck> findRecentByUser(Long userId);
 
     List<MissionCheck> findActiveByUserAndCategoryAndDate(
         Long userId,

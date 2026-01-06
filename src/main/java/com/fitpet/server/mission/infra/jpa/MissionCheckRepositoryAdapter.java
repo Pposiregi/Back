@@ -27,13 +27,13 @@ public class MissionCheckRepositoryAdapter implements MissionCheckRepository {
     }
 
     @Override
-    public Optional<MissionCheck> findByMissionIdAndUserIdAndPeriodTypeAndPeriodStart(
+    public Optional<MissionCheck> findByPeriodKey(
         Long missionId,
         Long userId,
         MissionType periodType,
         LocalDate periodStart
     ) {
-        return missionCheckJpaRepository.findByMissionIdAndUserIdAndPeriodTypeAndPeriodStart(
+        return missionCheckJpaRepository.findByPeriodKey(
             missionId,
             userId,
             periodType,
@@ -42,8 +42,8 @@ public class MissionCheckRepositoryAdapter implements MissionCheckRepository {
     }
 
     @Override
-    public List<MissionCheck> findAllByUserId(Long userId) {
-        return missionCheckJpaRepository.findAllByUserIdOrderByPeriodStartDesc(userId);
+    public List<MissionCheck> findRecentByUser(Long userId) {
+        return missionCheckJpaRepository.findRecentByUser(userId);
     }
 
     @Override
