@@ -4,9 +4,9 @@ import com.fitpet.server.mission.application.mapper.MissionMapper;
 import com.fitpet.server.mission.domain.entity.Mission;
 import com.fitpet.server.mission.domain.exception.MissionNotFoundException;
 import com.fitpet.server.mission.domain.repository.MissionRepository;
-import com.fitpet.server.mission.presentation.dto.MissionCreateRequest;
-import com.fitpet.server.mission.presentation.dto.MissionDto;
-import com.fitpet.server.mission.presentation.dto.MissionUpdateRequest;
+import com.fitpet.server.mission.application.dto.MissionCreateCommand;
+import com.fitpet.server.mission.application.dto.MissionResult;
+import com.fitpet.server.mission.application.dto.MissionUpdateCommand;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +23,7 @@ public class MissionServiceImpl implements MissionService {
     private final MissionMapper missionMapper;
 
     @Override
-    public MissionDto createMission(MissionCreateRequest request) {
+    public MissionResult createMission(MissionCreateCommand request) {
         log.info("[MissionService] 미션 생성 요청: title={}, type={}, category={}, goal={}",
             request.title(), request.type(), request.category(), request.goal());
         Mission mission = missionMapper.toEntity(request);
@@ -34,14 +34,14 @@ public class MissionServiceImpl implements MissionService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<MissionDto> getMissions() {
+    public List<MissionResult> getMissions() {
         log.info("[MissionService] 미션 전체 조회 요청");
         return missionMapper.toDtos(missionRepository.findAll());
     }
 
     @Override
     @Transactional(readOnly = true)
-    public MissionDto getMission(Long missionId) {
+    public MissionResult getMission(Long missionId) {
         log.info("[MissionService] 미션 단건 조회 요청: missionId={}", missionId);
         Mission mission = missionRepository.findById(missionId)
                 .orElseThrow(MissionNotFoundException::new);
@@ -50,7 +50,7 @@ public class MissionServiceImpl implements MissionService {
     }
 
     @Override
-    public MissionDto updateMission(Long missionId, MissionUpdateRequest request) {
+    public MissionResult updateMission(Long missionId, MissionUpdateCommand request) {
         log.info("[MissionService] 미션 수정 요청: missionId={}, title={}, type={}, category={}, goal={}",
             missionId, request.title(), request.type(), request.category(), request.goal());
         Mission mission = missionRepository.findById(missionId)

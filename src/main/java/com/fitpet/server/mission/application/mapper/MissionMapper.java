@@ -1,8 +1,8 @@
 package com.fitpet.server.mission.application.mapper;
 
+import com.fitpet.server.mission.application.dto.MissionCreateCommand;
+import com.fitpet.server.mission.application.dto.MissionResult;
 import com.fitpet.server.mission.domain.entity.Mission;
-import com.fitpet.server.mission.presentation.dto.MissionCreateRequest;
-import com.fitpet.server.mission.presentation.dto.MissionDto;
 import java.util.List;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -13,12 +13,12 @@ public interface MissionMapper {
 
     // Entity -> DTO
     @Mapping(target = "missionId", source = "id")
-    MissionDto toDto(Mission mission);
+    MissionResult toDto(Mission mission);
 
-    List<MissionDto> toDtos(List<Mission> missions);
+    List<MissionResult> toDtos(List<Mission> missions);
 
     // CreateRequest -> Entity (신규 생성)
     @Mapping(target = "id", ignore = true)
-    Mission toEntity(MissionCreateRequest request);
+    Mission toEntity(MissionCreateCommand request);
 
 }

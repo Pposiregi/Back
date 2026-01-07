@@ -2,6 +2,10 @@ package com.fitpet.server.mission.application.service;
 
 import com.fitpet.server.meal.domain.entity.MealTime;
 import com.fitpet.server.meal.domain.repository.MealRepository;
+import com.fitpet.server.mission.application.dto.MissionCheckCommand;
+import com.fitpet.server.mission.application.dto.MissionCheckResult;
+import com.fitpet.server.mission.application.dto.MissionProgressResult;
+import com.fitpet.server.mission.application.dto.MissionProgressUpdateItem;
 import com.fitpet.server.mission.application.mapper.MissionCheckMapper;
 import com.fitpet.server.mission.domain.entity.Mission;
 import com.fitpet.server.mission.domain.entity.MissionCategory;
@@ -11,10 +15,6 @@ import com.fitpet.server.mission.domain.exception.MissionCheckNotFoundException;
 import com.fitpet.server.mission.domain.exception.MissionNotFoundException;
 import com.fitpet.server.mission.domain.repository.MissionCheckRepository;
 import com.fitpet.server.mission.domain.repository.MissionRepository;
-import com.fitpet.server.mission.presentation.dto.MissionCheckDto;
-import com.fitpet.server.mission.presentation.dto.MissionCheckRequest;
-import com.fitpet.server.mission.presentation.dto.MissionProgressResponse;
-import com.fitpet.server.mission.presentation.dto.MissionProgressUpdateItem;
 import com.fitpet.server.pet.application.service.PetExpressionService;
 import com.fitpet.server.pet.domain.entity.PetExpression;
 import com.fitpet.server.user.domain.entity.User;
@@ -46,7 +46,7 @@ public class MissionCheckServiceImpl implements MissionCheckService {
     private final PetExpressionService petExpressionService;
 
     @Override
-    public MissionCheckDto upsertMissionCheck(Long missionId, Long userId, MissionCheckRequest request) {
+    public MissionCheckResult upsertMissionCheck(Long missionId, Long userId, MissionCheckCommand request) {
         Mission mission = missionRepository.findById(missionId)
                 .orElseThrow(MissionNotFoundException::new);
         User user = userRepository.findById(userId)
@@ -86,16 +86,16 @@ public class MissionCheckServiceImpl implements MissionCheckService {
             if (completed) {
                 shouldCelebrate = true;
             }
-            missionCheck = missionCheckMapper.create(
-                    mission,
-                    user,
-                    mission.getType(),
-                    period.start(),
-                    period.end(),
-                    progress,
-                    completed,
-                    completed ? LocalDateTime.now() : null
-            );
+            missionCheck = MissionCheck.builder()
+                    .mission(mission)
+                    .user(user)
+                    .periodType(mission.getType())
+                    .periodStart(period.start())
+                    .periodEnd(period.end())
+                    .progressValue(progress)
+                    .completed(completed)
+                    .completedAt(completed ? LocalDateTime.now() : null)
+                    .build();
         }
 
         MissionCheck saved = missionCheckRepository.save(missionCheck);
@@ -111,7 +111,7 @@ public class MissionCheckServiceImpl implements MissionCheckService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<MissionCheckDto> getMissionChecks(Long userId) {
+    public List<MissionCheckResult> getMissionChecks(Long userId) {
         List<MissionCheck> checks = missionCheckRepository.findRecentByUser(userId);
         return missionCheckMapper.toDtos(checks);
     }
@@ -133,19 +133,19 @@ public class MissionCheckServiceImpl implements MissionCheckService {
     }
 
     @Override
-    public List<MissionProgressResponse> getActiveMissions(Long userId, LocalDate date) {
+    public List<MissionProgressResult> getActiveMissions(Long userId, LocalDate date) {
         LocalDate targetDate = date != null ? date : LocalDate.now();
         List<MissionCheck> checks = missionCheckRepository.findActiveByUserAndDate(userId, targetDate);
         return checks.stream()
-                .map(this::toProgressResponse)
+                .map(this::toProgressResult)
                 .toList();
     }
 
     @Override
-    public List<MissionProgressResponse> getCompletedMissions(Long userId) {
+    public List<MissionProgressResult> getCompletedMissions(Long userId) {
         List<MissionCheck> checks = missionCheckRepository.findCompletedByUser(userId);
         return checks.stream()
-                .map(this::toProgressResponse)
+                .map(this::toProgressResult)
                 .toList();
     }
 
@@ -348,11 +348,11 @@ public class MissionCheckServiceImpl implements MissionCheckService {
                 || title.contains("3 끼");
     }
 
-    private MissionProgressResponse toProgressResponse(MissionCheck check) {
+    private MissionProgressResult toProgressResult(MissionCheck check) {
         LocalDateTime periodStart = toStartOfDay(check.getPeriodStart());
         LocalDateTime periodEnd = toEndOfDay(check.getPeriodEnd());
         Mission mission = check.getMission();
-        return new MissionProgressResponse(
+        return new MissionProgressResult(
                 check.getId(),
                 mission.getId(),
                 mission.getTitle(),
