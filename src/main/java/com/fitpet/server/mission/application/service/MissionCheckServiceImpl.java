@@ -326,7 +326,7 @@ public class MissionCheckServiceImpl implements MissionCheckService {
 
     // 어떤 식단 미션인지 구분하는 용도
     // 우선 모든 케이스 확인
-    
+
     private static boolean matchesMealTitle(String title, MealTime mealTime) {
         if (title == null) {
             return false;
@@ -381,7 +381,7 @@ public class MissionCheckServiceImpl implements MissionCheckService {
     }
 
     private static LocalDateTime toEndOfDay(LocalDate date) {
-        return date != null ? date.atTime(23, 59, 59) : null;
+        return date != null ? date.atTime(LocalTime.MAX) : null;
     }
 
     private record PeriodRange(LocalDate start, LocalDate end) {
