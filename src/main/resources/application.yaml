@@ -1,6 +1,6 @@
 spring:
   profiles:
-    active:  ${ACTIVE_PROFILE}
+    active: ${ACTIVE_PROFILE}
   main:
     web-application-type: servlet
   datasource:
@@ -17,8 +17,9 @@ spring:
 
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${VALKEY_HOST}
+      port: ${VALKEY_PORT}
+      password: "${VALKEY_PASSWORD}"
   security:
     user:
       name: ${SECURITY_USER}
