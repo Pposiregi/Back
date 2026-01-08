@@ -47,62 +47,17 @@ public class MissionCheckServiceImpl implements MissionCheckService {
 
     @Override
     public MissionCheckResult upsertMissionCheck(Long missionId, Long userId, MissionCheckCommand request) {
-        Mission mission = missionRepository.findById(missionId)
-                .orElseThrow(MissionNotFoundException::new);
-        User user = userRepository.findById(userId)
-                .orElseThrow(UserNotFoundException::new);
-
-        LocalDate actionDate = request.actionDate();
-        LocalDate userCreatedDate = user.getCreatedAt() != null ? user.getCreatedAt().toLocalDate() : null;
-        PeriodRange period = resolvePeriod(mission.getType(), actionDate, userCreatedDate);
-
-        boolean shouldCelebrate = false;
-
-        MissionCheck missionCheck;
-        var existing = missionCheckRepository.findByPeriodKey(
-                missionId,
-                userId,
+        Mission mission = getMission(missionId);
+        User user = getUser(userId);
+        PeriodRange period = resolvePeriod(
                 mission.getType(),
-                period.start()
+                request.actionDate(),
+                toCreatedDate(user)
         );
 
-        if (existing.isPresent()) {
-            MissionCheck current = existing.get();
-            if (!current.isCompleted()) {
-                BigDecimal updatedProgress = accumulateProgress(
-                        current.getProgressValue(),
-                        request.progressValue()
-                );
-                boolean completed = isCompleted(updatedProgress, mission.getGoal());
-                if (completed) {
-                    shouldCelebrate = true;
-                }
-                current.updateProgress(updatedProgress, completed, LocalDateTime.now());
-            }
-            missionCheck = current;
-        } else {
-            BigDecimal progress = defaultProgress(request.progressValue());
-            boolean completed = isCompleted(progress, mission.getGoal());
-            if (completed) {
-                shouldCelebrate = true;
-            }
-            missionCheck = MissionCheck.builder()
-                    .mission(mission)
-                    .user(user)
-                    .periodType(mission.getType())
-                    .periodStart(period.start())
-                    .periodEnd(period.end())
-                    .progressValue(progress)
-                    .completed(completed)
-                    .completedAt(completed ? LocalDateTime.now() : null)
-                    .build();
-        }
-
-        MissionCheck saved = missionCheckRepository.save(missionCheck);
-
-        if (shouldCelebrate) {
-            petExpressionService.updateExpression(userId, PetExpression.HAPPY);
-        }
+        UpdateResult result = upsertMissionCheck(mission, user, period, request.progressValue());
+        MissionCheck saved = missionCheckRepository.save(result.missionCheck());
+        celebrateIfNeeded(userId, result.shouldCelebrate());
 
         log.info("[MissionCheckService] 수행 여부 저장: missionCheckId={}, missionId={}, userId={}",
                 saved.getId(), missionId, userId);
@@ -178,40 +133,16 @@ public class MissionCheckServiceImpl implements MissionCheckService {
             return List.of();
         }
 
-        List<MissionCheck> checks = missionCheckRepository.findActiveByUserAndCategoryAndDate(
-                userId,
-                MissionCategory.STEP,
-                date
-        );
+        List<MissionCheck> checks = findActiveChecks(userId, MissionCategory.STEP, date);
 
         if (checks.isEmpty()) {
             return List.of();
         }
 
-        boolean shouldCelebrate = false;
-        List<MissionProgressUpdateItem> updated = new ArrayList<>();
+        UpdateResult result = applyStepProgress(checks, delta);
+        celebrateIfNeeded(userId, result.shouldCelebrate());
 
-        for (MissionCheck check : checks) {
-            if (check.isCompleted()) {
-                continue;
-            }
-            Mission mission = check.getMission();
-            BigDecimal current = check.getProgressValue() == null ? BigDecimal.ZERO : check.getProgressValue();
-            BigDecimal newProgress = current.add(delta);
-            boolean completed = isCompleted(newProgress, mission.getGoal());
-            if (completed) {
-                shouldCelebrate = true;
-            }
-            check.updateProgress(newProgress, completed, completed ? LocalDateTime.now() : null);
-            missionCheckRepository.save(check);
-            updated.add(toUpdateItem(check));
-        }
-
-        if (shouldCelebrate) {
-            petExpressionService.updateExpression(userId, PetExpression.HAPPY);
-        }
-
-        return updated;
+        return result.updatedItems();
     }
 
     private static BigDecimal defaultProgress(BigDecimal progressValue) {
@@ -257,16 +188,106 @@ public class MissionCheckServiceImpl implements MissionCheckService {
             return List.of();
         }
 
-        List<MissionCheck> checks = missionCheckRepository.findActiveByUserAndCategoryAndDate(
-                userId,
-                MissionCategory.MEAL,
-                date
-        );
+        List<MissionCheck> checks = findActiveChecks(userId, MissionCategory.MEAL, date);
 
         if (checks.isEmpty()) {
             return List.of();
         }
 
+        UpdateResult result = applyMealProgress(checks, mealTime, firstMealOfDay, firstMealOfTime);
+        celebrateIfNeeded(userId, result.shouldCelebrate());
+
+        return result.updatedItems();
+    }
+
+    private Mission getMission(Long missionId) {
+        return missionRepository.findById(missionId)
+                .orElseThrow(MissionNotFoundException::new);
+    }
+
+    private User getUser(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(UserNotFoundException::new);
+    }
+
+    private static LocalDate toCreatedDate(User user) {
+        return user.getCreatedAt() != null ? user.getCreatedAt().toLocalDate() : null;
+    }
+
+    private UpdateResult upsertMissionCheck(
+            Mission mission,
+            User user,
+            PeriodRange period,
+            BigDecimal progressValue
+    ) {
+        var existing = missionCheckRepository.findByPeriodKey(
+                mission.getId(),
+                user.getId(),
+                mission.getType(),
+                period.start()
+        );
+
+        if (existing.isPresent()) {
+            MissionCheck current = existing.get();
+            boolean shouldCelebrate = applyProgressIfActive(current, progressValue, mission.getGoal());
+            return new UpdateResult(current, shouldCelebrate, List.of());
+        }
+
+        BigDecimal progress = defaultProgress(progressValue);
+        boolean completed = isCompleted(progress, mission.getGoal());
+        MissionCheck created = MissionCheck.builder()
+                .mission(mission)
+                .user(user)
+                .periodType(mission.getType())
+                .periodStart(period.start())
+                .periodEnd(period.end())
+                .progressValue(progress)
+                .completed(completed)
+                .completedAt(completed ? LocalDateTime.now() : null)
+                .build();
+
+        return new UpdateResult(created, completed, List.of());
+    }
+
+    private boolean applyProgressIfActive(MissionCheck current, BigDecimal delta, BigDecimal goal) {
+        if (current.isCompleted()) {
+            return false;
+        }
+        BigDecimal updatedProgress = accumulateProgress(current.getProgressValue(), delta);
+        boolean completed = isCompleted(updatedProgress, goal);
+        current.updateProgress(updatedProgress, completed, LocalDateTime.now());
+        return completed;
+    }
+
+    private UpdateResult applyStepProgress(List<MissionCheck> checks, BigDecimal delta) {
+        boolean shouldCelebrate = false;
+        List<MissionProgressUpdateItem> updated = new ArrayList<>();
+
+        for (MissionCheck check : checks) {
+            if (check.isCompleted()) {
+                continue;
+            }
+            Mission mission = check.getMission();
+            BigDecimal current = check.getProgressValue() == null ? BigDecimal.ZERO : check.getProgressValue();
+            BigDecimal newProgress = current.add(delta);
+            boolean completed = isCompleted(newProgress, mission.getGoal());
+            if (completed) {
+                shouldCelebrate = true;
+            }
+            check.updateProgress(newProgress, completed, completed ? LocalDateTime.now() : null);
+            missionCheckRepository.save(check);
+            updated.add(toUpdateItem(check));
+        }
+
+        return new UpdateResult(null, shouldCelebrate, updated);
+    }
+
+    private UpdateResult applyMealProgress(
+            List<MissionCheck> checks,
+            MealTime mealTime,
+            boolean firstMealOfDay,
+            boolean firstMealOfTime
+    ) {
         boolean shouldCelebrate = false;
         List<MissionProgressUpdateItem> updated = new ArrayList<>();
 
@@ -289,11 +310,17 @@ public class MissionCheckServiceImpl implements MissionCheckService {
             updated.add(toUpdateItem(check));
         }
 
+        return new UpdateResult(null, shouldCelebrate, updated);
+    }
+
+    private List<MissionCheck> findActiveChecks(Long userId, MissionCategory category, LocalDate date) {
+        return missionCheckRepository.findActiveByUserAndCategoryAndDate(userId, category, date);
+    }
+
+    private void celebrateIfNeeded(Long userId, boolean shouldCelebrate) {
         if (shouldCelebrate) {
             petExpressionService.updateExpression(userId, PetExpression.HAPPY);
         }
-
-        return updated;
     }
 
     private static LocalDate resolveWeeklyStart(LocalDate date, LocalDate userCreatedDate) {
@@ -382,6 +409,13 @@ public class MissionCheckServiceImpl implements MissionCheckService {
 
     private static LocalDateTime toEndOfDay(LocalDate date) {
         return date != null ? date.atTime(LocalTime.MAX) : null;
+    }
+
+    private record UpdateResult(
+            MissionCheck missionCheck,
+            boolean shouldCelebrate,
+            List<MissionProgressUpdateItem> updatedItems
+    ) {
     }
 
     private record PeriodRange(LocalDate start, LocalDate end) {
