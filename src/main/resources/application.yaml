@@ -19,7 +19,8 @@ spring:
     redis:
       host: ${VALKEY_HOST}
       port: ${VALKEY_PORT}
-      security: "${VALKEY_PASSWORD}"
+      password: "${VALKEY_PASSWORD}"
+  security:
     user:
       name: ${SECURITY_USER}
       password: ${SECURITY_PASSWORD}
