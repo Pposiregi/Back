@@ -353,7 +353,7 @@ public class MissionCheckServiceImpl implements MissionCheckService {
 
     // 어떤 식단 미션인지 구분하는 용도
     // 우선 모든 케이스 확인
-
+    // TODO : 최종적으로 미션 추가 후 교체 예정
     private static boolean matchesMealTitle(String title, MealTime mealTime) {
         if (title == null) {
             return false;
