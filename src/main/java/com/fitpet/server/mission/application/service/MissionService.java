@@ -1,19 +1,19 @@
 package com.fitpet.server.mission.application.service;
 
-import com.fitpet.server.mission.presentation.dto.MissionCreateRequest;
-import com.fitpet.server.mission.presentation.dto.MissionDto;
-import com.fitpet.server.mission.presentation.dto.MissionUpdateRequest;
+import com.fitpet.server.mission.application.dto.MissionCreateCommand;
+import com.fitpet.server.mission.application.dto.MissionResult;
+import com.fitpet.server.mission.application.dto.MissionUpdateCommand;
 import java.util.List;
 
 public interface MissionService {
 
-    MissionDto createMission(MissionCreateRequest request);
+    MissionResult createMission(MissionCreateCommand request);
 
-    MissionDto getMission(Long missionId);
+    MissionResult getMission(Long missionId);
 
-    List<MissionDto> getMissions();
+    List<MissionResult> getMissions();
 
-    MissionDto updateMission(Long missionId, MissionUpdateRequest request);
+    MissionResult updateMission(Long missionId, MissionUpdateCommand request);
 
     void deleteMission(Long missionId);
 }

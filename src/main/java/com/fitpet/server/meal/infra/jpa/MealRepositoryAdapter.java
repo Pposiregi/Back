@@ -38,4 +38,14 @@ public class MealRepositoryAdapter implements MealRepository {
     public List<Meal> findByUserAndDayBetweenOrderByDayAsc(User user, LocalDate startOfMonth, LocalDate endOfMonth) {
         return mealJpaRepository.findByUserAndDayBetweenOrderByDayAsc(user, startOfMonth, endOfMonth);
     }
+
+    @Override
+    public long countByUserAndDay(User user, LocalDate day) {
+        return mealJpaRepository.countByUserAndDay(user, day);
+    }
+
+    @Override
+    public long countByUserAndDayAndSequence(User user, LocalDate day, Integer sequence) {
+        return mealJpaRepository.countByUserAndDayAndSequence(user, day, sequence);
+    }
 }

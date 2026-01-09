@@ -1,6 +1,8 @@
 package com.fitpet.server.mission.infra.jpa;
 
+import com.fitpet.server.mission.domain.entity.MissionCategory;
 import com.fitpet.server.mission.domain.entity.MissionCheck;
+import com.fitpet.server.mission.domain.entity.MissionType;
 import com.fitpet.server.mission.domain.repository.MissionCheckRepository;
 import java.time.LocalDate;
 import java.util.List;
@@ -25,13 +27,42 @@ public class MissionCheckRepositoryAdapter implements MissionCheckRepository {
     }
 
     @Override
-    public Optional<MissionCheck> findByMissionIdAndUserIdAndCheckAt(Long missionId, Long userId, LocalDate checkAt) {
-        return missionCheckJpaRepository.findByMissionIdAndUserIdAndCheckAt(missionId, userId, checkAt);
+    public Optional<MissionCheck> findByPeriodKey(
+        Long missionId,
+        Long userId,
+        MissionType periodType,
+        LocalDate periodStart
+    ) {
+        return missionCheckJpaRepository.findByPeriodKey(
+            missionId,
+            userId,
+            periodType,
+            periodStart
+        );
     }
 
     @Override
-    public List<MissionCheck> findAllByUserId(Long userId) {
-        return missionCheckJpaRepository.findAllByUserIdOrderByCheckAtDesc(userId);
+    public List<MissionCheck> findRecentByUser(Long userId) {
+        return missionCheckJpaRepository.findRecentByUser(userId);
+    }
+
+    @Override
+    public List<MissionCheck> findActiveByUserAndCategoryAndDate(
+        Long userId,
+        MissionCategory category,
+        LocalDate date
+    ) {
+        return missionCheckJpaRepository.findActiveByUserAndCategoryAndDate(userId, category, date);
+    }
+
+    @Override
+    public List<MissionCheck> findActiveByUserAndDate(Long userId, LocalDate date) {
+        return missionCheckJpaRepository.findActiveByUserAndDate(userId, date);
+    }
+
+    @Override
+    public List<MissionCheck> findCompletedByUser(Long userId) {
+        return missionCheckJpaRepository.findCompletedByUser(userId);
     }
 
     @Override
