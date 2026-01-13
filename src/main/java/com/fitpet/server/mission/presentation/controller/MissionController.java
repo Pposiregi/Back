@@ -179,6 +179,17 @@ public class MissionController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/checks/{missionCheckId}/complete")
+    public ResponseEntity<MissionCheckDto> completeMissionCheck(
+            @AuthUser Long userId,
+            @PathVariable Long missionCheckId
+    ) {
+        MissionCheckDto response = toMissionCheckDto(
+                missionCheckService.completeMissionCheck(userId, missionCheckId)
+        );
+        return ResponseEntity.ok(response);
+    }
+
     private static MissionCreateCommand toCommand(MissionCreateRequest request) {
         return new MissionCreateCommand(
                 request.title(),
