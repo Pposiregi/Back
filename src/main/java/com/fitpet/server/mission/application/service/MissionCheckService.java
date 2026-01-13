@@ -16,6 +16,8 @@ public interface MissionCheckService {
 
     void deleteMissionCheck(Long userId, Long missionCheckId);
 
+    MissionCheckResult completeMissionCheck(Long userId, Long missionCheckId);
+
     List<MissionProgressResult> getActiveMissions(Long userId, LocalDate date);
 
     List<MissionProgressResult> getCompletedMissions(Long userId);
