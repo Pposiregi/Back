@@ -51,8 +51,7 @@ public class MissionCheckServiceImpl implements MissionCheckService {
         User user = getUser(userId);
         PeriodRange period = resolvePeriod(
                 mission.getType(),
-                request.actionDate(),
-                toCreatedDate(user)
+                request.actionDate()
         );
 
         UpdateResult result = upsertMissionCheck(mission, user, period, request.progressValue());
@@ -162,12 +161,12 @@ public class MissionCheckServiceImpl implements MissionCheckService {
         return progress.compareTo(goal) >= 0;
     }
 
-    private static PeriodRange resolvePeriod(MissionType type, LocalDate baseDate, LocalDate userCreatedDate) {
+    private static PeriodRange resolvePeriod(MissionType type, LocalDate baseDate) {
         LocalDate date = baseDate != null ? baseDate : LocalDate.now();
         return switch (type) {
             case DAILY -> new PeriodRange(date, date);
             case WEEKLY -> new PeriodRange(
-                    resolveWeeklyStart(date, userCreatedDate),
+                    resolveWeeklyStart(date),
                     date.with(TemporalAdjusters.nextOrSame(java.time.DayOfWeek.SUNDAY))
             );
             case MONTHLY -> new PeriodRange(
@@ -208,10 +207,6 @@ public class MissionCheckServiceImpl implements MissionCheckService {
     private User getUser(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(UserNotFoundException::new);
-    }
-
-    private static LocalDate toCreatedDate(User user) {
-        return user.getCreatedAt() != null ? user.getCreatedAt().toLocalDate() : null;
     }
 
     private UpdateResult upsertMissionCheck(
@@ -323,12 +318,8 @@ public class MissionCheckServiceImpl implements MissionCheckService {
         }
     }
 
-    private static LocalDate resolveWeeklyStart(LocalDate date, LocalDate userCreatedDate) {
-        LocalDate weekStart = date.with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY));
-        if (userCreatedDate == null) {
-            return weekStart;
-        }
-        return userCreatedDate.isAfter(weekStart) ? userCreatedDate : weekStart;
+    private static LocalDate resolveWeeklyStart(LocalDate date) {
+        return date.with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY));
     }
 
     private static boolean shouldUpdateMealMission(
