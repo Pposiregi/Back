@@ -194,6 +194,7 @@ public class MissionController {
         return new MissionCreateCommand(
                 request.title(),
                 request.content(),
+                request.description(),
                 request.type(),
                 request.category(),
                 request.goal()
@@ -204,6 +205,7 @@ public class MissionController {
         return new MissionUpdateCommand(
                 request.title(),
                 request.content(),
+                request.description(),
                 request.type(),
                 request.category(),
                 request.goal()
@@ -219,6 +221,7 @@ public class MissionController {
                 result.missionId(),
                 result.title(),
                 result.content(),
+                result.description(),
                 result.type(),
                 result.category(),
                 result.goal(),

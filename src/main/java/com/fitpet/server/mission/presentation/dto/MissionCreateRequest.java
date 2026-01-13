@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 public record MissionCreateRequest(
     @NotBlank String title,
     String content,
+    String description,
     @NotNull MissionType type,
     @NotNull MissionCategory category,
     @NotNull BigDecimal goal

@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 public record MissionCreateCommand(
     String title,
     String content,
+    String description,
     MissionType type,
     MissionCategory category,
     BigDecimal goal

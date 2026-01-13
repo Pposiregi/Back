@@ -9,6 +9,7 @@ public record MissionResult(
     Long missionId,
     String title,
     String content,
+    String description,
     MissionType type,
     MissionCategory category,
     BigDecimal goal,
