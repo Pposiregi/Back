@@ -30,6 +30,8 @@ public interface UserRepository {
 
     Optional<User> findByProviderAndProviderUid(String provider, String providerUid);
 
+    List<User> findAll();
+
     int resetDailyStepCount();
 
     Page<User> findUsersBelowStepTarget(Pageable pageable);

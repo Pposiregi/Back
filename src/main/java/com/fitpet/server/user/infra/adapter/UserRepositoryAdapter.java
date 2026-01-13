@@ -73,6 +73,11 @@ public class UserRepositoryAdapter implements UserRepository {
     }
 
     @Override
+    public List<User> findAll() {
+        return jpa.findAll();
+    }
+
+    @Override
     public int resetDailyStepCount() {
         return jpa.resetDailyStepCount();
     }
