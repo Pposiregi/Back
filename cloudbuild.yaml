@@ -9,8 +9,8 @@ steps:
     args:
       - build
       - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$COMMIT_SHA'
-      - '--builder=gcr.io/buildpacks/builder:v1'
-      - '--env=BP_JVM_VERSION=17'
+      - '--builder=gcr.io/buildpacks/builder'
+      - '--env=GOOGLE_RUNTIME_VERSION=17'
       - '--publish'
 
   # 2. Deploy to Cloud Run
