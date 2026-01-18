@@ -20,12 +20,12 @@ public class AlramController {
 
     private final AlramService alramService;
 
-    @PostMapping("/send")
+    @PostMapping("/send2")
     public ResponseEntity<AlramResponseDto> sendAlram(
             @Valid @RequestBody AlramRequestDto requestDto
     ) {
         AlramResponseDto response = alramService.sendAndSaveAlram(requestDto);
-        log.info("✅FCM 알림 컨트롤러");
+        log.info("✅FCM 알림 컨트롤러2");
         return ResponseEntity.ok(response);
     }
 }
