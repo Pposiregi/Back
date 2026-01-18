@@ -25,7 +25,7 @@ public class AlramController {
             @Valid @RequestBody AlramRequestDto requestDto
     ) {
         AlramResponseDto response = alramService.sendAndSaveAlram(requestDto);
-        log.info("✅FCM 알림 컨트롤러2");
+        log.info("✅FCM 알림 컨트롤러");
         return ResponseEntity.ok(response);
     }
 }
