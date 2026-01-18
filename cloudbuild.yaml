@@ -31,9 +31,5 @@ steps:
       - '--allow-unauthenticated'
       - '--service-account'
       - 'fitpet-run-sa@$PROJECT_ID.iam.gserviceaccount.com'
-
-images:
-  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$COMMIT_SHA'
-
 options:
   logging: CLOUD_LOGGING_ONLY
