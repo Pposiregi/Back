@@ -20,7 +20,7 @@ public class AlramController {
 
     private final AlramService alramService;
 
-    @PostMapping("/send2")
+    @PostMapping("/send")
     public ResponseEntity<AlramResponseDto> sendAlram(
             @Valid @RequestBody AlramRequestDto requestDto
     ) {
