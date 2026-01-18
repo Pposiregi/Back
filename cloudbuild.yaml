@@ -1,7 +1,7 @@
 substitutions:
   _REGION: asia-northeast3
   _REPO: fitpet-artifact
-  _SERVICE: fitpet-back
+  _SERVICE: fitpet-test
 
 steps:
   # 1. Build & push image using Buildpacks (Java 17 / Gradle)
