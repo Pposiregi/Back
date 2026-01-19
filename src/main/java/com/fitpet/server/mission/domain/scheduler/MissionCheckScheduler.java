@@ -15,6 +15,8 @@ import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class MissionCheckScheduler {
 
     private static final ZoneId ZONE_ID = ZoneId.of("Asia/Seoul");
+    private static final int USER_CHUNK_SIZE = 500;
 
     private final MissionRepository missionRepository;
     private final MissionCheckRepository missionCheckRepository;
@@ -60,40 +63,45 @@ public class MissionCheckScheduler {
             return 0;
         }
 
-        List<User> users = userRepository.findAll();
-        if (users.isEmpty()) {
-            return 0;
-        }
-
         PeriodRange period = resolvePeriod(type, baseDate);
         int created = 0;
 
-        for (User user : users) {
-            for (Mission mission : missions) {
-                boolean exists = missionCheckRepository.findByPeriodKey(
-                        mission.getId(),
-                        user.getId(),
-                        mission.getType(),
-                        period.start()
-                ).isPresent();
-                if (exists) {
-                    continue;
-                }
-
-                MissionCheck missionCheck = MissionCheck.builder()
-                        .mission(mission)
-                        .user(user)
-                        .periodType(type)
-                        .periodStart(period.start())
-                        .periodEnd(period.end())
-                        .progressValue(BigDecimal.ZERO)
-                        .completed(false)
-                        .completedAt(null)
-                        .build();
-
-                missionCheckRepository.save(missionCheck);
-                created++;
+        Slice<User> users = userRepository.findAll(PageRequest.of(0, USER_CHUNK_SIZE));
+        while (true) {
+            if (users.isEmpty()) {
+                break;
             }
+            for (User user : users.getContent()) {
+                for (Mission mission : missions) {
+                    boolean exists = missionCheckRepository.findByPeriodKey(
+                            mission.getId(),
+                            user.getId(),
+                            mission.getType(),
+                            period.start()
+                    ).isPresent();
+                    if (exists) {
+                        continue;
+                    }
+
+                    MissionCheck missionCheck = MissionCheck.builder()
+                            .mission(mission)
+                            .user(user)
+                            .periodType(type)
+                            .periodStart(period.start())
+                            .periodEnd(period.end())
+                            .progressValue(BigDecimal.ZERO)
+                            .completed(false)
+                            .completedAt(null)
+                            .build();
+
+                    missionCheckRepository.save(missionCheck);
+                    created++;
+                }
+            }
+            if (!users.hasNext()) {
+                break;
+            }
+            users = userRepository.findAll(users.nextPageable());
         }
 
         return created;

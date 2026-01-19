@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -75,6 +76,11 @@ public class UserRepositoryAdapter implements UserRepository {
     @Override
     public List<User> findAll() {
         return jpa.findAll();
+    }
+
+    @Override
+    public Slice<User> findAll(Pageable pageable) {
+        return jpa.findAll(pageable);
     }
 
     @Override
