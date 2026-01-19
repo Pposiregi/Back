@@ -1,0 +1,35 @@
+substitutions:
+  _REGION: asia-northeast3
+  _REPO: fitpet-artifact
+  _SERVICE: fitpet-dev
+
+steps:
+  # 1. Build & push image using Buildpacks (Java 17 / Gradle)
+  - name: gcr.io/k8s-skaffold/pack
+    args:
+      - build
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$COMMIT_SHA'
+      - '--builder=gcr.io/buildpacks/builder'
+      - '--env=GOOGLE_RUNTIME_VERSION=17'
+      - '--publish'
+
+  # 2. Deploy to Cloud Run
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - '${_SERVICE}'
+      - '--image'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$COMMIT_SHA'
+      - '--region'
+      - '${_REGION}'
+      - '--platform'
+      - 'managed'
+      - '--port'
+      - "8080"
+      - '--allow-unauthenticated'
+      - '--service-account'
+      - 'fitpet-run-sa@$PROJECT_ID.iam.gserviceaccount.com'
+options:
+  logging: CLOUD_LOGGING_ONLY
