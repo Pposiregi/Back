@@ -3,6 +3,7 @@ package com.fitpet.server.mission.infra.jpa;
 import com.fitpet.server.mission.domain.entity.MissionCategory;
 import com.fitpet.server.mission.domain.entity.MissionCheck;
 import com.fitpet.server.mission.domain.entity.MissionType;
+import com.fitpet.server.mission.domain.repository.MissionCheckKey;
 import com.fitpet.server.mission.domain.repository.MissionCheckRepository;
 import java.time.LocalDate;
 import java.util.List;
@@ -39,6 +40,16 @@ public class MissionCheckRepositoryAdapter implements MissionCheckRepository {
             periodType,
             periodStart
         );
+    }
+
+    @Override
+    public List<MissionCheckKey> findExistingKeys(
+        List<Long> userIds,
+        List<Long> missionIds,
+        MissionType periodType,
+        LocalDate periodStart
+    ) {
+        return missionCheckJpaRepository.findExistingKeys(userIds, missionIds, periodType, periodStart);
     }
 
     @Override

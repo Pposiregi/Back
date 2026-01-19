@@ -3,6 +3,7 @@ package com.fitpet.server.mission.domain.scheduler;
 import com.fitpet.server.mission.domain.entity.Mission;
 import com.fitpet.server.mission.domain.entity.MissionCheck;
 import com.fitpet.server.mission.domain.entity.MissionType;
+import com.fitpet.server.mission.domain.repository.MissionCheckKey;
 import com.fitpet.server.mission.domain.repository.MissionCheckRepository;
 import com.fitpet.server.mission.domain.repository.MissionRepository;
 import com.fitpet.server.user.domain.entity.User;
@@ -12,7 +13,9 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -63,6 +66,9 @@ public class MissionCheckScheduler {
             return 0;
         }
 
+        List<Long> missionIds = missions.stream()
+                .map(Mission::getId)
+                .toList();
         PeriodRange period = resolvePeriod(type, baseDate);
         int created = 0;
 
@@ -71,15 +77,15 @@ public class MissionCheckScheduler {
             if (users.isEmpty()) {
                 break;
             }
+            List<Long> userIds = users.getContent().stream()
+                    .map(User::getId)
+                    .toList();
+            Set<MissionCheckKey> existingKeys = new HashSet<>(
+                    missionCheckRepository.findExistingKeys(userIds, missionIds, type, period.start())
+            );
             for (User user : users.getContent()) {
                 for (Mission mission : missions) {
-                    boolean exists = missionCheckRepository.findByPeriodKey(
-                            mission.getId(),
-                            user.getId(),
-                            mission.getType(),
-                            period.start()
-                    ).isPresent();
-                    if (exists) {
+                    if (existingKeys.contains(new MissionCheckKey(mission.getId(), user.getId()))) {
                         continue;
                     }
 

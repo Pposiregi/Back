@@ -20,6 +20,13 @@ public interface MissionCheckRepository {
         LocalDate periodStart
     );
 
+    List<MissionCheckKey> findExistingKeys(
+        List<Long> userIds,
+        List<Long> missionIds,
+        MissionType periodType,
+        LocalDate periodStart
+    );
+
     List<MissionCheck> findRecentByUser(Long userId);
 
     List<MissionCheck> findActiveByUserAndCategoryAndDate(
