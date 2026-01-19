@@ -22,7 +22,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Component
 @RequiredArgsConstructor
@@ -35,9 +35,9 @@ public class MissionCheckScheduler {
     private final MissionRepository missionRepository;
     private final MissionCheckRepository missionCheckRepository;
     private final UserRepository userRepository;
+    private final TransactionTemplate transactionTemplate;
 
     @Scheduled(cron = "0 0 0 * * *", zone = "Asia/Seoul")
-    @Transactional
     public void createDailyMissionChecks() {
         LocalDate today = LocalDate.now(ZONE_ID);
         int created = createMissionChecks(MissionType.DAILY, today);
@@ -45,7 +45,6 @@ public class MissionCheckScheduler {
     }
 
     @Scheduled(cron = "0 0 0 * * MON", zone = "Asia/Seoul")
-    @Transactional
     public void createWeeklyMissionChecks() {
         LocalDate today = LocalDate.now(ZONE_ID);
         int created = createMissionChecks(MissionType.WEEKLY, today);
@@ -53,7 +52,6 @@ public class MissionCheckScheduler {
     }
 
     @Scheduled(cron = "0 0 0 1 * *", zone = "Asia/Seoul")
-    @Transactional
     public void createMonthlyMissionChecks() {
         LocalDate today = LocalDate.now(ZONE_ID);
         int created = createMissionChecks(MissionType.MONTHLY, today);
@@ -77,37 +75,61 @@ public class MissionCheckScheduler {
             if (users.isEmpty()) {
                 break;
             }
-            List<Long> userIds = users.getContent().stream()
-                    .map(User::getId)
-                    .toList();
-            Set<MissionCheckKey> existingKeys = new HashSet<>(
-                    missionCheckRepository.findExistingKeys(userIds, missionIds, type, period.start())
-            );
-            for (User user : users.getContent()) {
-                for (Mission mission : missions) {
-                    if (existingKeys.contains(new MissionCheckKey(mission.getId(), user.getId()))) {
-                        continue;
-                    }
-
-                    MissionCheck missionCheck = MissionCheck.builder()
-                            .mission(mission)
-                            .user(user)
-                            .periodType(type)
-                            .periodStart(period.start())
-                            .periodEnd(period.end())
-                            .progressValue(BigDecimal.ZERO)
-                            .completed(false)
-                            .completedAt(null)
-                            .build();
-
-                    missionCheckRepository.save(missionCheck);
-                    created++;
-                }
+            List<User> batchUsers = users.getContent();
+            Integer batchCreated = transactionTemplate.execute(status -> createMissionChecksForUsers(
+                    batchUsers,
+                    missions,
+                    missionIds,
+                    type,
+                    period
+            ));
+            if (batchCreated != null) {
+                created += batchCreated;
             }
             if (!users.hasNext()) {
                 break;
             }
             users = userRepository.findAll(users.nextPageable());
+        }
+
+        return created;
+    }
+
+    private int createMissionChecksForUsers(
+            List<User> users,
+            List<Mission> missions,
+            List<Long> missionIds,
+            MissionType type,
+            PeriodRange period
+    ) {
+        List<Long> userIds = users.stream()
+                .map(User::getId)
+                .toList();
+        Set<MissionCheckKey> existingKeys = new HashSet<>(
+                missionCheckRepository.findExistingKeys(userIds, missionIds, type, period.start())
+        );
+
+        int created = 0;
+        for (User user : users) {
+            for (Mission mission : missions) {
+                if (existingKeys.contains(new MissionCheckKey(mission.getId(), user.getId()))) {
+                    continue;
+                }
+
+                MissionCheck missionCheck = MissionCheck.builder()
+                        .mission(mission)
+                        .user(user)
+                        .periodType(type)
+                        .periodStart(period.start())
+                        .periodEnd(period.end())
+                        .progressValue(BigDecimal.ZERO)
+                        .completed(false)
+                        .completedAt(null)
+                        .build();
+
+                missionCheckRepository.save(missionCheck);
+                created++;
+            }
         }
 
         return created;
