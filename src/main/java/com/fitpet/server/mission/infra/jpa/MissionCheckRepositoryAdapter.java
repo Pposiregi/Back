@@ -23,6 +23,11 @@ public class MissionCheckRepositoryAdapter implements MissionCheckRepository {
     }
 
     @Override
+    public List<MissionCheck> saveAll(List<MissionCheck> missionChecks) {
+        return missionCheckJpaRepository.saveAll(missionChecks);
+    }
+
+    @Override
     public Optional<MissionCheck> findById(Long missionCheckId) {
         return missionCheckJpaRepository.findById(missionCheckId);
     }

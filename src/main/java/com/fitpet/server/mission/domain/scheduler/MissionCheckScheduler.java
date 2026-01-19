@@ -13,6 +13,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -109,7 +110,7 @@ public class MissionCheckScheduler {
                 missionCheckRepository.findExistingKeys(userIds, missionIds, type, period.start())
         );
 
-        int created = 0;
+        List<MissionCheck> toSave = new ArrayList<>();
         for (User user : users) {
             for (Mission mission : missions) {
                 if (existingKeys.contains(new MissionCheckKey(mission.getId(), user.getId()))) {
@@ -127,12 +128,14 @@ public class MissionCheckScheduler {
                         .completedAt(null)
                         .build();
 
-                missionCheckRepository.save(missionCheck);
-                created++;
+                toSave.add(missionCheck);
             }
         }
 
-        return created;
+        if (!toSave.isEmpty()) {
+            missionCheckRepository.saveAll(toSave);
+        }
+        return toSave.size();
     }
 
     private static PeriodRange resolvePeriod(MissionType type, LocalDate baseDate) {

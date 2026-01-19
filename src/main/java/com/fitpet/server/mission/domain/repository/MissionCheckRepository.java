@@ -11,6 +11,8 @@ public interface MissionCheckRepository {
 
     MissionCheck save(MissionCheck missionCheck);
 
+    List<MissionCheck> saveAll(List<MissionCheck> missionChecks);
+
     Optional<MissionCheck> findById(Long missionCheckId);
 
     Optional<MissionCheck> findByPeriodKey(
