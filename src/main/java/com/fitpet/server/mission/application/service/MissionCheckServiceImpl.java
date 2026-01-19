@@ -11,6 +11,8 @@ import com.fitpet.server.mission.domain.entity.Mission;
 import com.fitpet.server.mission.domain.entity.MissionCategory;
 import com.fitpet.server.mission.domain.entity.MissionCheck;
 import com.fitpet.server.mission.domain.entity.MissionType;
+import com.fitpet.server.mission.domain.exception.MissionCheckAccessDeniedException;
+import com.fitpet.server.mission.domain.exception.MissionCheckNotCompletableException;
 import com.fitpet.server.mission.domain.exception.MissionCheckNotFoundException;
 import com.fitpet.server.mission.domain.exception.MissionNotFoundException;
 import com.fitpet.server.mission.domain.repository.MissionCheckRepository;
@@ -77,8 +79,7 @@ public class MissionCheckServiceImpl implements MissionCheckService {
         if (!missionCheck.getUser().getId().equals(userId)) {
             log.warn("[MissionCheckService] 삭제 권한 없음: 요청자 userId={}, 기록 소유자 userId={}, checkId={}",
                     userId, missionCheck.getUser().getId(), missionCheckId);
-            //TODO: 적절한 예외로 수정해야 함
-            throw new RuntimeException("본인의 미션 기록만 삭제할 수 있습니다.");
+            throw new MissionCheckAccessDeniedException();
         }
 
         missionCheckRepository.delete(missionCheck);
@@ -93,7 +94,7 @@ public class MissionCheckServiceImpl implements MissionCheckService {
         if (!missionCheck.getUser().getId().equals(userId)) {
             log.warn("[MissionCheckService] 완료 권한 없음: 요청자 userId={}, 기록 소유자 userId={}, checkId={}",
                     userId, missionCheck.getUser().getId(), missionCheckId);
-            throw new RuntimeException("본인의 미션 기록만 완료할 수 있습니다.");
+            throw new MissionCheckAccessDeniedException();
         }
 
         if (missionCheck.isCompleted()) {
@@ -102,7 +103,7 @@ public class MissionCheckServiceImpl implements MissionCheckService {
 
         Mission mission = missionCheck.getMission();
         if (!isCompleted(missionCheck.getProgressValue(), mission.getGoal())) {
-            throw new RuntimeException("목표 달성 후 완료할 수 있습니다.");
+            throw new MissionCheckNotCompletableException();
         }
 
         missionCheck.updateProgress(missionCheck.getProgressValue(), true, LocalDateTime.now());
