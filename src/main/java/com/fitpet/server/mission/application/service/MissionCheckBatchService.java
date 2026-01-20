@@ -20,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -60,7 +61,7 @@ public class MissionCheckBatchService {
         PeriodRange period = resolvePeriod(type, baseDate);
         int created = 0;
 
-        Slice<User> users = userRepository.findAll(PageRequest.of(0, USER_CHUNK_SIZE));
+        Slice<User> users = userRepository.findAll(PageRequest.of(0, USER_CHUNK_SIZE, Sort.by("id").ascending()));
         while (true) {
             if (users.isEmpty()) {
                 break;
