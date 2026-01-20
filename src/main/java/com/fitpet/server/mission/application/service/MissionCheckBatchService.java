@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
@@ -124,10 +125,28 @@ public class MissionCheckBatchService {
             }
         }
 
-        if (!toSave.isEmpty()) {
-            missionCheckRepository.saveAll(toSave);
+        if (toSave.isEmpty()) {
+            return 0;
         }
-        return toSave.size();
+        try {
+            missionCheckRepository.saveAll(toSave);
+            return toSave.size();
+        } catch (DataIntegrityViolationException ex) {
+            log.warn(
+                    "[MissionCheckBatchService] 중복 생성 감지: type={}, periodStart={}, attempted={}",
+                    type, period.start(), toSave.size()
+            );
+            int saved = 0;
+            for (MissionCheck missionCheck : toSave) {
+                try {
+                    missionCheckRepository.save(missionCheck);
+                    saved++;
+                } catch (DataIntegrityViolationException ignore) {
+                    // 중복이면 무시
+                }
+            }
+            return saved;
+        }
     }
 
     private static PeriodRange resolvePeriod(MissionType type, LocalDate baseDate) {
