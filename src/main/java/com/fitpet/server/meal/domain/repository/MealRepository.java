@@ -16,4 +16,8 @@ public interface MealRepository {
     List<Meal> findByUserAndDay(User user, LocalDate day);
 
     List<Meal> findByUserAndDayBetweenOrderByDayAsc(User user, LocalDate startOfMonth, LocalDate endOfMonth);
+
+    long countByUserAndDay(User user, LocalDate day);
+
+    long countByUserAndDayAndSequence(User user, LocalDate day, Integer sequence);
 }

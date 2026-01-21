@@ -44,6 +44,10 @@ public class Mission {
     @Column(nullable = false, length = 20)
     private MissionType type;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private MissionCategory category;
+
     @Column(nullable = false)
     private BigDecimal goal;
 
@@ -55,7 +59,7 @@ public class Mission {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    public void update(String title, String content, MissionType type, BigDecimal goal) {
+    public void update(String title, String content, MissionType type, MissionCategory category, BigDecimal goal) {
         if (title != null && !title.isBlank()) {
             this.title = title;
         }
@@ -64,6 +68,9 @@ public class Mission {
         }
         if (type != null) {
             this.type = type;
+        }
+        if (category != null) {
+            this.category = category;
         }
         if (goal != null) {
             this.goal = goal;

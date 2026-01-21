@@ -1,5 +1,6 @@
 package com.fitpet.server.mission.presentation.dto;
 
+import com.fitpet.server.mission.domain.entity.MissionCategory;
 import com.fitpet.server.mission.domain.entity.MissionType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -9,6 +10,7 @@ public record MissionCreateRequest(
     @NotBlank String title,
     String content,
     @NotNull MissionType type,
+    @NotNull MissionCategory category,
     @NotNull BigDecimal goal
 ) {
 }
