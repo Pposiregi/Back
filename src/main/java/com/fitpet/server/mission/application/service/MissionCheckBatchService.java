@@ -36,6 +36,7 @@ public class MissionCheckBatchService {
     private final MissionRepository missionRepository;
     private final MissionCheckRepository missionCheckRepository;
     private final UserRepository userRepository;
+    private final MissionCheckBatchSaveService missionCheckBatchSaveService;
     private final TransactionTemplate transactionTemplate;
 
     public int createDailyMissionChecks(LocalDate baseDate) {
@@ -139,7 +140,7 @@ public class MissionCheckBatchService {
             int saved = 0;
             for (MissionCheck missionCheck : toSave) {
                 try {
-                    missionCheckRepository.save(missionCheck);
+                    missionCheckBatchSaveService.saveInNewTx(missionCheck);
                     saved++;
                 } catch (DataIntegrityViolationException ignore) {
                     // 중복이면 무시
