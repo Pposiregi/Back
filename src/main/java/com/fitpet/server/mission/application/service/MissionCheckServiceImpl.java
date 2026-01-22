@@ -131,18 +131,18 @@ public class MissionCheckServiceImpl implements MissionCheckService {
     }
 
     @Override
-    public List<MissionProgressUpdateItem> updateMealMissions(Long userId, LocalDate actionDate) {
+    public List<MissionProgressUpdateItem> updateMealMissions(
+            Long userId,
+            LocalDate actionDate,
+            MealTime mealTime
+    ) {
         LocalDate date = actionDate != null ? actionDate : LocalDate.now();
         User user = userRepository.findById(userId)
                 .orElseThrow(UserNotFoundException::new);
 
-        MealTime mealTime = MealTime.from(LocalTime.now());
         boolean firstMealOfDay = mealRepository.countByUserAndDay(user, date) == 1;
-        boolean firstMealOfTime = mealRepository.countByUserAndDayAndSequence(
-                user,
-                date,
-                mealTime.getSequence()
-        ) == 1;
+        boolean firstMealOfTime = mealTime != null
+                && mealRepository.countByUserAndDayAndSequence(user, date, mealTime.getSequence()) == 1;
 
         return updateMealMissionsInternal(userId, date, mealTime, firstMealOfDay, firstMealOfTime);
     }

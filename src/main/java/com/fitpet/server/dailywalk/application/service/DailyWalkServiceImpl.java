@@ -8,6 +8,7 @@ import com.fitpet.server.dailywalk.presentation.dto.request.DailyWalkCreateReque
 import com.fitpet.server.dailywalk.presentation.dto.request.DailyWalkStepUpdateRequest;
 import com.fitpet.server.dailywalk.presentation.dto.response.DailyStepSummaryResponse;
 import com.fitpet.server.dailywalk.presentation.dto.response.DailyWalkResponse;
+import com.fitpet.server.mission.application.service.MissionCheckService;
 import com.fitpet.server.pet.application.service.PetExpressionService;
 import com.fitpet.server.pet.domain.entity.PetExpression;
 import com.fitpet.server.shared.exception.BusinessException;
@@ -17,6 +18,7 @@ import com.fitpet.server.user.domain.exception.UserNotFoundException;
 import com.fitpet.server.user.domain.repository.UserRepository;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PastOrPresent;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -38,6 +40,7 @@ public class DailyWalkServiceImpl implements DailyWalkService {
     private final UserRepository userRepository;
     private final DailyWalkMapper dailyWalkMapper;
     private final PetExpressionService petExpressionService;
+    private final MissionCheckService missionCheckService;
 
     @Override
     @Transactional(readOnly = true)
@@ -117,11 +120,13 @@ public class DailyWalkServiceImpl implements DailyWalkService {
 
         if (existing.isPresent()) {
             DailyWalk walk = existing.get();
+            int previousStep = walk.getStep();
 
             walk.update(req.step(), req.distanceKm(), req.burnCalories());
 
             if (date.equals(LocalDate.now())) {
-                handleDailyStepUpdate(user, req.step());
+                int delta = Math.max(req.step() - previousStep, 0);
+                handleDailyStepUpdate(user, req.step(), date, delta);
             }
 
             log.info("[DailyWalkService] 업데이트 완료: id={}, userId={}, createdAt={}",
@@ -133,11 +138,11 @@ public class DailyWalkServiceImpl implements DailyWalkService {
         DailyWalk saved = dailyWalkRepository.save(walk);
 
         if (date.equals(LocalDate.now())) {
-            handleDailyStepUpdate(user, req.step());
+            handleDailyStepUpdate(user, req.step(), date, req.step());
         }
 
         log.info("[DailyWalkService] 저장 완료: dailyWalkId={}, userId={}, createdAt={}",
-                saved.getId(), user.getId(), saved.getCreatedAt());
+                saved.getId(), saved.getUser().getId(), saved.getCreatedAt());
 
         return DailyWalkResponse.from(saved);
     }
@@ -158,21 +163,16 @@ public class DailyWalkServiceImpl implements DailyWalkService {
                     return new UserNotFoundException();
                 });
 
-        int updated = dailyWalkRepository.updateStepByUserIdAndDate(
-                userId,
-                start,
-                end,
-                req.step(),
-                req.distanceKm(),
-                req.burnCalories()
-        );
-        if (updated == 0) {
-            log.warn("[DailyWalkService] 걸음수 수정 실패(대상 없음): userId={}, date={}", userId, req.date());
-            throw new DailyWalkNotFoundException();
-        }
+        DailyWalk walk = dailyWalkRepository.findByUser_IdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                        userId, start, end)
+                .orElseThrow(DailyWalkNotFoundException::new);
+
+        int previousStep = walk.getStep();
+        walk.update(req.step(), req.distanceKm(), req.burnCalories());
 
         if (req.date().equals(LocalDate.now())) {
-            handleDailyStepUpdate(user, req.step());
+            int delta = Math.max(req.step() - previousStep, 0);
+            handleDailyStepUpdate(user, req.step(), req.date(), delta);
         }
 
         log.info("[DailyWalkService] 걸음수 수정 완료: userId={}, req={}", userId, req);
@@ -196,11 +196,14 @@ public class DailyWalkServiceImpl implements DailyWalkService {
         log.info("[DailyWalkService] 삭제 완료: dailyWalkId={}", dailyWalkId);
     }
 
-    private void handleDailyStepUpdate(User user, int newStep) {
+    private void handleDailyStepUpdate(User user, int newStep, LocalDate date, int delta) {
         user.updateDailyStepCount(newStep);
         Integer target = user.getTargetStepCount();
         if (target != null && newStep >= target) {
             petExpressionService.updateExpression(user.getId(), PetExpression.PROUD);
+        }
+        if (delta > 0 && date.equals(LocalDate.now())) {
+            missionCheckService.updateStepMissions(user.getId(), date, BigDecimal.valueOf(delta));
         }
     }
 }
