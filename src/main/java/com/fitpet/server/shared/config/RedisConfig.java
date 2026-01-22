@@ -1,6 +1,8 @@
 package com.fitpet.server.shared.config;
 
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
@@ -62,19 +64,27 @@ public class RedisConfig {
 
     @Bean
     public CacheManager cacheManager(RedisConnectionFactory cf) {
-        RedisCacheConfiguration redisCacheConfiguration = RedisCacheConfiguration.defaultCacheConfig()
+        // 기본 설정 = 60분
+        RedisCacheConfiguration defaults = RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(Duration.ofMinutes(60))
                 .serializeKeysWith(
                         RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
-
-                // JSON 직렬화
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(
-                        new GenericJackson2JsonRedisSerializer()))
-                // 캐시 수명 60분
-                .entryTtl(Duration.ofMinutes(60));
+                        new GenericJackson2JsonRedisSerializer()));
+
+        Map<String, RedisCacheConfiguration> configs = new HashMap<>();
+
+        // 정적 데이터(약관) = 24시간
+        configs.put("staticData", defaults.entryTtl(Duration.ofHours(24)));
+
+        // 식단, 프로필 = 30분
+        configs.put("meal", defaults.entryTtl(Duration.ofMinutes(30)));
+        configs.put("profile", defaults.entryTtl(Duration.ofMinutes(30)));
 
         return RedisCacheManager.RedisCacheManagerBuilder
                 .fromConnectionFactory(cf)
-                .cacheDefaults(redisCacheConfiguration)
+                .cacheDefaults(defaults)
+                .withInitialCacheConfigurations(configs)
                 .build();
     }
 }

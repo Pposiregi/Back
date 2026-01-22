@@ -6,9 +6,12 @@ import com.fitpet.server.termsmaster.domain.repository.TermsRepository;
 import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -16,7 +19,10 @@ public class TermsService {
 
     private final TermsRepository termsRepository;
 
+    @Cacheable(value = "staticData", key = "'termsList'")
     public List<TermsDto> getActiveTerms() {
+        log.info("[TermsService] DB에서 약관을 조회합니다.");
+        
         List<Terms> activeTerms = termsRepository.findAllActiveTerms(LocalDate.now());
 
         return activeTerms.stream()
