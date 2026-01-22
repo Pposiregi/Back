@@ -15,13 +15,32 @@ import org.springframework.data.repository.query.Param;
 public interface DailyWalkJpaRepository extends JpaRepository<DailyWalk, Long> {
     List<DailyWalk> findAllByUser_Id(Long userId);
 
-    Optional<DailyWalk> findByUser_IdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(Long userId,
-                                                                                      LocalDateTime start,
-                                                                                      LocalDateTime end);
+    @Query("""
+            select dw
+            from DailyWalk dw
+            where dw.user.id = :userId
+              and dw.createdAt >= :start
+              and dw.createdAt < :end
+            """)
+    Optional<DailyWalk> findByPeriod(
+            @Param("userId") Long userId,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end
+    );
 
-    List<DailyWalk> findAllByUser_IdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtAsc(Long userId,
-                                                                                                        LocalDateTime start,
-                                                                                                        LocalDateTime end);
+    @Query("""
+            select dw
+            from DailyWalk dw
+            where dw.user.id = :userId
+              and dw.createdAt >= :start
+              and dw.createdAt < :end
+            order by dw.createdAt asc
+            """)
+    List<DailyWalk> findAllByPeriod(
+            @Param("userId") Long userId,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end
+    );
 
     @Query("SELECT dw FROM DailyWalk dw " +
             "WHERE dw.user = :user " +
