@@ -10,6 +10,7 @@ import com.fitpet.server.dailywalk.presentation.dto.response.DailyStepSummaryRes
 import com.fitpet.server.dailywalk.presentation.dto.response.DailyWalkResponse;
 import com.fitpet.server.pet.application.service.PetExpressionService;
 import com.fitpet.server.pet.domain.entity.PetExpression;
+import com.fitpet.server.ranking.application.service.RankingService;
 import com.fitpet.server.shared.exception.BusinessException;
 import com.fitpet.server.shared.exception.ErrorCode;
 import com.fitpet.server.user.domain.entity.User;
@@ -38,6 +39,7 @@ public class DailyWalkServiceImpl implements DailyWalkService {
     private final UserRepository userRepository;
     private final DailyWalkMapper dailyWalkMapper;
     private final PetExpressionService petExpressionService;
+    private final RankingService rankingService;
 
     @Override
     @Transactional(readOnly = true)
@@ -198,6 +200,9 @@ public class DailyWalkServiceImpl implements DailyWalkService {
 
     private void handleDailyStepUpdate(User user, int newStep) {
         user.updateDailyStepCount(newStep);
+
+        rankingService.updateScore(user.getId(), newStep);
+
         Integer target = user.getTargetStepCount();
         if (target != null && newStep >= target) {
             petExpressionService.updateExpression(user.getId(), PetExpression.PROUD);

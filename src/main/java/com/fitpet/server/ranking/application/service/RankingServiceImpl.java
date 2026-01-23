@@ -142,7 +142,7 @@ public class RankingServiceImpl implements RankingService {
     }
 
     private double updateDbRanking(Ranking ranking, int steps) {
-        double newTotalScore = ranking.getScore() + steps;
+        double newTotalScore = (double) steps;
         ranking.updateScore(newTotalScore);
         rankingRepository.save(ranking);
         return newTotalScore;
