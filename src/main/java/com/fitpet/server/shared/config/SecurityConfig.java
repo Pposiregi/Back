@@ -45,6 +45,7 @@ public class SecurityConfig {
             "/terms/**",
             "/devices/**",
             "/api/test/**",
+            "/ranking/**",
     };
 
     @Bean
