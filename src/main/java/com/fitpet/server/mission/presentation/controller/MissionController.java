@@ -179,10 +179,22 @@ public class MissionController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/checks/{missionCheckId}/complete")
+    public ResponseEntity<MissionCheckDto> completeMissionCheck(
+            @AuthUser Long userId,
+            @PathVariable Long missionCheckId
+    ) {
+        MissionCheckDto response = toMissionCheckDto(
+                missionCheckService.completeMissionCheck(userId, missionCheckId)
+        );
+        return ResponseEntity.ok(response);
+    }
+
     private static MissionCreateCommand toCommand(MissionCreateRequest request) {
         return new MissionCreateCommand(
                 request.title(),
                 request.content(),
+                request.description(),
                 request.type(),
                 request.category(),
                 request.goal()
@@ -193,6 +205,7 @@ public class MissionController {
         return new MissionUpdateCommand(
                 request.title(),
                 request.content(),
+                request.description(),
                 request.type(),
                 request.category(),
                 request.goal()
@@ -208,6 +221,7 @@ public class MissionController {
                 result.missionId(),
                 result.title(),
                 result.content(),
+                result.description(),
                 result.type(),
                 result.category(),
                 result.goal(),

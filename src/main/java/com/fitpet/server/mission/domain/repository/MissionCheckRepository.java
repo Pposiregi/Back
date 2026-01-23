@@ -11,11 +11,20 @@ public interface MissionCheckRepository {
 
     MissionCheck save(MissionCheck missionCheck);
 
+    List<MissionCheck> saveAll(List<MissionCheck> missionChecks);
+
     Optional<MissionCheck> findById(Long missionCheckId);
 
     Optional<MissionCheck> findByPeriodKey(
         Long missionId,
         Long userId,
+        MissionType periodType,
+        LocalDate periodStart
+    );
+
+    List<MissionCheckKey> findExistingKeys(
+        List<Long> userIds,
+        List<Long> missionIds,
         MissionType periodType,
         LocalDate periodStart
     );
