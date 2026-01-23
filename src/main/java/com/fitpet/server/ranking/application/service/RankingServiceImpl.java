@@ -33,6 +33,8 @@ public class RankingServiceImpl implements RankingService {
     @Override
     @Transactional
     public void updateScore(Long userId, int steps) {
+        log.debug("[RankingService] 점수 업데이트 요청: userId={}, steps={}", userId, steps);
+
         LocalDate now = LocalDate.now();
         User user = getUser(userId);
         String dateKey = getDateKey(now);
@@ -46,13 +48,19 @@ public class RankingServiceImpl implements RankingService {
 
         redisTemplate.opsForZSet().add(redisKey, String.valueOf(userId), redisScore);
 
-        log.info("Rank Update - User: {}, Score: {}", userId, finalRealScore);
+        log.info("[RankingService] 점수 업데이트 완료: userId={}, dateKey={}, finalScore={}",
+                userId, dateKey, finalRealScore);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<RankingResponse> getTop10() {
-        return getTop10Internal(LocalDate.now());
+        log.debug("[RankingService] 상위 10명 조회 요청");
+
+        List<RankingResponse> result = getTop10Internal(LocalDate.now());
+
+        log.info("[RankingService] 상위 10명 조회 완료: count={}명", result.size());
+        return result;
     }
 
     private List<RankingResponse> getTop10Internal(LocalDate now) {
@@ -71,6 +79,8 @@ public class RankingServiceImpl implements RankingService {
     @Override
     @Transactional(readOnly = true)
     public RankingResponse getMyRank(Long userId) {
+        log.debug("[RankingService] 내 랭킹 조회 요청: userId={}", userId);
+
         LocalDate now = LocalDate.now();
         String redisKey = getRankingKey(now);
         String userIdStr = String.valueOf(userId);
@@ -78,33 +88,41 @@ public class RankingServiceImpl implements RankingService {
         Long rankIndex = redisTemplate.opsForZSet().reverseRank(redisKey, userIdStr);
         Double redisScore = redisTemplate.opsForZSet().score(redisKey, userIdStr);
 
+        int finalRank;
+        long finalScore;
+
         if (rankIndex == null || redisScore == null) {
-            int defaultRank = calculateDefaultRank(redisKey);
-            return buildRankingResponse(userId, defaultRank, 0L);
+            finalRank = calculateDefaultRank(redisKey);
+            finalScore = 0L;
+        } else {
+            finalRank = rankIndex.intValue() + 1;
+            finalScore = (long) Math.floor(redisScore);
         }
 
-        int rank = rankIndex.intValue() + 1;
-        long score = (long) Math.floor(redisScore);
+        log.info("[RankingService] 내 랭킹 조회 완료: userId={}, rank={}, score={}",
+                userId, finalRank, finalScore);
 
-        return buildRankingResponse(userId, rank, score);
+        return buildRankingResponse(userId, finalRank, finalScore);
     }
 
     private List<RankingResponse> refreshRankingFromDb(LocalDate now) {
-        log.warn("Redis 유실 감지: DB의 원본 시각(updatedAt)을 기준으로 랭킹을 복구합니다.");
-
         String dateKey = getDateKey(now);
         String redisKey = getRankingKey(now);
+
+        log.warn("[RankingService] Redis 캐시 미스 - DB 복구 시작: dateKey={}", dateKey);
+
         List<Ranking> rankings = rankingRepository.findAllByDateKey(dateKey);
 
         for (Ranking r : rankings) {
-            // ranking table의 updated_at을 이용해 순위 재측정
             long originalTimestamp = (r.getUpdatedAt() != null)
                     ? r.getUpdatedAt().atZone(ZoneId.systemDefault()).toEpochSecond()
-                    : System.currentTimeMillis() / 1000; // null일 경우 현재시간 사용
+                    : System.currentTimeMillis() / 1000;
 
             double redisScore = calculateTimeWeightedScore(r.getScore(), originalTimestamp);
             redisTemplate.opsForZSet().add(redisKey, String.valueOf(r.getUser().getId()), redisScore);
         }
+
+        log.info("[RankingService] Redis 데이터 복구 완료: 복구된 인원={}명", rankings.size());
 
         return getTop10Internal(now);
     }
@@ -132,7 +150,10 @@ public class RankingServiceImpl implements RankingService {
 
     private User getUser(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> {
+                    log.warn("[RankingService] 사용자 조회 실패: userId={}", userId);
+                    return new IllegalArgumentException("User not found");
+                });
     }
 
     private String getRankingKey(LocalDate date) {
@@ -154,11 +175,7 @@ public class RankingServiceImpl implements RankingService {
             if (userIdStr != null && redisScore != null) {
                 long realScore = (long) Math.floor(redisScore);
 
-                result.add(RankingResponse.builder()
-                        .rank(rank++)
-                        .userId(Long.parseLong(userIdStr))
-                        .score(realScore)
-                        .build());
+                result.add(buildRankingResponse(Long.parseLong(userIdStr), rank++, realScore));
             }
         }
 
