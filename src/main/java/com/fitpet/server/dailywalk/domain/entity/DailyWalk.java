@@ -24,10 +24,10 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
 @Table(
-    name = "daily_walk",
-    uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"user_id", "created_at"})
-    }
+        name = "daily_walk",
+        uniqueConstraints = {
+                @UniqueConstraint(columnNames = {"user_id", "created_at"})
+        }
 )
 @Getter
 @NoArgsConstructor
@@ -74,9 +74,8 @@ public class DailyWalk {
             throw new IllegalArgumentException("소모 칼로리는 0 이상이어야 합니다.");
         }
 
-        this.step = step;
-        this.distanceKm = distanceKm;
-        this.burnCalories = burnCalories;
+        this.step += step;
+        this.distanceKm = this.distanceKm.add(distanceKm);
+        this.burnCalories += burnCalories;
     }
 }
-

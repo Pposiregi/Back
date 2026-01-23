@@ -120,13 +120,10 @@ public class DailyWalkServiceImpl implements DailyWalkService {
 
         if (existing.isPresent()) {
             DailyWalk walk = existing.get();
-            int previousStep = walk.getStep();
-
             walk.update(req.step(), req.distanceKm(), req.burnCalories());
 
             if (date.equals(LocalDate.now())) {
-                int delta = Math.max(req.step() - previousStep, 0);
-                handleDailyStepUpdate(user, req.step(), date, delta);
+                handleDailyStepUpdate(user, walk.getStep(), date, req.step());
             }
 
             log.info("[DailyWalkService] 업데이트 완료: id={}, userId={}, createdAt={}",
@@ -167,12 +164,10 @@ public class DailyWalkServiceImpl implements DailyWalkService {
                         userId, start, end)
                 .orElseThrow(DailyWalkNotFoundException::new);
 
-        int previousStep = walk.getStep();
         walk.update(req.step(), req.distanceKm(), req.burnCalories());
 
         if (req.date().equals(LocalDate.now())) {
-            int delta = Math.max(req.step() - previousStep, 0);
-            handleDailyStepUpdate(user, req.step(), req.date(), delta);
+            handleDailyStepUpdate(user, walk.getStep(), req.date(), req.step());
         }
 
         log.info("[DailyWalkService] 걸음수 수정 완료: userId={}, req={}", userId, req);
