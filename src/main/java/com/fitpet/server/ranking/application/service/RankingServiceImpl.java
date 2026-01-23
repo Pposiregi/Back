@@ -33,9 +33,10 @@ public class RankingServiceImpl implements RankingService {
     @Override
     @Transactional
     public void updateScore(Long userId, int steps) {
+        LocalDate now = LocalDate.now();
         User user = getUser(userId);
-        String dateKey = getCurrentDateKey();
-        String redisKey = getCurrentRankingKey();
+        String dateKey = getDateKey(now);
+        String redisKey = getRankingKey(now);
 
         Ranking ranking = getOrCreateRanking(user, dateKey);
         double finalRealScore = updateDbRanking(ranking, steps);
@@ -51,24 +52,27 @@ public class RankingServiceImpl implements RankingService {
     @Override
     @Transactional(readOnly = true)
     public List<RankingResponse> getTop10() {
-        String redisKey = getCurrentRankingKey();
+        return getTop10Internal(LocalDate.now());
+    }
+
+    private List<RankingResponse> getTop10Internal(LocalDate now) {
+        String redisKey = getRankingKey(now);
 
         Set<ZSetOperations.TypedTuple<String>> tuples =
                 redisTemplate.opsForZSet().reverseRangeWithScores(redisKey, 0, TOP_RANK_LIMIT - 1);
 
         if (tuples == null || tuples.isEmpty()) {
-            return refreshRankingFromDb();
+            return refreshRankingFromDb(now);
         }
 
-        List<RankingResponse> result = convertToResponseList(tuples);
-
-        return result;
+        return convertToResponseList(tuples);
     }
 
     @Override
     @Transactional(readOnly = true)
     public RankingResponse getMyRank(Long userId) {
-        String redisKey = getCurrentRankingKey();
+        LocalDate now = LocalDate.now();
+        String redisKey = getRankingKey(now);
         String userIdStr = String.valueOf(userId);
 
         Long rankIndex = redisTemplate.opsForZSet().reverseRank(redisKey, userIdStr);
@@ -85,11 +89,12 @@ public class RankingServiceImpl implements RankingService {
         return buildRankingResponse(userId, rank, score);
     }
 
-    private List<RankingResponse> refreshRankingFromDb() {
+    private List<RankingResponse> refreshRankingFromDb(LocalDate now) {
         log.warn("Redis 유실 감지: DB의 원본 시각(updatedAt)을 기준으로 랭킹을 복구합니다.");
 
-        List<Ranking> rankings = rankingRepository.findAllByDateKey(getCurrentDateKey());
-        String redisKey = getCurrentRankingKey();
+        String dateKey = getDateKey(now);
+        String redisKey = getRankingKey(now);
+        List<Ranking> rankings = rankingRepository.findAllByDateKey(dateKey);
 
         for (Ranking r : rankings) {
             // ranking table의 updated_at을 이용해 순위 재측정
@@ -101,7 +106,7 @@ public class RankingServiceImpl implements RankingService {
             redisTemplate.opsForZSet().add(redisKey, String.valueOf(r.getUser().getId()), redisScore);
         }
 
-        return getTop10();
+        return getTop10Internal(now);
     }
 
     private double calculateTimeWeightedScore(double realScore, long timestamp) {
@@ -130,12 +135,12 @@ public class RankingServiceImpl implements RankingService {
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
     }
 
-    private String getCurrentRankingKey() {
-        return "ranking:daily:" + LocalDate.now().toString();
+    private String getRankingKey(LocalDate date) {
+        return "ranking:daily:" + date.toString();
     }
 
-    private String getCurrentDateKey() {
-        return LocalDate.now().toString();
+    private String getDateKey(LocalDate date) {
+        return date.toString();
     }
 
     private List<RankingResponse> convertToResponseList(Set<ZSetOperations.TypedTuple<String>> tuples) {
