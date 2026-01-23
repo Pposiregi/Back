@@ -135,7 +135,7 @@ public class DailyWalkServiceImpl implements DailyWalkService {
         DailyWalk saved = dailyWalkRepository.save(walk);
 
         if (date.equals(LocalDate.now())) {
-            handleDailyStepUpdate(user, req.step(), date, req.step());
+            handleDailyStepUpdate(user, saved.getStep(), date, req.step());
         }
 
         log.info("[DailyWalkService] 저장 완료: dailyWalkId={}, userId={}, createdAt={}",

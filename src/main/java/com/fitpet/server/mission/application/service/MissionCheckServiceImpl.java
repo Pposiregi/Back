@@ -140,11 +140,10 @@ public class MissionCheckServiceImpl implements MissionCheckService {
         User user = userRepository.findById(userId)
                 .orElseThrow(UserNotFoundException::new);
 
-        boolean firstMealOfDay = mealRepository.countByUserAndDay(user, date) == 1;
         boolean firstMealOfTime = mealTime != null
                 && mealRepository.countByUserAndDayAndSequence(user, date, mealTime.getSequence()) == 1;
 
-        return updateMealMissionsInternal(userId, date, mealTime, firstMealOfDay, firstMealOfTime);
+        return updateMealMissionsInternal(userId, date, mealTime, firstMealOfTime);
     }
 
     @Override
@@ -205,7 +204,6 @@ public class MissionCheckServiceImpl implements MissionCheckService {
             Long userId,
             LocalDate date,
             MealTime mealTime,
-            boolean firstMealOfDay,
             boolean firstMealOfTime
     ) {
         if (mealTime == null) {
@@ -218,7 +216,7 @@ public class MissionCheckServiceImpl implements MissionCheckService {
             return List.of();
         }
 
-        UpdateResult result = applyMealProgress(checks, mealTime, firstMealOfDay, firstMealOfTime);
+        UpdateResult result = applyMealProgress(checks, mealTime, firstMealOfTime);
         return result.updatedItems();
     }
 
@@ -294,7 +292,6 @@ public class MissionCheckServiceImpl implements MissionCheckService {
     private UpdateResult applyMealProgress(
             List<MissionCheck> checks,
             MealTime mealTime,
-            boolean firstMealOfDay,
             boolean firstMealOfTime
     ) {
         List<MissionProgressUpdateItem> updated = new ArrayList<>();
@@ -304,7 +301,7 @@ public class MissionCheckServiceImpl implements MissionCheckService {
                 continue;
             }
             Mission mission = check.getMission();
-            if (!shouldUpdateMealMission(mission, mealTime, firstMealOfDay, firstMealOfTime)) {
+            if (!shouldUpdateMealMission(mission, mealTime, firstMealOfTime)) {
                 continue;
             }
             BigDecimal current = check.getProgressValue() == null ? BigDecimal.ZERO : check.getProgressValue();
@@ -328,35 +325,55 @@ public class MissionCheckServiceImpl implements MissionCheckService {
     private static boolean shouldUpdateMealMission(
             Mission mission,
             MealTime mealTime,
-            boolean firstMealOfDay,
             boolean firstMealOfTime
     ) {
-        MissionType type = mission.getType();
-        String title = mission.getTitle();
-        if (type == MissionType.DAILY) {
-            if (matchesMealTitle(title, mealTime)) {
-                return firstMealOfTime;
-            }
-            if (isThreeMealTitle(title)) {
-                return firstMealOfTime;
-            }
-            return firstMealOfDay;
-        }
-        return firstMealOfDay;
-    }
-
-    // 어떤 식단 미션인지 구분하는 용도
-    // 우선 모든 케이스 확인
-    // TODO : 최종적으로 미션 추가 후 교체 예정
-    private static boolean matchesMealTitle(String title, MealTime mealTime) {
-        if (title == null) {
+        if (mealTime == null || !firstMealOfTime) {
             return false;
         }
-        return switch (mealTime) {
-            case BREAKFAST -> title.contains("아침");
-            case LUNCH -> title.contains("점심");
-            case DINNER -> title.contains("저녁");
-        };
+        String title = mission.getTitle();
+        switch (mealTime) {
+            case BREAKFAST -> {
+                if (matchesBreakfastTitle(title)) {
+                    return true;
+                }
+            }
+            case LUNCH -> {
+                if (matchesLunchTitle(title)) {
+                    return true;
+                }
+            }
+            case DINNER -> {
+                if (matchesDinnerTitle(title)) {
+                    return true;
+                }
+            }
+        }
+        return isThreeMealTitle(title);
+    }
+
+    private static boolean matchesBreakfastTitle(String title) {
+        return containsAny(title, "아침", "첫 끼", "첫끼");
+    }
+
+    private static boolean matchesLunchTitle(String title) {
+        return containsAny(title, "점심", "균형");
+    }
+
+    private static boolean matchesDinnerTitle(String title) {
+        return containsAny(title, "저녁", "마무리", "마지막");
+    }
+
+    private static boolean containsAny(String title, String... keywords) {
+        if (title == null || title.isBlank()) {
+            return false;
+        }
+        String lower = title.toLowerCase();
+        for (String keyword : keywords) {
+            if (lower.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean isThreeMealTitle(String title) {
