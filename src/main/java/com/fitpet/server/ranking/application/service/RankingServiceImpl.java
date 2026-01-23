@@ -162,7 +162,7 @@ public class RankingServiceImpl implements RankingService {
         return newTotalScore;
     }
 
-    // DB 복구 로직 (Redis 데이터 유실 시)
+    // Db에서 랭킹 가져와 Redis에 올리기
     private List<RankingResponse> refreshRankingFromDb() {
         log.warn("Recovering Redis from DB...");
         List<Ranking> rankings = rankingRepository.findAllByDateKey(getCurrentDateKey());
