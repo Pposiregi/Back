@@ -34,8 +34,8 @@ public class RankingController {
 
     // 테스트용
     @PostMapping("/score")
-    public String testAddScore(@RequestParam Long userId, @RequestParam double distance) {
-        rankingService.updateScore(userId, distance);
-        return "업데이트 완료: User " + userId + ", 점수 " + distance;
+    public String testAddScore(@RequestParam Long userId, @RequestParam int steps) {
+        rankingService.updateScore(userId, steps);
+        return "업데이트 완료: User " + userId + ", 점수 " + steps;
     }
 }

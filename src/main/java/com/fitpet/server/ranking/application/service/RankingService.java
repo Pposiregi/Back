@@ -5,9 +5,9 @@ import java.util.List;
 
 public interface RankingService {
 
-    void updateScore(Long userId, double distance);
+    void updateScore(Long userId, int steps);
 
     List<RankingResponse> getTop10();
-    
+
     RankingResponse getMyRank(Long userId);
 }
