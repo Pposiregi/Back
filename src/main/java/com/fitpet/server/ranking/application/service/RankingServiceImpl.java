@@ -28,6 +28,7 @@ public class RankingServiceImpl implements RankingService {
 
     private static final long MAX_TIMESTAMP = 9_999_999_999L;
     private static final double TIME_WEIGHT_DIVIDER = 100_000_000_000.0;
+    private static final int TOP_RANK_LIMIT = 10;
 
     @Override
     @Transactional
@@ -53,7 +54,7 @@ public class RankingServiceImpl implements RankingService {
         String redisKey = getCurrentRankingKey();
 
         Set<ZSetOperations.TypedTuple<String>> tuples =
-                redisTemplate.opsForZSet().reverseRangeWithScores(redisKey, 0, 9);
+                redisTemplate.opsForZSet().reverseRangeWithScores(redisKey, 0, TOP_RANK_LIMIT - 1);
 
         if (tuples == null || tuples.isEmpty()) {
             return refreshRankingFromDb();
@@ -74,23 +75,14 @@ public class RankingServiceImpl implements RankingService {
         Double redisScore = redisTemplate.opsForZSet().score(redisKey, userIdStr);
 
         if (rankIndex == null || redisScore == null) {
-            Long totalParticipants = redisTemplate.opsForZSet().size(redisKey);
-            int myDefaultRank = (totalParticipants != null ? totalParticipants.intValue() : 0) + 1;
-
-            return RankingResponse.builder()
-                    .rank(myDefaultRank)
-                    .userId(userId)
-                    .score(0L)
-                    .build();
+            int defaultRank = calculateDefaultRank(redisKey);
+            return buildRankingResponse(userId, defaultRank, 0L);
         }
 
-        long realScore = (long) Math.floor(redisScore);
+        int rank = rankIndex.intValue() + 1;
+        long score = (long) Math.floor(redisScore);
 
-        return RankingResponse.builder()
-                .rank(rankIndex.intValue() + 1)
-                .userId(userId)
-                .score(realScore)
-                .build();
+        return buildRankingResponse(userId, rank, score);
     }
 
     private List<RankingResponse> refreshRankingFromDb() {
@@ -166,5 +158,18 @@ public class RankingServiceImpl implements RankingService {
         }
 
         return result;
+    }
+
+    private int calculateDefaultRank(String redisKey) {
+        Long totalParticipants = redisTemplate.opsForZSet().size(redisKey);
+        return (totalParticipants != null ? totalParticipants.intValue() : 0) + 1;
+    }
+
+    private RankingResponse buildRankingResponse(Long userId, int rank, long score) {
+        return RankingResponse.builder()
+                .rank(rank)
+                .userId(userId)
+                .score(score)
+                .build();
     }
 }
