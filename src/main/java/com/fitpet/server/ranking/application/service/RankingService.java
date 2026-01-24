@@ -10,4 +10,7 @@ public interface RankingService {
     List<RankingResponse> getTop10();
 
     RankingResponse getMyRank(Long userId);
+
+    // 모든 Dirty 유저를 한 번에 DB로 동기화
+    void syncAllDirtyRanksToDb();
 }

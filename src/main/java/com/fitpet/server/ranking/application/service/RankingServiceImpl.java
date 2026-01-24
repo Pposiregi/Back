@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,7 +25,9 @@ public class RankingServiceImpl implements RankingService {
 
     private final RankingRepository rankingRepository;
     private final UserRepository userRepository;
+
     private final StringRedisTemplate redisTemplate;
+    private final RedisScript<Long> updateRankingScript;
 
     private static final long MAX_TIMESTAMP = 9_999_999_999L;
     private static final double TIME_WEIGHT_DIVIDER = 100_000_000_000.0;
@@ -37,19 +40,19 @@ public class RankingServiceImpl implements RankingService {
 
         LocalDate now = LocalDate.now();
         User user = getUser(userId);
-        String dateKey = getDateKey(now);
+
+        String dirtyKey = "ranking:dirty:" + now.toString();
         String redisKey = getRankingKey(now);
 
-        Ranking ranking = getOrCreateRanking(user, dateKey);
-        double finalRealScore = updateDbRanking(ranking, steps);
-
         long currentTimestamp = System.currentTimeMillis() / 1000;
-        double redisScore = calculateTimeWeightedScore(finalRealScore, currentTimestamp);
+        double redisScore = calculateTimeWeightedScore((double) steps, currentTimestamp);
 
-        redisTemplate.opsForZSet().add(redisKey, String.valueOf(userId), redisScore);
+        redisTemplate.execute(updateRankingScript,
+                List.of(redisKey, dirtyKey),
+                String.valueOf(userId), String.valueOf(redisScore)
+        );
 
-        log.info("[RankingService] 점수 업데이트 완료: userId={}, dateKey={}, finalScore={}",
-                userId, dateKey, finalRealScore);
+        log.info("[RankingService] Redis 업데이트 및 Dirty 플래그 완료: userId={}, finalScore={}", userId, steps);
     }
 
     @Override
@@ -61,19 +64,6 @@ public class RankingServiceImpl implements RankingService {
 
         log.info("[RankingService] 상위 10명 조회 완료: count={}명", result.size());
         return result;
-    }
-
-    private List<RankingResponse> getTop10Internal(LocalDate now) {
-        String redisKey = getRankingKey(now);
-
-        Set<ZSetOperations.TypedTuple<String>> tuples =
-                redisTemplate.opsForZSet().reverseRangeWithScores(redisKey, 0, TOP_RANK_LIMIT - 1);
-
-        if (tuples == null || tuples.isEmpty()) {
-            return refreshRankingFromDb(now);
-        }
-
-        return convertToResponseList(tuples);
     }
 
     @Override
@@ -103,6 +93,74 @@ public class RankingServiceImpl implements RankingService {
                 userId, finalRank, finalScore);
 
         return buildRankingResponse(userId, finalRank, finalScore);
+    }
+
+
+    @Override
+    @Transactional
+    public void syncAllDirtyRanksToDb() {
+        LocalDate now = LocalDate.now();
+        String dateKey = now.toString();
+        String dirtyKey = "ranking:dirty:" + dateKey;
+        String redisKey = getRankingKey(now);
+
+        Set<String> dirtyUserIds = getDirtyUserIds(dirtyKey);
+        if (dirtyUserIds == null || dirtyUserIds.isEmpty()) {
+            return;
+        }
+
+        log.info("[RankingService] DB 영속화 시작: 대상 유저 수={}명", dirtyUserIds.size());
+        flushDirtyRanksToDb(dirtyUserIds, redisKey, dirtyKey, dateKey);
+    }
+
+    private Set<String> getDirtyUserIds(String dirtyKey) {
+        return redisTemplate.opsForSet().members(dirtyKey);
+    }
+
+    private void flushDirtyRanksToDb(Set<String> dirtyUserIds, String redisKey, String dirtyKey, String dateKey) {
+
+        for (String userIdStr : dirtyUserIds) {
+            try {
+                Double redisScore = redisTemplate.opsForZSet().score(redisKey, userIdStr);
+                if (redisScore != null) {
+                    Long userId = Long.parseLong(userIdStr);
+                    int totalSteps = (int) Math.floor(redisScore);
+
+                    // 내부 DB 저장 로직 호출
+                    this.syncToDb(userId, dateKey, totalSteps);
+
+                    // 성공 시 Dirty 플래그 제거
+                    redisTemplate.opsForSet().remove(dirtyKey, userIdStr);
+                }
+            } catch (Exception e) {
+                log.error("[RankingService] 유저 {} 영속화 실패: {}", userIdStr, e.getMessage());
+            }
+        }
+    }
+
+
+    private void syncToDb(Long userId, String dateKey, int totalSteps) {
+        log.debug("[RankingService] DB 동기화 실행: userId={}, dateKey={}, steps={}", userId, dateKey, totalSteps);
+
+        User user = getUser(userId);
+        Ranking ranking = getOrCreateRanking(user, dateKey);
+
+        updateDbRanking(ranking, totalSteps);
+
+        log.info("[RankingService] DB 동기화 완료: userId={}, score={}", userId, totalSteps);
+    }
+
+    private List<RankingResponse> getTop10Internal(LocalDate now) {
+        String redisKey = getRankingKey(now);
+
+        Set<ZSetOperations.TypedTuple<String>> tuples =
+                redisTemplate.opsForZSet().reverseRangeWithScores(redisKey, 0, TOP_RANK_LIMIT - 1);
+
+        if (tuples == null || tuples.isEmpty()) {
+            return refreshRankingFromDb(now);
+        }
+
+        return convertToResponseList(tuples);
     }
 
     private List<RankingResponse> refreshRankingFromDb(LocalDate now) {
