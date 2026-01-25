@@ -45,13 +45,14 @@ public class RankingServiceImpl implements RankingService {
 
         String dirtyKey = "ranking:dirty:" + now.toString();
         String redisKey = getRankingKey(now);
+        String ttlInSeconds = "259200"; // 3일을 초로 환산
 
         long currentTimestamp = System.currentTimeMillis() / 1000;
         double redisScore = calculateTimeWeightedScore((double) steps, currentTimestamp);
 
         redisTemplate.execute(updateRankingScript,
                 List.of(redisKey, dirtyKey),
-                String.valueOf(userId), String.valueOf(redisScore)
+                String.valueOf(userId), String.valueOf(redisScore), ttlInSeconds
         );
 
         log.info("[RankingService] Redis 업데이트 및 Dirty 플래그 완료: userId={}, finalScore={}", userId, steps);
