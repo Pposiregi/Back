@@ -15,6 +15,6 @@ public class RankingPersistenceScheduler {
 
     @Scheduled(fixedDelay = 60000) // 1분마다 실행
     public void persistRankingToDb() {
-        rankingService.syncAllDirtyRanksToDb();
+        rankingService.syncRedisToDatabase();
     }
 }
