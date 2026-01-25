@@ -12,5 +12,15 @@ import lombok.NoArgsConstructor;
 public class RankingResponse {
     private int rank;
     private Long userId;
+    private String nickname;
     private Long score;
+
+    public static RankingResponse of(Long userId, String nickname, int rank, long score) {
+        return RankingResponse.builder()
+                .userId(userId)
+                .nickname(nickname)
+                .rank(rank)
+                .score(score)
+                .build();
+    }
 }
