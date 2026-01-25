@@ -9,7 +9,9 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -95,60 +97,80 @@ public class RankingServiceImpl implements RankingService {
         return buildRankingResponse(userId, finalRank, finalScore);
     }
 
-
+    // 청크 성공을 위한 @Transactional 제거
     @Override
-    @Transactional
     public void syncAllDirtyRanksToDb() {
         LocalDate now = LocalDate.now();
         String dateKey = now.toString();
         String dirtyKey = "ranking:dirty:" + dateKey;
         String redisKey = getRankingKey(now);
 
-        Set<String> dirtyUserIds = getDirtyUserIds(dirtyKey);
+        Set<String> dirtyUserIds = redisTemplate.opsForSet().members(dirtyKey);
         if (dirtyUserIds == null || dirtyUserIds.isEmpty()) {
             return;
         }
 
-        log.info("[RankingService] DB 영속화 시작: 대상 유저 수={}명", dirtyUserIds.size());
-        flushDirtyRanksToDb(dirtyUserIds, redisKey, dirtyKey, dateKey);
+        List<String> userIdList = new ArrayList<>(dirtyUserIds);
+        int batchSize = 100;
+
+        log.info("[RankingService] DB 영속화 시작: 대상 유저={}명", userIdList.size());
+
+        for (int i = 0; i < userIdList.size(); i += batchSize) {
+            int end = Math.min(i + batchSize, userIdList.size());
+            List<String> chunkIds = userIdList.subList(i, end);
+
+            try {
+                processBatchSync(chunkIds, redisKey, dirtyKey, dateKey);
+            } catch (Exception e) {
+                log.error("[RankingService] 배치 처리 중 오류 (Index: {}): {}", i, e.getMessage());
+            }
+        }
+    }
+
+    @Transactional
+    public void processBatchSync(List<String> userIds, String redisKey, String dirtyKey, String dateKey) {
+        List<Long> longUserIds = userIds.stream().map(Long::parseLong).toList();
+
+        Map<Long, Ranking> existingRankings = rankingRepository.findAllByUserIdInAndDateKey(longUserIds, dateKey)
+                .stream()
+                .collect(Collectors.toMap(r -> r.getUser().getId(), r -> r));
+
+        List<Ranking> toSave = new ArrayList<>();
+
+        for (Long userId : longUserIds) {
+            Double redisScore = redisTemplate.opsForZSet().score(redisKey, String.valueOf(userId));
+
+            if (redisScore != null) {
+                int totalSteps = (int) Math.floor(redisScore);
+                Ranking ranking = existingRankings.get(userId);
+
+                if (ranking == null) {
+                    User userProxy = userRepository.getReferenceById(userId);
+                    ranking = Ranking.builder()
+                            .user(userProxy)
+                            .score(0)
+                            .dateKey(dateKey)
+                            .build();
+                }
+
+                ranking.updateScore((double) totalSteps);
+                toSave.add(ranking);
+            }
+        }
+
+        if (!toSave.isEmpty()) {
+            rankingRepository.saveAll(toSave);
+        }
+
+        redisTemplate.opsForSet().remove(dirtyKey, userIds.toArray());
+
+        log.debug("[RankingService] 배치 동기화 완료: {}명", toSave.size());
     }
 
     private Set<String> getDirtyUserIds(String dirtyKey) {
         return redisTemplate.opsForSet().members(dirtyKey);
     }
 
-    private void flushDirtyRanksToDb(Set<String> dirtyUserIds, String redisKey, String dirtyKey, String dateKey) {
-
-        for (String userIdStr : dirtyUserIds) {
-            try {
-                Double redisScore = redisTemplate.opsForZSet().score(redisKey, userIdStr);
-                if (redisScore != null) {
-                    Long userId = Long.parseLong(userIdStr);
-                    int totalSteps = (int) Math.floor(redisScore);
-
-                    // 내부 DB 저장 로직 호출
-                    this.syncToDb(userId, dateKey, totalSteps);
-
-                    // 성공 시 Dirty 플래그 제거
-                    redisTemplate.opsForSet().remove(dirtyKey, userIdStr);
-                }
-            } catch (Exception e) {
-                log.error("[RankingService] 유저 {} 영속화 실패: {}", userIdStr, e.getMessage());
-            }
-        }
-    }
-
-
-    private void syncToDb(Long userId, String dateKey, int totalSteps) {
-        log.debug("[RankingService] DB 동기화 실행: userId={}, dateKey={}, steps={}", userId, dateKey, totalSteps);
-
-        User user = getUser(userId);
-        Ranking ranking = getOrCreateRanking(user, dateKey);
-
-        updateDbRanking(ranking, totalSteps);
-
-        log.info("[RankingService] DB 동기화 완료: userId={}, score={}", userId, totalSteps);
-    }
 
     private List<RankingResponse> getTop10Internal(LocalDate now) {
         String redisKey = getRankingKey(now);

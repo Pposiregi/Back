@@ -13,4 +13,5 @@ public interface RankingService {
 
     // 모든 Dirty 유저를 한 번에 DB로 동기화
     void syncAllDirtyRanksToDb();
+
 }
