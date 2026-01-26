@@ -1,6 +1,7 @@
 package com.fitpet.server.ranking.application.service;
 
 import com.fitpet.server.ranking.application.dto.RankingSyncContext;
+import com.fitpet.server.ranking.application.event.UserCacheRefreshEvent;
 import com.fitpet.server.ranking.domain.entity.Ranking;
 import com.fitpet.server.ranking.domain.repository.RankingRepository;
 import com.fitpet.server.ranking.presentation.dto.RankingResponse;
@@ -10,13 +11,17 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.data.redis.core.script.RedisScript;
@@ -32,7 +37,9 @@ public class RankingServiceImpl implements RankingService {
     private final UserRepository userRepository;
     private final StringRedisTemplate redisTemplate;
     private final RedisScript<Long> updateRankingScript;
+    private final ApplicationEventPublisher eventPublisher;
 
+    private static final String USER_PROFILE_KEY = "user:profiles";
     private static final long MAX_TIMESTAMP = 9_999_999_999L;
     private static final double TIME_WEIGHT_DIVIDER = 100_000_000_000.0;
     private static final int TOP_RANK_LIMIT = 10;
@@ -76,7 +83,40 @@ public class RankingServiceImpl implements RankingService {
         int finalRank = (rankIndex == null) ? calculateDefaultRank(redisKey) : rankIndex.intValue() + 1;
         long finalScore = (redisScore == null) ? 0L : (long) Math.floor(redisScore);
 
-        return buildRankingResponse(userId, finalRank, finalScore);
+        Map<Long, String> nicknameMap = getNicknameMap(Collections.singletonList(userId));
+
+        return RankingResponse.of(userId, nicknameMap.get(userId), finalRank, finalScore);
+    }
+
+    private Map<Long, String> getNicknameMap(List<Long> userIds) {
+        if (userIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<String> userIdsStr = userIds.stream().map(String::valueOf).toList();
+        List<Object> cachedNames = redisTemplate.opsForHash().multiGet(USER_PROFILE_KEY, new ArrayList<>(userIdsStr));
+
+        Map<Long, String> profileMap = new HashMap<>();
+        List<Long> missIds = new ArrayList<>();
+
+        for (int i = 0; i < userIds.size(); i++) {
+            Long userId = userIds.get(i);
+            String nickname = (String) cachedNames.get(i);
+
+            if (nickname == null) {
+                missIds.add(userId);
+            } else {
+                profileMap.put(userId, nickname);
+            }
+        }
+
+        if (!missIds.isEmpty()) {
+            List<User> missingUsers = userRepository.findAllById(missIds);
+            missingUsers.forEach(u -> profileMap.put(u.getId(), u.getNickname()));
+            eventPublisher.publishEvent(new UserCacheRefreshEvent(missIds));
+        }
+
+        return profileMap;
     }
 
     @Override
@@ -92,7 +132,6 @@ public class RankingServiceImpl implements RankingService {
         transferInChunks(modifiedUserIds, context);
     }
 
-    // Chunk 단위로 나누어 동기화 작업 분배
     private void transferInChunks(List<String> userIds, RankingSyncContext context) {
         int chunkSize = 100;
         for (int i = 0; i < userIds.size(); i += chunkSize) {
@@ -100,12 +139,11 @@ public class RankingServiceImpl implements RankingService {
             try {
                 flushChunkToDatabase(chunk, context);
             } catch (Exception e) {
-                log.error("[RankingSync] 덩어리 처리 중 오류 (Index: {}): {}", i, e.getMessage());
+                log.error("[RankingSync] 덩어리 처리 중 오류: {}", e.getMessage());
             }
         }
     }
 
-    // 실제 DB 저장 및 Redis 상태 정리 (트랜잭션 단위)
     @Transactional
     public void flushChunkToDatabase(List<String> userIds, RankingSyncContext context) {
         List<Long> longUserIds = convertToLongIds(userIds);
@@ -120,7 +158,6 @@ public class RankingServiceImpl implements RankingService {
         saveAndClearModifiedFlags(rankingsToSave, userIds, context.getDirtyKey());
     }
 
-    // Redis 정보를 바탕으로 DB 엔티티로 변환
     private Optional<Ranking> mapToRankingEntity(String userIdStr, RankingSyncContext context,
                                                  Map<Long, Ranking> existingMap) {
         Double redisScore = redisTemplate.opsForZSet().score(context.getRedisKey(), userIdStr);
@@ -130,12 +167,10 @@ public class RankingServiceImpl implements RankingService {
 
         Long userId = Long.parseLong(userIdStr);
         Ranking ranking = existingMap.getOrDefault(userId, createProxyRanking(userId, context.getDateKey()));
-
         ranking.updateScore(Math.floor(redisScore));
         return Optional.of(ranking);
     }
 
-    // 유저 테이블 조회를 방지하기 위한 Proxy 생성
     private Ranking createProxyRanking(Long userId, String dateKey) {
         return Ranking.builder()
                 .user(userRepository.getReferenceById(userId))
@@ -144,12 +179,10 @@ public class RankingServiceImpl implements RankingService {
                 .build();
     }
 
-    // DB 저장 후 성공 시에만 Redis의 수정 플래그 삭제
     private void saveAndClearModifiedFlags(List<Ranking> rankings, List<String> userIds, String dirtyKey) {
         if (!rankings.isEmpty()) {
             rankingRepository.saveAll(rankings);
             redisTemplate.opsForSet().remove(dirtyKey, userIds.toArray());
-            log.debug("[RankingSync] {}명 동기화 완료", rankings.size());
         }
     }
 
@@ -159,40 +192,70 @@ public class RankingServiceImpl implements RankingService {
                 redisTemplate.opsForZSet().reverseRangeWithScores(redisKey, 0, TOP_RANK_LIMIT - 1);
 
         if (tuples == null || tuples.isEmpty()) {
+            // Redis가 비어있으면 DB에서 복구 시도
             return recoverRedisFromDatabase(now);
         }
-        return convertToResponseList(tuples);
+
+        List<Long> userIds = tuples.stream()
+                .map(t -> Long.parseLong(Objects.requireNonNull(t.getValue())))
+                .collect(Collectors.toList());
+        Map<Long, String> nicknameMap = getNicknameMap(userIds);
+
+        return convertToResponseList(tuples, nicknameMap);
     }
 
     private List<RankingResponse> recoverRedisFromDatabase(LocalDate now) {
         String dateKey = now.toString();
-        log.warn("[RankingService] 캐시 미스 - DB 데이터 복구: {}", dateKey);
+        log.warn("[RankingService] 캐시 미스 - DB 데이터 복구 시도: {}", dateKey);
 
         List<Ranking> rankings = rankingRepository.findAllByDateKey(dateKey);
+
+        if (rankings.isEmpty()) {
+            log.info("[RankingService] DB에도 데이터가 없어 빈 결과를 반환합니다.");
+            return Collections.emptyList();
+        }
+
         for (Ranking r : rankings) {
-            long timestamp = (r.getUpdatedAt() != null)
+            long ts = (r.getUpdatedAt() != null)
                     ? r.getUpdatedAt().atZone(ZoneId.systemDefault()).toEpochSecond()
                     : System.currentTimeMillis() / 1000;
 
-            double score = calculateTimeWeightedScore(r.getScore(), timestamp);
-            redisTemplate.opsForZSet().add(getRankingKey(now), String.valueOf(r.getUser().getId()), score);
+            redisTemplate.opsForZSet().add(getRankingKey(now),
+                    String.valueOf(r.getUser().getId()),
+                    calculateTimeWeightedScore(r.getScore(), ts));
         }
-        return fetchTopRankings(now);
+
+        List<Ranking> topRankings = rankings.stream()
+                .sorted(Comparator.comparingDouble(Ranking::getScore).reversed())
+                .limit(TOP_RANK_LIMIT)
+                .toList();
+
+        List<Long> userIds = topRankings.stream().map(r -> r.getUser().getId()).toList();
+        Map<Long, String> nicknameMap = getNicknameMap(userIds);
+
+        List<RankingResponse> responses = new ArrayList<>();
+        int rank = 1;
+        for (Ranking r : topRankings) {
+            responses.add(RankingResponse.of(
+                    r.getUser().getId(),
+                    nicknameMap.get(r.getUser().getId()),
+                    rank++,
+                    (long) Math.floor(r.getScore())));
+        }
+
+        return responses;
     }
 
-    private List<String> getModifiedUserIds(String dirtyKey) {
-        Set<String> members = redisTemplate.opsForSet().members(dirtyKey);
-        return (members != null) ? new ArrayList<>(members) : Collections.emptyList();
-    }
-
-    private RankingSyncContext createSyncContext(LocalDate date) {
-        return RankingSyncContext.of(date.toString(), getRankingKey(date), getModifiedUsersKey(date));
-    }
-
-    private Map<Long, Ranking> loadExistingRankings(List<Long> userIds, String dateKey) {
-        return rankingRepository.findAllByUserIdInAndDateKey(userIds, dateKey)
-                .stream()
-                .collect(Collectors.toMap(r -> r.getUser().getId(), r -> r));
+    private List<RankingResponse> convertToResponseList(Set<ZSetOperations.TypedTuple<String>> tuples,
+                                                        Map<Long, String> nicknameMap) {
+        List<RankingResponse> result = new ArrayList<>();
+        int rank = 1;
+        for (ZSetOperations.TypedTuple<String> tuple : tuples) {
+            Long userId = Long.parseLong(Objects.requireNonNull(tuple.getValue()));
+            result.add(RankingResponse.of(userId, nicknameMap.get(userId), rank++,
+                    (long) Math.floor(Objects.requireNonNull(tuple.getScore()))));
+        }
+        return result;
     }
 
     private String getRankingKey(LocalDate date) {
@@ -203,36 +266,30 @@ public class RankingServiceImpl implements RankingService {
         return "ranking:dirty:" + date.toString();
     }
 
-    private List<Long> convertToLongIds(List<String> userIds) {
-        return userIds.stream().map(Long::parseLong).toList();
+    private RankingSyncContext createSyncContext(LocalDate date) {
+        return RankingSyncContext.of(date.toString(), getRankingKey(date), getModifiedUsersKey(date));
     }
 
-    private double calculateTimeWeightedScore(double score, long ts) {
-        return score + (double) (MAX_TIMESTAMP - ts) / TIME_WEIGHT_DIVIDER;
+    private List<String> getModifiedUserIds(String dirtyKey) {
+        Set<String> members = redisTemplate.opsForSet().members(dirtyKey);
+        return (members != null) ? new ArrayList<>(members) : Collections.emptyList();
     }
 
-    private int calculateDefaultRank(String key) {
-        Long size = redisTemplate.opsForZSet().size(key);
-        return (size != null ? size.intValue() : 0) + 1;
+    private Map<Long, Ranking> loadExistingRankings(List<Long> ids, String key) {
+        return rankingRepository.findAllByUserIdInAndDateKey(ids, key).stream()
+                .collect(Collectors.toMap(r -> r.getUser().getId(), r -> r));
     }
 
-    private RankingResponse buildRankingResponse(Long userId, int rank, long score) {
-        return RankingResponse.builder().rank(rank).userId(userId).score(score).build();
+    private List<Long> convertToLongIds(List<String> ids) {
+        return ids.stream().map(Long::parseLong).toList();
     }
 
-    private List<RankingResponse> convertToResponseList(Set<ZSetOperations.TypedTuple<String>> tuples) {
-        List<RankingResponse> result = new ArrayList<>();
-        int rank = 1;
-        for (ZSetOperations.TypedTuple<String> tuple : tuples) {
-            if (tuple.getValue() != null && tuple.getScore() != null) {
-                result.add(buildRankingResponse(Long.parseLong(tuple.getValue()), rank++,
-                        (long) Math.floor(tuple.getScore())));
-            }
-        }
-        return result;
+    private double calculateTimeWeightedScore(double s, long ts) {
+        return s + (double) (MAX_TIMESTAMP - ts) / TIME_WEIGHT_DIVIDER;
     }
 
-    private User getUser(Long userId) {
-        return userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("User not found"));
+    private int calculateDefaultRank(String k) {
+        Long s = redisTemplate.opsForZSet().size(k);
+        return (s != null ? s.intValue() : 0) + 1;
     }
 }

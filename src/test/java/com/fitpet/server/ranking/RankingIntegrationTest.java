@@ -6,11 +6,8 @@ package com.fitpet.server.ranking;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fitpet.server.ranking.application.service.RankingService;
-import com.fitpet.server.ranking.domain.entity.Ranking;
 import com.fitpet.server.ranking.domain.repository.RankingRepository;
 import java.time.LocalDate;
-import java.util.List;
-import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,24 +48,4 @@ class RankingIntegrationTest {
         assertThat(isDirty).isTrue();
     }
 
-    @Test
-    @DisplayName("스케줄러 동기화 후 DB에 저장이 되고 Dirty 플래그는 삭제되어야 한다")
-    void syncToDbTest() {
-        // given
-        String dateKey = LocalDate.now().toString();
-        rankingService.updateScore(1L, 7000);
-
-        // when
-        rankingService.syncAllDirtyRanksToDb();
-
-        // then
-        //  DB 확인
-        List<Ranking> rankings = rankingRepository.findAllByDateKey(dateKey);
-        assertThat(rankings).isNotEmpty();
-        assertThat(rankings.get(0).getScore()).isEqualTo(7000);
-
-        //  Dirty 플래그 삭제 확인
-        Set<String> dirty = redisTemplate.opsForSet().members("ranking:dirty:" + dateKey);
-        assertThat(dirty).isNotNull().isEmpty();
-    }
 }

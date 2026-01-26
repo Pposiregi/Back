@@ -101,4 +101,9 @@ public class UserRepositoryAdapter implements UserRepository {
     public List<User> findTopRankersByGender(Gender gender, int limit) {
         return jpa.findTopRankersByGender(gender, PageRequest.of(0, limit));
     }
+
+    @Override
+    public List<User> findAllById(Iterable<Long> ids) {
+        return jpa.findAllById(ids);
+    }
 }
