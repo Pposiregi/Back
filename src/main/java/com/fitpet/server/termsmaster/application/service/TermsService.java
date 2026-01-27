@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +20,7 @@ public class TermsService {
 
     private final TermsRepository termsRepository;
 
+    @Cacheable(cacheNames = "staticData", key = "'active'")
     public List<TermsDto> getActiveTerms() {
         log.info("[TermsService] DB에서 약관을 조회합니다.");
 
