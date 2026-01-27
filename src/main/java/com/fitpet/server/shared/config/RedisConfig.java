@@ -97,7 +97,7 @@ public class RedisConfig {
                         RedisSerializationContext.SerializationPair.fromSerializer(redisSerializer));
 
         Map<String, RedisCacheConfiguration> configs = new HashMap<>();
-        configs.put("staticData", defaults.entryTtl(Duration.ofHours(24)));
+        configs.put("terms", defaults.entryTtl(Duration.ofHours(24)));
         configs.put("meal", defaults.entryTtl(Duration.ofMinutes(30)));
         configs.put("profile", defaults.entryTtl(Duration.ofMinutes(30)));
 

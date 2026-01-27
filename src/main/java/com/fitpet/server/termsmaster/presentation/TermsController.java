@@ -6,6 +6,7 @@ import com.fitpet.server.termsmaster.application.dto.TermsDto;
 import com.fitpet.server.termsmaster.application.service.TermsAgreementService;
 import com.fitpet.server.termsmaster.application.service.TermsService;
 import com.fitpet.server.termsmaster.presentation.dto.TermsAgreementRequest;
+import com.fitpet.server.termsmaster.presentation.dto.TermsCreateRequest;
 import com.fitpet.server.termsmaster.presentation.dto.TermsResponse;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -48,5 +49,15 @@ public class TermsController {
         termsAgreementService.saveTermsAgreements(userId, commands);
 
         return ResponseEntity.ok("약관 동의 내역이 저장되었습니다.");
+    }
+
+    @PostMapping
+    public ResponseEntity<Void> createTerms(@RequestBody TermsCreateRequest request) {
+        termsService.createTerms(
+                request.code(),
+                request.content(),
+                request.version()
+        );
+        return ResponseEntity.ok().build();
     }
 }
