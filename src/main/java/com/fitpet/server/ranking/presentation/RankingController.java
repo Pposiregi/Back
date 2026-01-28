@@ -2,10 +2,11 @@ package com.fitpet.server.ranking.presentation;
 
 import com.fitpet.server.ranking.application.service.RankingService;
 import com.fitpet.server.ranking.presentation.dto.RankingResponse;
-import java.util.HashMap;
+import com.fitpet.server.ranking.presentation.dto.RankingSummaryResponse;
+import com.fitpet.server.shared.annotation.AuthUser;
 import java.util.List;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,22 +21,19 @@ public class RankingController {
     private final RankingService rankingService;
 
     @GetMapping("/summary")
-    public Map<String, Object> getRankingSummary(@RequestParam Long userId) {
-        Map<String, Object> response = new HashMap<>();
-
+    public ResponseEntity<RankingSummaryResponse> getRankingSummary(@AuthUser Long userId) {
         List<RankingResponse> top10 = rankingService.getTop10();
-        response.put("topRankings", top10);
 
         RankingResponse myRank = rankingService.getMyRank(userId);
-        response.put("myRanking", myRank);
 
-        return response;
+        return ResponseEntity.ok(
+                RankingSummaryResponse.of(top10, myRank)
+        );
     }
 
-    // 테스트용
     @PostMapping("/score")
-    public String testAddScore(@RequestParam Long userId, @RequestParam int steps) {
+    public ResponseEntity<String> updateScore(@AuthUser Long userId, @RequestParam int steps) {
         rankingService.updateScore(userId, steps);
-        return "업데이트 완료: User " + userId + ", 점수 " + steps;
+        return ResponseEntity.ok("success");
     }
 }
