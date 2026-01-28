@@ -35,7 +35,6 @@ public class RankingSyncServiceImpl implements RankingSyncService {
         RankingSyncContext context = createSyncContext(LocalDate.now());
         String dirtyKey = context.getDirtyKey();
 
-        // Non-blocking 방식을 위한 SSCAN 설정 (100개 단위)
         ScanOptions options = ScanOptions.scanOptions().count(100).build();
 
         try (Cursor<String> cursor = redisTemplate.opsForSet().scan(dirtyKey, options)) {
@@ -44,14 +43,12 @@ public class RankingSyncServiceImpl implements RankingSyncService {
             while (cursor.hasNext()) {
                 chunk.add(cursor.next());
 
-                // 100개가 모이면 DB에 저장 (Chunking)
                 if (chunk.size() >= 100) {
                     flushChunkToDatabase(chunk, context);
                     chunk.clear();
                 }
             }
 
-            // 남은 자투리 데이터 처리
             if (!chunk.isEmpty()) {
                 flushChunkToDatabase(chunk, context);
             }
@@ -61,25 +58,18 @@ public class RankingSyncServiceImpl implements RankingSyncService {
         }
     }
 
-    /**
-     * 청크 단위 데이터를 DB에 영속화하고 Dirty Set에서 제거 - 개선점: Redis Pipelining을 사용하여 점수 조회 시 네트워크 RTT를 획기적으로 줄임
-     */
     @Transactional
     public void flushChunkToDatabase(List<String> userIds, RankingSyncContext context) {
         if (userIds.isEmpty()) {
             return;
         }
 
-        // [New] 1. Redis Pipelining: 청크 내 모든 유저의 점수를 한 번에 조회 (RTT 1회)
         Map<String, Double> scoreMap = fetchScoresInBatch(userIds, context.getRedisKey());
 
         List<Long> longUserIds = convertToLongIds(userIds);
 
-        // 2. 기존 DB 데이터 조회 (Bulk Select)
         Map<Long, Ranking> existingRankings = loadExistingRankings(longUserIds, context.getDateKey());
 
-        // 3. 엔티티 매핑 (Update or Create with Proxy)
-        // mapToRankingEntity에 미리 가져온 scoreMap을 전달하여 추가적인 Redis 조회를 방지
         List<Ranking> rankingsToSave = userIds.stream()
                 .map(id -> mapToRankingEntity(id, context, existingRankings, scoreMap))
                 .filter(Optional::isPresent)
@@ -87,17 +77,13 @@ public class RankingSyncServiceImpl implements RankingSyncService {
                 .toList();
 
         if (!rankingsToSave.isEmpty()) {
-            // 4. DB 저장 (Batch Insert/Update)
             rankingRepository.saveAll(rankingsToSave);
 
-            // 5. Redis Dirty Set에서 제거 (처리 완료)
             redisTemplate.opsForSet().remove(context.getDirtyKey(), userIds.toArray());
         }
     }
 
-    /**
-     * [Pipelining 구현부] 여러 유저의 ZScore 명령어를 파이프라인으로 묶어 한 번에 실행합니다. 100번의 네트워크 통신을 1번으로 줄여줍니다.
-     */
+
     private Map<String, Double> fetchScoresInBatch(List<String> userIds, String redisKey) {
         List<Object> results = redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
             StringRedisConnection stringConn = (StringRedisConnection) connection;
@@ -107,7 +93,6 @@ public class RankingSyncServiceImpl implements RankingSyncService {
             return null;
         });
 
-        // 결과 List를 Map<UserId, Score>로 변환 (O(1) 조회를 위함)
         Map<String, Double> scoreMap = new HashMap<>();
         for (int i = 0; i < userIds.size(); i++) {
             Object result = results.get(i);
@@ -136,12 +121,10 @@ public class RankingSyncServiceImpl implements RankingSyncService {
                 .collect(Collectors.toMap(r -> r.getUser().getId(), r -> r));
     }
 
-    // [Modified] Redis를 직접 호출하지 않고, 전달받은 scoreMap을 사용하도록 변경
     private Optional<Ranking> mapToRankingEntity(String userIdStr, RankingSyncContext context,
                                                  Map<Long, Ranking> existingMap,
                                                  Map<String, Double> scoreMap) {
 
-        // 미리 조회해둔 Map에서 점수 획득 (메모리 연산)
         Double redisScore = scoreMap.get(userIdStr);
 
         if (redisScore == null) {
@@ -150,7 +133,6 @@ public class RankingSyncServiceImpl implements RankingSyncService {
 
         Long userId = Long.parseLong(userIdStr);
 
-        // Zero-Select 전략: getReferenceById를 사용해 SELECT 없이 Proxy 객체 생성
         Ranking ranking = existingMap.getOrDefault(userId, Ranking.builder()
                 .user(userRepository.getReferenceById(userId))
                 .score(0)
