@@ -196,14 +196,15 @@ public class DailyWalkServiceImpl implements DailyWalkService {
     private void handleDailyStepUpdate(User user, int newStep, LocalDate date, int delta) {
         user.updateDailyStepCount(newStep);
 
-        rankingService.updateScore(user.getId(), newStep);
-
         Integer target = user.getTargetStepCount();
         if (target != null && newStep >= target) {
             petExpressionService.updateExpression(user.getId(), PetExpression.PROUD);
         }
+
         if (delta > 0 && date.equals(LocalDate.now())) {
             missionCheckService.updateStepMissions(user.getId(), date, BigDecimal.valueOf(delta));
         }
+
+        rankingService.updateScore(user.getId(), newStep);
     }
 }
