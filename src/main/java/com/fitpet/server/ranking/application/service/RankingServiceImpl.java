@@ -47,21 +47,21 @@ public class RankingServiceImpl implements RankingService {
     @Override
     @Transactional
     public void updateScore(Long userId, int steps) {
-        log.debug("[RankingService] 점수 업데이트 요청: userId={}, steps={}", userId, steps);
-
         LocalDate now = LocalDate.now();
-        String redisKey = getRankingKey(now);
+        String rankingKey = getRankingKey(now);
         String dirtyKey = getModifiedUsersKey(now);
-        String ttlInSeconds = "259200"; // 3일
 
-        double redisScore = calculateTimeWeightedScore((double) steps, System.currentTimeMillis() / 1000);
+        double weightedScore = calculateTimeWeightedScore((double) steps, System.currentTimeMillis() / 1000);
+        String ttlInSeconds = "259200";
 
         redisTemplate.execute(updateRankingScript,
-                List.of(redisKey, dirtyKey),
-                String.valueOf(userId), String.valueOf(redisScore), ttlInSeconds
+                List.of(rankingKey, dirtyKey),
+                String.valueOf(userId),
+                String.valueOf(weightedScore),
+                ttlInSeconds
         );
 
-        log.info("[RankingService] 실시간 랭킹 기록 완료: userId={}, steps={}", userId, steps);
+        log.info("[RankingService] 랭킹 업데이트 완료 (Lua): userId={}, score={}", userId, weightedScore);
     }
 
     @Override
@@ -193,7 +193,7 @@ public class RankingServiceImpl implements RankingService {
     private String getRankingKey(LocalDate date) {
         return "ranking:daily:" + date.toString();
     }
-    
+
     private String getModifiedUsersKey(LocalDate date) {
         return "ranking:dirty:" + date.toString();
     }
