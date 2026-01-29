@@ -1,6 +1,7 @@
 package com.fitpet.server.mission.infra.jpa;
 
 import com.fitpet.server.mission.domain.entity.Mission;
+import com.fitpet.server.mission.domain.entity.MissionType;
 import com.fitpet.server.mission.domain.repository.MissionRepository;
 import java.util.List;
 import java.util.Optional;
@@ -26,6 +27,11 @@ public class MissionRepositoryAdapter implements MissionRepository {
     @Override
     public List<Mission> findAll() {
         return missionJpaRepository.findAll();
+    }
+
+    @Override
+    public List<Mission> findByType(MissionType type) {
+        return missionJpaRepository.findByType(type);
     }
 
     @Override

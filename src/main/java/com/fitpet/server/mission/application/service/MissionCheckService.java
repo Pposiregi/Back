@@ -1,5 +1,6 @@
 package com.fitpet.server.mission.application.service;
 
+import com.fitpet.server.meal.domain.entity.MealTime;
 import com.fitpet.server.mission.application.dto.MissionCheckCommand;
 import com.fitpet.server.mission.application.dto.MissionCheckResult;
 import com.fitpet.server.mission.application.dto.MissionProgressResult;
@@ -16,15 +17,17 @@ public interface MissionCheckService {
 
     void deleteMissionCheck(Long userId, Long missionCheckId);
 
+    MissionCheckResult completeMissionCheck(Long userId, Long missionCheckId);
+
     List<MissionProgressResult> getActiveMissions(Long userId, LocalDate date);
 
     List<MissionProgressResult> getCompletedMissions(Long userId);
 
-    List<MissionProgressUpdateItem> updateMealMissions(Long userId, LocalDate actionDate);
+    List<MissionProgressUpdateItem> updateMealMissions(Long userId, LocalDate actionDate, MealTime mealTime);
 
     List<MissionProgressUpdateItem> updateStepMissions(
-        Long userId,
-        LocalDate actionDate,
-        BigDecimal increment
+            Long userId,
+            LocalDate actionDate,
+            BigDecimal increment
     );
 }

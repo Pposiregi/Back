@@ -2,12 +2,14 @@ package com.fitpet.server.meal.application.service;
 
 import com.fitpet.server.meal.application.mapper.MealMapper;
 import com.fitpet.server.meal.domain.entity.Meal;
+import com.fitpet.server.meal.domain.entity.MealTime;
 import com.fitpet.server.meal.domain.repository.MealRepository;
 import com.fitpet.server.meal.presentation.dto.request.MealCreateRequest;
 import com.fitpet.server.meal.presentation.dto.request.MealUpdateRequest;
 import com.fitpet.server.meal.presentation.dto.response.MealCreateResponse;
 import com.fitpet.server.meal.presentation.dto.response.MealDetailResponse;
 import com.fitpet.server.meal.presentation.dto.response.MealUpdateResponse;
+import com.fitpet.server.mission.application.service.MissionCheckService;
 import com.fitpet.server.shared.exception.BusinessException;
 import com.fitpet.server.shared.exception.ErrorCode;
 import com.fitpet.server.user.domain.entity.User;
@@ -28,6 +30,7 @@ public class MealServiceImpl implements MealService {
     private final UserRepository userRepository;
     private final MealMapper mealMapper;
     private final S3Service s3Service;
+    private final MissionCheckService missionCheckService;
 
     @Override
     public MealCreateResponse createMeal(Long userId, MealCreateRequest request) {
@@ -37,6 +40,8 @@ public class MealServiceImpl implements MealService {
         String imageKey = s3Service.createImageKey(userId);
         meal.setImageUrl(imageKey);
         Meal savedMeal = mealRepository.save(meal);
+        missionCheckService.updateMealMissions(userId, meal.getDay(),
+                MealTime.fromSequence(meal.getSequence()));
 
         String uploadUrl = s3Service.generatePresignedPutUrl(imageKey);
 

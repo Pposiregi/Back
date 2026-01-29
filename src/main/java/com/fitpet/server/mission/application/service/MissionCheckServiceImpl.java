@@ -11,6 +11,8 @@ import com.fitpet.server.mission.domain.entity.Mission;
 import com.fitpet.server.mission.domain.entity.MissionCategory;
 import com.fitpet.server.mission.domain.entity.MissionCheck;
 import com.fitpet.server.mission.domain.entity.MissionType;
+import com.fitpet.server.mission.domain.exception.MissionCheckAccessDeniedException;
+import com.fitpet.server.mission.domain.exception.MissionCheckNotCompletableException;
 import com.fitpet.server.mission.domain.exception.MissionCheckNotFoundException;
 import com.fitpet.server.mission.domain.exception.MissionNotFoundException;
 import com.fitpet.server.mission.domain.repository.MissionCheckRepository;
@@ -51,13 +53,11 @@ public class MissionCheckServiceImpl implements MissionCheckService {
         User user = getUser(userId);
         PeriodRange period = resolvePeriod(
                 mission.getType(),
-                request.actionDate(),
-                toCreatedDate(user)
+                request.actionDate()
         );
 
         UpdateResult result = upsertMissionCheck(mission, user, period, request.progressValue());
         MissionCheck saved = missionCheckRepository.save(result.missionCheck());
-        celebrateIfNeeded(userId, result.shouldCelebrate());
 
         log.info("[MissionCheckService] 수행 여부 저장: missionCheckId={}, missionId={}, userId={}",
                 saved.getId(), missionId, userId);
@@ -79,12 +79,38 @@ public class MissionCheckServiceImpl implements MissionCheckService {
         if (!missionCheck.getUser().getId().equals(userId)) {
             log.warn("[MissionCheckService] 삭제 권한 없음: 요청자 userId={}, 기록 소유자 userId={}, checkId={}",
                     userId, missionCheck.getUser().getId(), missionCheckId);
-            //TODO: 적절한 예외로 수정해야 함
-            throw new RuntimeException("본인의 미션 기록만 삭제할 수 있습니다.");
+            throw new MissionCheckAccessDeniedException();
         }
 
         missionCheckRepository.delete(missionCheck);
         log.info("[MissionCheckService] 수행 여부 삭제: missionCheckId={}, userId={}", missionCheckId, userId);
+    }
+
+    @Override
+    public MissionCheckResult completeMissionCheck(Long userId, Long missionCheckId) {
+        MissionCheck missionCheck = missionCheckRepository.findById(missionCheckId)
+                .orElseThrow(MissionCheckNotFoundException::new);
+
+        if (!missionCheck.getUser().getId().equals(userId)) {
+            log.warn("[MissionCheckService] 완료 권한 없음: 요청자 userId={}, 기록 소유자 userId={}, checkId={}",
+                    userId, missionCheck.getUser().getId(), missionCheckId);
+            throw new MissionCheckAccessDeniedException();
+        }
+
+        if (missionCheck.isCompleted()) {
+            return missionCheckMapper.toDto(missionCheck);
+        }
+
+        Mission mission = missionCheck.getMission();
+        if (!isCompleted(missionCheck.getProgressValue(), mission.getGoal())) {
+            throw new MissionCheckNotCompletableException();
+        }
+
+        missionCheck.updateProgress(missionCheck.getProgressValue(), true, LocalDateTime.now());
+        MissionCheck saved = missionCheckRepository.save(missionCheck);
+        petExpressionService.updateExpression(userId, PetExpression.HAPPY);
+        log.info("[MissionCheckService] 수행 완료 처리: missionCheckId={}, userId={}", missionCheckId, userId);
+        return missionCheckMapper.toDto(saved);
     }
 
     @Override
@@ -105,20 +131,19 @@ public class MissionCheckServiceImpl implements MissionCheckService {
     }
 
     @Override
-    public List<MissionProgressUpdateItem> updateMealMissions(Long userId, LocalDate actionDate) {
+    public List<MissionProgressUpdateItem> updateMealMissions(
+            Long userId,
+            LocalDate actionDate,
+            MealTime mealTime
+    ) {
         LocalDate date = actionDate != null ? actionDate : LocalDate.now();
         User user = userRepository.findById(userId)
                 .orElseThrow(UserNotFoundException::new);
 
-        MealTime mealTime = MealTime.from(LocalTime.now());
-        boolean firstMealOfDay = mealRepository.countByUserAndDay(user, date) == 1;
-        boolean firstMealOfTime = mealRepository.countByUserAndDayAndSequence(
-                user,
-                date,
-                mealTime.getSequence()
-        ) == 1;
+        boolean firstMealOfTime = mealTime != null
+                && mealRepository.countByUserAndDayAndSequence(user, date, mealTime.getSequence()) == 1;
 
-        return updateMealMissionsInternal(userId, date, mealTime, firstMealOfDay, firstMealOfTime);
+        return updateMealMissionsInternal(userId, date, mealTime, firstMealOfTime);
     }
 
     @Override
@@ -140,8 +165,6 @@ public class MissionCheckServiceImpl implements MissionCheckService {
         }
 
         UpdateResult result = applyStepProgress(checks, delta);
-        celebrateIfNeeded(userId, result.shouldCelebrate());
-
         return result.updatedItems();
     }
 
@@ -162,12 +185,12 @@ public class MissionCheckServiceImpl implements MissionCheckService {
         return progress.compareTo(goal) >= 0;
     }
 
-    private static PeriodRange resolvePeriod(MissionType type, LocalDate baseDate, LocalDate userCreatedDate) {
+    private static PeriodRange resolvePeriod(MissionType type, LocalDate baseDate) {
         LocalDate date = baseDate != null ? baseDate : LocalDate.now();
         return switch (type) {
             case DAILY -> new PeriodRange(date, date);
             case WEEKLY -> new PeriodRange(
-                    resolveWeeklyStart(date, userCreatedDate),
+                    resolveWeeklyStart(date),
                     date.with(TemporalAdjusters.nextOrSame(java.time.DayOfWeek.SUNDAY))
             );
             case MONTHLY -> new PeriodRange(
@@ -181,7 +204,6 @@ public class MissionCheckServiceImpl implements MissionCheckService {
             Long userId,
             LocalDate date,
             MealTime mealTime,
-            boolean firstMealOfDay,
             boolean firstMealOfTime
     ) {
         if (mealTime == null) {
@@ -194,9 +216,7 @@ public class MissionCheckServiceImpl implements MissionCheckService {
             return List.of();
         }
 
-        UpdateResult result = applyMealProgress(checks, mealTime, firstMealOfDay, firstMealOfTime);
-        celebrateIfNeeded(userId, result.shouldCelebrate());
-
+        UpdateResult result = applyMealProgress(checks, mealTime, firstMealOfTime);
         return result.updatedItems();
     }
 
@@ -208,10 +228,6 @@ public class MissionCheckServiceImpl implements MissionCheckService {
     private User getUser(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(UserNotFoundException::new);
-    }
-
-    private static LocalDate toCreatedDate(User user) {
-        return user.getCreatedAt() != null ? user.getCreatedAt().toLocalDate() : null;
     }
 
     private UpdateResult upsertMissionCheck(
@@ -229,12 +245,11 @@ public class MissionCheckServiceImpl implements MissionCheckService {
 
         if (existing.isPresent()) {
             MissionCheck current = existing.get();
-            boolean shouldCelebrate = applyProgressIfActive(current, progressValue, mission.getGoal());
-            return new UpdateResult(current, shouldCelebrate, List.of());
+            applyProgressIfActive(current, progressValue);
+            return new UpdateResult(current, List.of());
         }
 
         BigDecimal progress = defaultProgress(progressValue);
-        boolean completed = isCompleted(progress, mission.getGoal());
         MissionCheck created = MissionCheck.builder()
                 .mission(mission)
                 .user(user)
@@ -242,53 +257,43 @@ public class MissionCheckServiceImpl implements MissionCheckService {
                 .periodStart(period.start())
                 .periodEnd(period.end())
                 .progressValue(progress)
-                .completed(completed)
-                .completedAt(completed ? LocalDateTime.now() : null)
+                .completed(false)
+                .completedAt(null)
                 .build();
 
-        return new UpdateResult(created, completed, List.of());
+        return new UpdateResult(created, List.of());
     }
 
-    private boolean applyProgressIfActive(MissionCheck current, BigDecimal delta, BigDecimal goal) {
+    private void applyProgressIfActive(MissionCheck current, BigDecimal delta) {
         if (current.isCompleted()) {
-            return false;
+            return;
         }
         BigDecimal updatedProgress = accumulateProgress(current.getProgressValue(), delta);
-        boolean completed = isCompleted(updatedProgress, goal);
-        current.updateProgress(updatedProgress, completed, LocalDateTime.now());
-        return completed;
+        current.updateProgress(updatedProgress, false, null);
     }
 
     private UpdateResult applyStepProgress(List<MissionCheck> checks, BigDecimal delta) {
-        boolean shouldCelebrate = false;
         List<MissionProgressUpdateItem> updated = new ArrayList<>();
 
         for (MissionCheck check : checks) {
             if (check.isCompleted()) {
                 continue;
             }
-            Mission mission = check.getMission();
             BigDecimal current = check.getProgressValue() == null ? BigDecimal.ZERO : check.getProgressValue();
             BigDecimal newProgress = current.add(delta);
-            boolean completed = isCompleted(newProgress, mission.getGoal());
-            if (completed) {
-                shouldCelebrate = true;
-            }
-            check.updateProgress(newProgress, completed, completed ? LocalDateTime.now() : null);
+            check.updateProgress(newProgress, false, null);
             missionCheckRepository.save(check);
             updated.add(toUpdateItem(check));
         }
 
-        return new UpdateResult(null, shouldCelebrate, updated);
+        return new UpdateResult(null, updated);
     }
 
     private UpdateResult applyMealProgress(
             List<MissionCheck> checks,
             MealTime mealTime,
-            boolean firstMealOfDay,
             boolean firstMealOfTime
     ) {
-        boolean shouldCelebrate = false;
         List<MissionProgressUpdateItem> updated = new ArrayList<>();
 
         for (MissionCheck check : checks) {
@@ -296,73 +301,79 @@ public class MissionCheckServiceImpl implements MissionCheckService {
                 continue;
             }
             Mission mission = check.getMission();
-            if (!shouldUpdateMealMission(mission, mealTime, firstMealOfDay, firstMealOfTime)) {
+            if (!shouldUpdateMealMission(mission, mealTime, firstMealOfTime)) {
                 continue;
             }
             BigDecimal current = check.getProgressValue() == null ? BigDecimal.ZERO : check.getProgressValue();
             BigDecimal newProgress = current.add(BigDecimal.ONE);
-            boolean completed = isCompleted(newProgress, mission.getGoal());
-            if (completed) {
-                shouldCelebrate = true;
-            }
-            check.updateProgress(newProgress, completed, completed ? LocalDateTime.now() : null);
+            check.updateProgress(newProgress, false, null);
             missionCheckRepository.save(check);
             updated.add(toUpdateItem(check));
         }
 
-        return new UpdateResult(null, shouldCelebrate, updated);
+        return new UpdateResult(null, updated);
     }
 
     private List<MissionCheck> findActiveChecks(Long userId, MissionCategory category, LocalDate date) {
         return missionCheckRepository.findActiveByUserAndCategoryAndDate(userId, category, date);
     }
 
-    private void celebrateIfNeeded(Long userId, boolean shouldCelebrate) {
-        if (shouldCelebrate) {
-            petExpressionService.updateExpression(userId, PetExpression.HAPPY);
-        }
-    }
-
-    private static LocalDate resolveWeeklyStart(LocalDate date, LocalDate userCreatedDate) {
-        LocalDate weekStart = date.with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY));
-        if (userCreatedDate == null) {
-            return weekStart;
-        }
-        return userCreatedDate.isAfter(weekStart) ? userCreatedDate : weekStart;
+    private static LocalDate resolveWeeklyStart(LocalDate date) {
+        return date.with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY));
     }
 
     private static boolean shouldUpdateMealMission(
             Mission mission,
             MealTime mealTime,
-            boolean firstMealOfDay,
             boolean firstMealOfTime
     ) {
-        MissionType type = mission.getType();
-        String title = mission.getTitle();
-        if (type == MissionType.DAILY) {
-            if (matchesMealTitle(title, mealTime)) {
-                return firstMealOfTime;
-            }
-            if (isThreeMealTitle(title)) {
-                return firstMealOfTime;
-            }
-            return firstMealOfDay;
-        }
-        return firstMealOfDay;
-    }
-
-    // 어떤 식단 미션인지 구분하는 용도
-    // 우선 모든 케이스 확인
-    // TODO : 최종적으로 미션 추가 후 교체 예정
-    private static boolean matchesMealTitle(String title, MealTime mealTime) {
-        if (title == null) {
+        if (mealTime == null || !firstMealOfTime) {
             return false;
         }
-        return switch (mealTime) {
-            case BREAKFAST -> title.contains("아침");
-            case LUNCH -> title.contains("점심");
-            case DINNER -> title.contains("저녁");
-        };
+        String title = mission.getTitle();
+        switch (mealTime) {
+            case BREAKFAST -> {
+                if (matchesBreakfastTitle(title)) {
+                    return true;
+                }
+            }
+            case LUNCH -> {
+                if (matchesLunchTitle(title)) {
+                    return true;
+                }
+            }
+            case DINNER -> {
+                if (matchesDinnerTitle(title)) {
+                    return true;
+                }
+            }
+        }
+        return isThreeMealTitle(title);
+    }
+
+    private static boolean matchesBreakfastTitle(String title) {
+        return containsAny(title, "아침", "첫 끼", "첫끼");
+    }
+
+    private static boolean matchesLunchTitle(String title) {
+        return containsAny(title, "점심", "균형");
+    }
+
+    private static boolean matchesDinnerTitle(String title) {
+        return containsAny(title, "저녁", "마무리", "마지막");
+    }
+
+    private static boolean containsAny(String title, String... keywords) {
+        if (title == null || title.isBlank()) {
+            return false;
+        }
+        String lower = title.toLowerCase();
+        for (String keyword : keywords) {
+            if (lower.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean isThreeMealTitle(String title) {
@@ -413,7 +424,6 @@ public class MissionCheckServiceImpl implements MissionCheckService {
 
     private record UpdateResult(
             MissionCheck missionCheck,
-            boolean shouldCelebrate,
             List<MissionProgressUpdateItem> updatedItems
     ) {
     }

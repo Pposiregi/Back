@@ -26,4 +26,13 @@ public enum MealTime {
         }
         return DINNER;
     }
+
+    public static MealTime fromSequence(int sequence) {
+        return switch (sequence) {
+            case 1 -> BREAKFAST;
+            case 2 -> LUNCH;
+            case 3 -> DINNER;
+            default -> null;
+        };
+    }
 }

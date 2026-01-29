@@ -23,6 +23,8 @@ public enum ErrorCode {
     MISSION_NOT_FOUND(HttpStatus.NOT_FOUND, "MI001", "해당 미션을 찾을 수 없습니다."),
     MISSION_ALREADY_EXISTS(HttpStatus.CONFLICT, "MI002", "해당 날짜의 미션이 이미 존재합니다."),
     MISSION_CHECK_NOT_FOUND(HttpStatus.NOT_FOUND, "MI003", "해당 미션 수행 기록을 찾을 수 없습니다."),
+    MISSION_CHECK_ACCESS_DENIED(HttpStatus.FORBIDDEN, "MI004", "해당 미션 수행 기록에 대한 권한이 없습니다."),
+    MISSION_CHECK_NOT_COMPLETABLE(HttpStatus.BAD_REQUEST, "MI005", "목표 달성 후 완료할 수 있습니다."),
 
     BADGE_NOT_FOUND(HttpStatus.NOT_FOUND, "BA001", "해당 뱃지를 찾을 수 없습니다."),
     BADGE_CHECK_NOT_FOUND(HttpStatus.NOT_FOUND, "BA002", "해당 뱃지 획득 기록을 찾을 수 없습니다."),
