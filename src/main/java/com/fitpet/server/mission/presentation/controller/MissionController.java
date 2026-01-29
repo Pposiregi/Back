@@ -14,8 +14,6 @@ import com.fitpet.server.mission.presentation.dto.MissionCreateRequest;
 import com.fitpet.server.mission.presentation.dto.MissionDto;
 import com.fitpet.server.mission.presentation.dto.MissionProgressListResponse;
 import com.fitpet.server.mission.presentation.dto.MissionProgressResponse;
-import com.fitpet.server.mission.presentation.dto.MissionProgressUpdateItem;
-import com.fitpet.server.mission.presentation.dto.MissionProgressUpdateResponse;
 import com.fitpet.server.mission.presentation.dto.MissionUpdateRequest;
 import com.fitpet.server.shared.annotation.AuthUser;
 import jakarta.validation.Valid;
@@ -143,30 +141,6 @@ public class MissionController {
         return ResponseEntity.ok(new MissionProgressListResponse(missions));
     }
 
-    @PostMapping("/progress/photo")
-    public ResponseEntity<MissionProgressUpdateResponse> updateMealMissions(@AuthUser Long userId) {
-        List<MissionProgressUpdateItem> updated = missionCheckService.updateMealMissions(userId, LocalDate.now())
-                .stream()
-                .map(MissionController::toProgressUpdateItem)
-                .toList();
-        return ResponseEntity.ok(new MissionProgressUpdateResponse(updated));
-    }
-
-    @PostMapping("/progress/step")
-    public ResponseEntity<MissionProgressUpdateResponse> updateStepMissions(
-            @AuthUser Long userId,
-            @RequestParam(defaultValue = "1000") int increment
-    ) {
-        List<MissionProgressUpdateItem> updated = missionCheckService.updateStepMissions(
-                        userId,
-                        LocalDate.now(),
-                        BigDecimal.valueOf(increment)
-                ).stream()
-                .map(MissionController::toProgressUpdateItem)
-                .toList();
-        return ResponseEntity.ok(new MissionProgressUpdateResponse(updated));
-    }
-
     @DeleteMapping("/checks/{missionCheckId}")
     public ResponseEntity<Void> deleteMissionCheck(
             @AuthUser Long userId,
@@ -262,14 +236,4 @@ public class MissionController {
         );
     }
 
-    private static MissionProgressUpdateItem toProgressUpdateItem(
-            com.fitpet.server.mission.application.dto.MissionProgressUpdateItem item
-    ) {
-        return new MissionProgressUpdateItem(
-                item.missionCheckId(),
-                item.progressValue(),
-                item.completed(),
-                item.completedAt()
-        );
-    }
 }
