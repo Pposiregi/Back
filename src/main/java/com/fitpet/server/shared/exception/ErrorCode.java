@@ -25,9 +25,11 @@ public enum ErrorCode {
     MISSION_CHECK_NOT_FOUND(HttpStatus.NOT_FOUND, "MI003", "해당 미션 수행 기록을 찾을 수 없습니다."),
     MISSION_CHECK_ACCESS_DENIED(HttpStatus.FORBIDDEN, "MI004", "해당 미션 수행 기록에 대한 권한이 없습니다."),
     MISSION_CHECK_NOT_COMPLETABLE(HttpStatus.BAD_REQUEST, "MI005", "목표 달성 후 완료할 수 있습니다."),
+    MISSION_STAT_DUPLICATE(HttpStatus.CONFLICT, "MI006", "해당 미션 통계가 이미 존재합니다."),
 
     BADGE_NOT_FOUND(HttpStatus.NOT_FOUND, "BA001", "해당 뱃지를 찾을 수 없습니다."),
     BADGE_CHECK_NOT_FOUND(HttpStatus.NOT_FOUND, "BA002", "해당 뱃지 획득 기록을 찾을 수 없습니다."),
+    BADGE_ALREADY_GRANTED(HttpStatus.CONFLICT, "BA003", "이미 해당 뱃지를 보유하고 있습니다."),
 
     PET_NOT_FOUND(HttpStatus.NOT_FOUND, "P001", "사용자의 펫을 찾을 수 없습니다."),
     PET_ALREADY_EXISTS(HttpStatus.CONFLICT, "P002", "사용자는 이미 펫을 보유하고 있습니다."),
