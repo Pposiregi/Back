@@ -37,4 +37,9 @@ public class BadgeCheckRepositoryAdapter implements BadgeCheckRepository {
     public void delete(BadgeCheck badgeCheck) {
         badgeCheckJpaRepository.delete(badgeCheck);
     }
+
+    @Override
+    public boolean existsByUserIdAndBadgeId(Long userId, Long badgeId) {
+        return badgeCheckJpaRepository.existsByUser_IdAndBadge_Id(userId, badgeId);
+    }
 }
