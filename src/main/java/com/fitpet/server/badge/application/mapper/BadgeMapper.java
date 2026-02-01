@@ -15,6 +15,7 @@ import org.mapstruct.NullValuePropertyMappingStrategy;
 public interface BadgeMapper {
 
     @Mapping(target = "id", ignore = true)
+    @Mapping(target = "mission", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     Badge toEntity(BadgeCreateRequest request);
