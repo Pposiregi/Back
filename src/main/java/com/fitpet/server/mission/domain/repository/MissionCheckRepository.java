@@ -15,6 +15,8 @@ public interface MissionCheckRepository {
 
     Optional<MissionCheck> findById(Long missionCheckId);
 
+    Optional<MissionCheck> findByIdForUpdate(Long missionCheckId);
+
     Optional<MissionCheck> findByPeriodKey(
         Long missionId,
         Long userId,

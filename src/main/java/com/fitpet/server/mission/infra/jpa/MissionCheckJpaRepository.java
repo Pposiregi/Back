@@ -7,7 +7,9 @@ import com.fitpet.server.mission.domain.repository.MissionCheckKey;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -27,6 +29,14 @@ public interface MissionCheckJpaRepository extends JpaRepository<MissionCheck, L
             @Param("periodType") MissionType periodType,
             @Param("periodStart") LocalDate periodStart
     );
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select mc
+            from MissionCheck mc
+            where mc.id = :missionCheckId
+            """)
+    Optional<MissionCheck> findByIdForUpdate(@Param("missionCheckId") Long missionCheckId);
 
     @Query("""
             select new com.fitpet.server.mission.domain.repository.MissionCheckKey(mc.mission.id, mc.user.id)
