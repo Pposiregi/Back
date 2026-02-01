@@ -6,7 +6,12 @@ import java.util.Optional;
 
 public interface BadgeRepository {
     Badge save(Badge badge);
+
     Optional<Badge> findById(Long badgeId);
+
     List<Badge> findAll();
+
     void delete(Badge badge);
+
+    List<Badge> findEligibleByMissionId(Long missionId, Long clearCount);
 }
