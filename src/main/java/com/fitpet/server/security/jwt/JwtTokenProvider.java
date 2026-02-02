@@ -41,23 +41,23 @@ public class JwtTokenProvider {
 
     public String generateAccessToken(Long userId, String email, List<String> roles) {
         return Jwts.builder()
-            .setSubject(email)
-            .claim("userId", userId)
-            .claim("roles", roles)
-            .setIssuedAt(new Date())
-            .setExpiration(new Date(System.currentTimeMillis() + accessExpirationMs))
-            .signWith(accessKey, SignatureAlgorithm.HS256)
-            .compact();
+                .setSubject(email)
+                .claim("userId", userId)
+                .claim("roles", roles)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + accessExpirationMs))
+                .signWith(accessKey, SignatureAlgorithm.HS256)
+                .compact();
     }
 
     public String generateRefreshToken(Long userId, String email) {
         return Jwts.builder()
-            .setSubject(email)
-            .claim("userId", userId)
-            .setIssuedAt(new Date())
-            .setExpiration(new Date(System.currentTimeMillis() + refreshExpirationMs))
-            .signWith(refreshKey, SignatureAlgorithm.HS256)
-            .compact();
+                .setSubject(email)
+                .claim("userId", userId)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + refreshExpirationMs))
+                .signWith(refreshKey, SignatureAlgorithm.HS256)
+                .compact();
     }
 
     public boolean validateAccessToken(String token) {
@@ -81,7 +81,7 @@ public class JwtTokenProvider {
     public Long getUserId(String token, boolean isRefresh) {
         Key key = isRefresh ? refreshKey : accessKey;
         Claims claims = Jwts.parserBuilder().setSigningKey(key).build()
-            .parseClaimsJws(token).getBody();
+                .parseClaimsJws(token).getBody();
         return claims.get("userId", Long.class);
     }
 

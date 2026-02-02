@@ -42,7 +42,8 @@ public class SecurityConfig {
             "/pets/**",
             "/missions/**",
             "/badges/**",
-            "/terms/**",
+            "/terms",
+            "/terms/agreements",
             "/devices/**",
             "/api/test/**",
             "/ranking/**",
@@ -66,6 +67,7 @@ public class SecurityConfig {
                         .requestMatchers(PERMIT_URL_ARRAY).permitAll()
                         .anyRequest().authenticated()
                 );
+
         return http.build();
     }
 
@@ -84,26 +86,14 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-
-        // 추후 도메인 고정
         config.setAllowedOriginPatterns(List.of("https://*.run.app"));
-
-        // Method 허용
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-
-        // Header 허용
         config.setAllowedHeaders(List.of("*"));
-
-        // 응답 Header 허용
         config.setExposedHeaders(List.of("Authorization", "dev-user-id"));
-
-        // 쿠키 인증 안 쓸 때
-        config.setAllowCredentials(false); // credentials 쓸 거면 Origin을 명시해야 함
+        config.setAllowCredentials(false);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
     }
-
-
 }
