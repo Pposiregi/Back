@@ -1,5 +1,6 @@
 package com.fitpet.server.ranking.presentation;
 
+import com.fitpet.server.ranking.application.dto.RankingDto;
 import com.fitpet.server.ranking.application.service.RankingService;
 import com.fitpet.server.ranking.presentation.dto.RankingResponse;
 import com.fitpet.server.ranking.presentation.dto.RankingSummaryResponse;
@@ -22,12 +23,18 @@ public class RankingController {
 
     @GetMapping("/summary")
     public ResponseEntity<RankingSummaryResponse> getRankingSummary(@AuthUser Long userId) {
-        List<RankingResponse> top10 = rankingService.getTop10();
 
-        RankingResponse myRank = rankingService.getMyRank(userId);
+        List<RankingDto> top10Dtos = rankingService.getTop10();
+        RankingDto myRankDto = rankingService.getMyRank(userId);
+
+        List<RankingResponse> top10Responses = top10Dtos.stream()
+                .map(RankingResponse::from)
+                .toList();
+
+        RankingResponse myRankResponse = RankingResponse.from(myRankDto);
 
         return ResponseEntity.ok(
-                RankingSummaryResponse.of(top10, myRank)
+                RankingSummaryResponse.of(top10Responses, myRankResponse)
         );
     }
 

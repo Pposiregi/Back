@@ -1,14 +1,22 @@
 package com.fitpet.server.ranking.application.dto;
 
-import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 
 @Getter
-@NoArgsConstructor
-@AllArgsConstructor
+@Builder
 public class RankingDto {
-    private int rank;
     private Long userId;
-    private Long score;
+    private String nickname;
+    private int rank;
+    private long score;
+
+    public static RankingDto of(Long userId, String nickname, int rank, long score) {
+        return RankingDto.builder()
+                .userId(userId)
+                .nickname(nickname)
+                .rank(rank)
+                .score(score)
+                .build();
+    }
 }

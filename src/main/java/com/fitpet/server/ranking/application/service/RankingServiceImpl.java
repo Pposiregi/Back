@@ -1,9 +1,9 @@
 package com.fitpet.server.ranking.application.service;
 
+import com.fitpet.server.ranking.application.dto.RankingDto;
 import com.fitpet.server.ranking.application.event.UserCacheRefreshEvent;
 import com.fitpet.server.ranking.domain.entity.Ranking;
 import com.fitpet.server.ranking.domain.repository.RankingRepository;
-import com.fitpet.server.ranking.presentation.dto.RankingResponse;
 import com.fitpet.server.user.domain.entity.User;
 import com.fitpet.server.user.domain.repository.UserRepository;
 import java.time.LocalDate;
@@ -67,13 +67,13 @@ public class RankingServiceImpl implements RankingService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<RankingResponse> getTop10() {
+    public List<RankingDto> getTop10() {
         return fetchTopRankings(LocalDate.now());
     }
 
     @Override
     @Transactional(readOnly = true)
-    public RankingResponse getMyRank(Long userId) {
+    public RankingDto getMyRank(Long userId) {
         LocalDate now = LocalDate.now();
         String redisKey = getRankingKey(now);
         String userIdStr = String.valueOf(userId);
@@ -86,7 +86,7 @@ public class RankingServiceImpl implements RankingService {
 
         Map<Long, String> nicknameMap = getNicknameMap(Collections.singletonList(userId));
 
-        return RankingResponse.of(userId, nicknameMap.get(userId), finalRank, finalScore);
+        return RankingDto.of(userId, nicknameMap.get(userId), finalRank, finalScore);
     }
 
     private Map<Long, String> getNicknameMap(List<Long> userIds) {
@@ -120,7 +120,7 @@ public class RankingServiceImpl implements RankingService {
         return profileMap;
     }
 
-    private List<RankingResponse> fetchTopRankings(LocalDate now) {
+    private List<RankingDto> fetchTopRankings(LocalDate now) {
         String redisKey = getRankingKey(now);
         Set<ZSetOperations.TypedTuple<String>> tuples =
                 redisTemplate.opsForZSet().reverseRangeWithScores(redisKey, 0, TOP_RANK_LIMIT - 1);
@@ -137,7 +137,7 @@ public class RankingServiceImpl implements RankingService {
         return convertToResponseList(tuples, nicknameMap);
     }
 
-    private List<RankingResponse> recoverRedisFromDatabase(LocalDate now) {
+    private List<RankingDto> recoverRedisFromDatabase(LocalDate now) {
         String dateKey = now.toString();
         log.warn("[RankingService] 캐시 미스 - DB 데이터 복구 시도: {}", dateKey);
 
@@ -166,10 +166,10 @@ public class RankingServiceImpl implements RankingService {
         List<Long> userIds = topRankings.stream().map(r -> r.getUser().getId()).toList();
         Map<Long, String> nicknameMap = getNicknameMap(userIds);
 
-        List<RankingResponse> responses = new ArrayList<>();
+        List<RankingDto> responses = new ArrayList<>();
         int rank = 1;
         for (Ranking r : topRankings) {
-            responses.add(RankingResponse.of(
+            responses.add(RankingDto.of(
                     r.getUser().getId(),
                     nicknameMap.get(r.getUser().getId()),
                     rank++,
@@ -179,13 +179,13 @@ public class RankingServiceImpl implements RankingService {
         return responses;
     }
 
-    private List<RankingResponse> convertToResponseList(Set<ZSetOperations.TypedTuple<String>> tuples,
-                                                        Map<Long, String> nicknameMap) {
-        List<RankingResponse> result = new ArrayList<>();
+    private List<RankingDto> convertToResponseList(Set<ZSetOperations.TypedTuple<String>> tuples,
+                                                   Map<Long, String> nicknameMap) {
+        List<RankingDto> result = new ArrayList<>();
         int rank = 1;
         for (ZSetOperations.TypedTuple<String> tuple : tuples) {
             Long userId = Long.parseLong(Objects.requireNonNull(tuple.getValue()));
-            result.add(RankingResponse.of(userId, nicknameMap.get(userId), rank++,
+            result.add(RankingDto.of(userId, nicknameMap.get(userId), rank++,
                     (long) Math.floor(Objects.requireNonNull(tuple.getScore()))));
         }
         return result;

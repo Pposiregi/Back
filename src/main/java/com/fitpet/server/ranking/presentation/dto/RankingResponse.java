@@ -1,26 +1,24 @@
+// Presentation Layer DTO
 package com.fitpet.server.ranking.presentation.dto;
 
-import lombok.AllArgsConstructor;
+import com.fitpet.server.ranking.application.dto.RankingDto;
 import lombok.Builder;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 
 @Getter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class RankingResponse {
-    private int rank;
     private Long userId;
     private String nickname;
-    private Long score;
+    private int score;
+    private int rank;
 
-    public static RankingResponse of(Long userId, String nickname, int rank, long score) {
+    public static RankingResponse from(RankingDto dto) {
         return RankingResponse.builder()
-                .userId(userId)
-                .nickname(nickname)
-                .rank(rank)
-                .score(score)
+                .userId(dto.getUserId())
+                .nickname(dto.getNickname())
+                .score((int) dto.getScore())
+                .rank(dto.getRank())
                 .build();
     }
 }

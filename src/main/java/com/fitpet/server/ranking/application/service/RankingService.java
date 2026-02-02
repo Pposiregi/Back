@@ -1,13 +1,13 @@
 package com.fitpet.server.ranking.application.service;
 
-import com.fitpet.server.ranking.presentation.dto.RankingResponse;
+import com.fitpet.server.ranking.application.dto.RankingDto;
 import java.util.List;
 
 public interface RankingService {
 
     void updateScore(Long userId, int steps);
 
-    List<RankingResponse> getTop10();
+    List<RankingDto> getTop10();
 
-    RankingResponse getMyRank(Long userId);
+    RankingDto getMyRank(Long userId);
 }
