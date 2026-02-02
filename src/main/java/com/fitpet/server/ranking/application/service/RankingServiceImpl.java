@@ -20,6 +20,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.data.redis.core.script.RedisScript;
@@ -140,7 +141,7 @@ public class RankingServiceImpl implements RankingService {
         String dateKey = now.toString();
         log.warn("[RankingService] 캐시 미스 - DB 데이터 복구 시도: {}", dateKey);
 
-        List<Ranking> rankings = rankingRepository.findTop20ByDateKeyOrderByScoreDesc(dateKey);
+        List<Ranking> rankings = rankingRepository.findTopRankings(dateKey, PageRequest.of(0, 20));
 
         if (rankings.isEmpty()) {
             log.info("[RankingService] DB에도 데이터가 없어 빈 결과를 반환합니다.");

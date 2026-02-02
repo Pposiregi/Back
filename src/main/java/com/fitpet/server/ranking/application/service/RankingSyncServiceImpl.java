@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.connection.StringRedisConnection;
 import org.springframework.data.redis.core.Cursor;
@@ -31,6 +32,7 @@ public class RankingSyncServiceImpl implements RankingSyncService {
     private final UserRepository userRepository;
     private final StringRedisTemplate redisTemplate;
 
+    @Autowired
     @Lazy
     private RankingSyncService self;
 
@@ -62,6 +64,7 @@ public class RankingSyncServiceImpl implements RankingSyncService {
         }
     }
 
+    @Override
     @Transactional
     public void flushChunkToDatabase(List<String> userIds, RankingSyncContext context) {
         if (userIds.isEmpty()) {
