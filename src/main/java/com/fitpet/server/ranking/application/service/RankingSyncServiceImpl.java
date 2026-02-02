@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.connection.StringRedisConnection;
 import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.RedisCallback;
@@ -30,6 +31,9 @@ public class RankingSyncServiceImpl implements RankingSyncService {
     private final UserRepository userRepository;
     private final StringRedisTemplate redisTemplate;
 
+    @Lazy
+    private RankingSyncService self;
+
     @Override
     public void syncRedisToDatabase() {
         RankingSyncContext context = createSyncContext(LocalDate.now());
@@ -44,13 +48,13 @@ public class RankingSyncServiceImpl implements RankingSyncService {
                 chunk.add(cursor.next());
 
                 if (chunk.size() >= 100) {
-                    flushChunkToDatabase(chunk, context);
+                    self.flushChunkToDatabase(chunk, context);
                     chunk.clear();
                 }
             }
 
             if (!chunk.isEmpty()) {
-                flushChunkToDatabase(chunk, context);
+                self.flushChunkToDatabase(chunk, context);
             }
 
         } catch (Exception e) {
