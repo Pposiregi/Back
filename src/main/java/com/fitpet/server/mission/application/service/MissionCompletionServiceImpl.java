@@ -27,6 +27,7 @@ public class MissionCompletionServiceImpl implements MissionCompletionService {
 
     private final MissionCheckRepository missionCheckRepository;
     private final UserMissionStatRepository userMissionStatRepository;
+    private final UserMissionStatCreateService userMissionStatCreateService;
     private final BadgeRepository badgeRepository;
     private final BadgeCheckRepository badgeCheckRepository;
 
@@ -64,34 +65,28 @@ public class MissionCompletionServiceImpl implements MissionCompletionService {
     }
 
     private UserMissionStat adjustClearCount(MissionCheck missionCheck) {
-        return userMissionStatRepository.findWithLockByUserAndMission(
-                        missionCheck.getUser(),
-                        missionCheck.getMission()
-                )
+        User user = missionCheck.getUser();
+        Mission mission = missionCheck.getMission();
+
+        return userMissionStatRepository.findWithLockByUserAndMission(user, mission)
                 .map(stat -> {
                     stat.incrementClearCount();
                     return stat;
                 })
-                .orElseGet(() -> createStat(missionCheck));
+                .orElseGet(() -> createOrIncrementStat(user, mission));
     }
 
-    private UserMissionStat createStat(MissionCheck missionCheck) {
-        try {
-            UserMissionStat stat = UserMissionStat.builder()
-                    .user(missionCheck.getUser())
-                    .mission(missionCheck.getMission())
-                    .clearCount(1)
-                    .build();
-            return userMissionStatRepository.save(stat);
-        } catch (DataIntegrityViolationException ex) {
-            UserMissionStat stat = userMissionStatRepository.findWithLockByUserAndMission(
-                            missionCheck.getUser(),
-                            missionCheck.getMission()
-                    )
-                    .orElseThrow(() -> new BusinessException(ErrorCode.MISSION_STAT_DUPLICATE));
+    private UserMissionStat createOrIncrementStat(User user, Mission mission) {
+        boolean created = userMissionStatCreateService.tryCreate(user, mission);
+
+        UserMissionStat stat = userMissionStatRepository.findWithLockByUserAndMission(user, mission)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MISSION_STAT_DUPLICATE));
+
+        if (!created) {
             stat.incrementClearCount();
-            return stat;
         }
+
+        return stat;
     }
 
     private void awardBadges(User user, Mission mission, Integer clearCount) {
