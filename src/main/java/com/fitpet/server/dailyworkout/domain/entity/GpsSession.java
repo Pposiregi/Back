@@ -68,6 +68,13 @@ public class GpsSession {
     @OneToMany(mappedBy = "gpsSession", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<GpsLog> gpsLogs = new ArrayList<>();
 
+    public boolean isOwnedBy(Long userId) {
+        if (this.user == null || userId == null) {
+            return false;
+        }
+        return this.user.getId().equals(userId);
+    }
+
     public void addDistance(BigDecimal distance) {
         if (distance == null || distance.compareTo(BigDecimal.ZERO) <= 0) {
             return;
