@@ -18,7 +18,11 @@ public class SessionEndRequest {
 
     @NotNull
     private Integer stepCount;
-    
+
     @NotNull
     private BigDecimal distance;
+
+    private Integer totalDistance;
+
+    private Integer burnCalories;
 }

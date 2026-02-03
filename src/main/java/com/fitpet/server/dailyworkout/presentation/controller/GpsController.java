@@ -34,7 +34,6 @@ public class GpsController {
 
     private final GpsSessionService gpsSessionService;
 
-    // [변경 1] 201 Created 반환
     @PostMapping("/start")
     public ResponseEntity<GpsSessionStartResponse> startSession(
             @AuthUser Long userId,
@@ -42,30 +41,25 @@ public class GpsController {
     ) {
         GpsSessionStartResponse response = gpsSessionService.startSession(userId, request);
 
-        // 생성된 리소스의 위치를 헤더에 알려주는 것이 정석 (Location Header)
         return ResponseEntity
                 .created(URI.create("/gps/sessions/" + response.getSessionId()))
                 .body(response);
     }
 
-    // [변경 2] @AuthUser 추가 (보안 강화) 및 201 반환
     @PostMapping("/log")
     public ResponseEntity<GpsLogResponse> logGps(
-            @AuthUser Long userId, // 내 세션에만 로그를 남길 수 있어야 함
+            @AuthUser Long userId,
             @Valid @RequestBody GpsLogRequest request
     ) {
-        // Service 메서드 시그니처도 userId를 받도록 수정 필요
         GpsLogResponse response = gpsSessionService.logGps(userId, request);
         return ResponseEntity.created(URI.create("")).body(response);
     }
 
-    // [변경 3] @AuthUser 추가 (보안 강화)
     @PostMapping("/end")
     public ResponseEntity<SessionEndResponse> endSession(
-            @AuthUser Long userId, // 내 세션만 종료할 수 있어야 함
+            @AuthUser Long userId,
             @Valid @RequestBody SessionEndRequest request
     ) {
-        // Service 메서드 시그니처도 userId를 받도록 수정 필요
         SessionEndResponse response = gpsSessionService.endSession(userId, request);
         return ResponseEntity.ok(response);
     }
@@ -77,7 +71,6 @@ public class GpsController {
             @RequestParam @Min(1) @Max(12) int month
     ) {
         List<GpsSessionSummaryResponse> sessions = gpsSessionService.getMonthlySessions(userId, year, month);
-        // Tip: 실무에서는 List를 바로 리턴하기보다 Result<T> 같은 래퍼 클래스를 사용하는 것을 권장
         return ResponseEntity.ok(sessions);
     }
 

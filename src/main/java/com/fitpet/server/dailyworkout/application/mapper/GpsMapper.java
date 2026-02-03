@@ -19,6 +19,7 @@ import org.mapstruct.ReportingPolicy;
 public interface GpsMapper {
 
     @Mapping(target = "id", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "gpsSession", source = "session")
     @Mapping(target = "user", source = "session.user")
     GpsLog toGpsLogEntity(GpsLogRequest request, GpsSession session);
@@ -28,6 +29,7 @@ public interface GpsMapper {
     GpsSessionStartResponse toSessionStartResponse(GpsSession session);
 
     @Mapping(source = "id", target = "logId")
+    @Mapping(source = "gpsSession.id", target = "sessionId")
     @Mapping(target = "message", constant = "GPS log saved")
     GpsLogResponse toGpsLogResponse(GpsLog log);
 
@@ -35,8 +37,11 @@ public interface GpsMapper {
     @Mapping(target = "message", constant = "GPS session ended")
     SessionEndResponse toSessionEndResponse(GpsSession session);
 
+
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "totalDistance", ignore = true)
     @Mapping(source = "endTime", target = "endTime")
     @Mapping(source = "stepCount", target = "stepCount")
-    @Mapping(source = "distance", target = "totalDistance")
-    void updateSessionFromEndRequest(SessionEndRequest dto, @MappingTarget GpsSession session);
+    @Mapping(source = "burnCalories", target = "burnCalories")
+    void updateSessionFromEndRequest(SessionEndRequest request, @MappingTarget GpsSession session);
 }

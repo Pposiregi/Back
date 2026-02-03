@@ -13,17 +13,21 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
+
 @Entity
 @Table(name = "gps_log")
 @Getter
 @Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
+@Builder
 public class GpsLog {
 
     @Id
@@ -58,7 +62,6 @@ public class GpsLog {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    @Builder
     public GpsLog(User user, GpsSession gpsSession, BigDecimal latitude, BigDecimal longitude, BigDecimal speed,
                   BigDecimal altitude, LocalDateTime recordedAt) {
         this.user = user;
