@@ -3,13 +3,11 @@ package com.fitpet.server.dailyworkout.application.mapper;
 import com.fitpet.server.dailyworkout.domain.entity.GpsLog;
 import com.fitpet.server.dailyworkout.domain.entity.GpsSession;
 import com.fitpet.server.dailyworkout.presentation.dto.request.GpsLogRequest;
-import com.fitpet.server.dailyworkout.presentation.dto.request.SessionEndRequest;
 import com.fitpet.server.dailyworkout.presentation.dto.response.GpsLogResponse;
 import com.fitpet.server.dailyworkout.presentation.dto.response.GpsSessionStartResponse;
 import com.fitpet.server.dailyworkout.presentation.dto.response.SessionEndResponse;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
 import org.mapstruct.ReportingPolicy;
 
 @Mapper(
@@ -36,12 +34,4 @@ public interface GpsMapper {
     @Mapping(source = "id", target = "sessionId")
     @Mapping(target = "message", constant = "GPS session ended")
     SessionEndResponse toSessionEndResponse(GpsSession session);
-
-
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "totalDistance", ignore = true)
-    @Mapping(source = "endTime", target = "endTime")
-    @Mapping(source = "stepCount", target = "stepCount")
-    @Mapping(source = "burnCalories", target = "burnCalories")
-    void updateSessionFromEndRequest(SessionEndRequest request, @MappingTarget GpsSession session);
 }

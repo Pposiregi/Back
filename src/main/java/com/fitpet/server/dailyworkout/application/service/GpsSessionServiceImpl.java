@@ -42,7 +42,7 @@ public class GpsSessionServiceImpl implements GpsSessionService {
     private final UserRepository userRepository;
     private final GpsMapper gpsMapper;
 
-    // GPS 필터링용 상수 추가
+    // GPS 필터링 상수
     private static final double MIN_DISTANCE_METER = 2.0;       // 2m 미만 이동은 노이즈로 간주하고 무시
     private static final double MAX_HUMAN_SPEED_KMH = 45.0;     // 시속 45km 이상은 차량/오류
     private static final double MAX_NOISE_SPEED_KMH = 150.0;    // 시속 150km 이상은 명백한 GPS 튐
@@ -145,11 +145,15 @@ public class GpsSessionServiceImpl implements GpsSessionService {
             throw new BusinessException(ErrorCode.SESSION_ACCESS_DENIED);
         }
 
-        gpsMapper.updateSessionFromEndRequest(request, session);
-        session.setEndTime(request.getEndTime());
+        //  내부 로직으로 '소모 칼로리(체중 기반 METs)'와 '평균 속도'를 자동 계산
+        session.endSession(
+                request.getEndTime(),
+                request.getStepCount(),
+                request.getBurnCalories()
+        );
 
-        log.info("GPS 세션 종료 완료: sessionId={}, totalDistance={}",
-                session.getId(), session.getTotalDistance());
+        log.info("GPS 세션 종료 완료: sessionId={}, totalDistance={}, burnCalories={}",
+                session.getId(), session.getTotalDistance(), session.getBurnCalories());
 
         return gpsMapper.toSessionEndResponse(session);
     }
@@ -188,7 +192,7 @@ public class GpsSessionServiceImpl implements GpsSessionService {
     public GpsSessionDetailResponse getSessionDetail(Long userId, Long sessionId) {
         GpsSession session = gpsSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.SESSION_NOT_FOUND));
-        
+
         if (!session.isOwnedBy(userId)) {
             log.warn("세션 조회 권한 없음: userId={}, ownerId={}", userId, session.getUser().getId());
             throw new BusinessException(ErrorCode.SESSION_ACCESS_DENIED);
