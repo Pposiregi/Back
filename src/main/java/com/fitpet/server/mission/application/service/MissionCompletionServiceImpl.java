@@ -37,9 +37,7 @@ public class MissionCompletionServiceImpl implements MissionCompletionService {
         MissionCheck missionCheck = missionCheckRepository.findByIdForUpdate(missionCheckId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MISSION_CHECK_NOT_FOUND));
 
-        if (!missionCheck.getUser().getId().equals(userId)) {
-            throw new BusinessException(ErrorCode.MISSION_CHECK_ACCESS_DENIED);
-        }
+        validateOwner(missionCheck, userId);
 
         if (missionCheck.isCompleted()) {
             return missionCheck;
@@ -55,6 +53,16 @@ public class MissionCompletionServiceImpl implements MissionCompletionService {
         UserMissionStat stat = adjustClearCount(missionCheck);
         awardBadges(missionCheck.getUser(), missionCheck.getMission(), stat.getClearCount());
         return missionCheck;
+    }
+
+    private void validateOwner(MissionCheck missionCheck, Long userId) {
+        if (!isOwner(missionCheck, userId)) {
+            throw new BusinessException(ErrorCode.MISSION_CHECK_ACCESS_DENIED);
+        }
+    }
+
+    private boolean isOwner(MissionCheck missionCheck, Long userId) {
+        return missionCheck.getUser().getId().equals(userId);
     }
 
     private boolean isGoalReached(MissionCheck missionCheck) {
