@@ -48,10 +48,10 @@ public class GpsSession {
     @Column(name = "end_time")
     private LocalDateTime endTime;
 
-    @Column(name = "total_distance")
+    @Column(name = "total_distance", precision = 10, scale = 2)
     private BigDecimal totalDistance;
 
-    @Column(name = "avg_speed")
+    @Column(name = "avg_speed", precision = 5, scale = 2)
     private BigDecimal avgSpeed;
 
     @Column(name = "step_count")
@@ -67,4 +67,14 @@ public class GpsSession {
     @Builder.Default
     @OneToMany(mappedBy = "gpsSession", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<GpsLog> gpsLogs = new ArrayList<>();
+
+    public void addDistance(BigDecimal distance) {
+        if (distance == null || distance.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+        if (this.totalDistance == null) {
+            this.totalDistance = BigDecimal.ZERO;
+        }
+        this.totalDistance = this.totalDistance.add(distance);
+    }
 }

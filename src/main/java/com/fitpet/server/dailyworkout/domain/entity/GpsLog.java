@@ -13,6 +13,7 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -22,7 +23,7 @@ import org.hibernate.annotations.CreationTimestamp;
 @Table(name = "gps_log")
 @Getter
 @Setter
-@NoArgsConstructor(access = AccessLevel.PUBLIC)
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class GpsLog {
 
     @Id
@@ -38,16 +39,16 @@ public class GpsLog {
     @JoinColumn(name = "session_id", nullable = false)
     private GpsSession gpsSession;
 
-    @Column(name = "latitude", nullable = false)
+    @Column(name = "latitude", nullable = false, precision = 10, scale = 6)
     private BigDecimal latitude;
 
-    @Column(name = "longitude", nullable = false)
+    @Column(name = "longitude", nullable = false, precision = 10, scale = 6)
     private BigDecimal longitude;
 
-    @Column(name = "speed")
+    @Column(name = "speed", precision = 5, scale = 2)
     private BigDecimal speed;
 
-    @Column(name = "altitude")
+    @Column(name = "altitude", precision = 7, scale = 2)
     private BigDecimal altitude;
 
     @Column(name = "recorded_at", nullable = false)
@@ -56,4 +57,16 @@ public class GpsLog {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @Builder
+    public GpsLog(User user, GpsSession gpsSession, BigDecimal latitude, BigDecimal longitude, BigDecimal speed,
+                  BigDecimal altitude, LocalDateTime recordedAt) {
+        this.user = user;
+        this.gpsSession = gpsSession;
+        this.latitude = latitude;
+        this.longitude = longitude;
+        this.speed = speed;
+        this.altitude = altitude;
+        this.recordedAt = recordedAt;
+    }
 }
