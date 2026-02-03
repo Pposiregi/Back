@@ -42,7 +42,7 @@ public class GpsSessionServiceImpl implements GpsSessionService {
     private final UserRepository userRepository;
     private final GpsMapper gpsMapper;
 
-    // GPS 필터링 상수
+    // GPS 필터링용 상수 추가
     private static final double MIN_DISTANCE_METER = 2.0;       // 2m 미만 이동은 노이즈로 간주하고 무시
     private static final double MAX_HUMAN_SPEED_KMH = 45.0;     // 시속 45km 이상은 차량/오류
     private static final double MAX_NOISE_SPEED_KMH = 150.0;    // 시속 150km 이상은 명백한 GPS 튐
@@ -77,6 +77,12 @@ public class GpsSessionServiceImpl implements GpsSessionService {
                     return new BusinessException(ErrorCode.SESSION_NOT_FOUND);
                 });
 
+        if (!session.isOwnedBy(userId)) {
+            log.warn("권한 없는 세션 접근 시도: requester={}, owner={}, sessionId={}",
+                    userId, session.getUser().getId(), session.getId());
+            throw new BusinessException(ErrorCode.SESSION_ACCESS_DENIED);
+        }
+
         GpsLog lastLog = gpsLogRepository.findTopByGpsSessionOrderByRecordedAtDesc(session);
 
         if (lastLog != null) {
@@ -102,7 +108,7 @@ public class GpsSessionServiceImpl implements GpsSessionService {
             // 속도 계산 (km/h)
             double speedKmh = (distanceMeters / timeDeltaSeconds) * 3.6;
 
-            // 필터링: 45km/h 이상 무시
+            // 필터링: 45km/h 이상 무시 (차량 및 GPS 튀어오름 방지)
             if (speedKmh > MAX_HUMAN_SPEED_KMH) {
                 if (speedKmh > MAX_NOISE_SPEED_KMH) {
                     log.warn("GPS Noise Detected: speed={}km/h, dist={}m", speedKmh, distanceMeters);
@@ -113,7 +119,7 @@ public class GpsSessionServiceImpl implements GpsSessionService {
                 return gpsMapper.toGpsLogResponse(lastLog);
             }
 
-            // 정상 데이터 처리
+            // 정상 데이터 처리: 세션 엔티티에 거리 누적
             session.addDistance(distance);
         }
 
@@ -133,6 +139,11 @@ public class GpsSessionServiceImpl implements GpsSessionService {
                     log.warn("세션을 찾을 수 없음: sessionId={}", request.getSessionId());
                     return new BusinessException(ErrorCode.SESSION_NOT_FOUND);
                 });
+
+        if (!session.isOwnedBy(userId)) {
+            log.warn("권한 없는 세션 종료 시도: requester={}, owner={}", userId, session.getUser().getId());
+            throw new BusinessException(ErrorCode.SESSION_ACCESS_DENIED);
+        }
 
         gpsMapper.updateSessionFromEndRequest(request, session);
         session.setEndTime(request.getEndTime());
@@ -177,8 +188,8 @@ public class GpsSessionServiceImpl implements GpsSessionService {
     public GpsSessionDetailResponse getSessionDetail(Long userId, Long sessionId) {
         GpsSession session = gpsSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.SESSION_NOT_FOUND));
-
-        if (!session.getUser().getId().equals(userId)) {
+        
+        if (!session.isOwnedBy(userId)) {
             log.warn("세션 조회 권한 없음: userId={}, ownerId={}", userId, session.getUser().getId());
             throw new BusinessException(ErrorCode.SESSION_ACCESS_DENIED);
         }
