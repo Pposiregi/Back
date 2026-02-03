@@ -3,18 +3,25 @@ package com.fitpet.server.termsmaster.presentation.dto;
 import com.fitpet.server.termsmaster.application.dto.TermsDto;
 import com.fitpet.server.termsmaster.domain.entity.TermsType;
 import java.time.LocalDate;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
+@Getter
 @Builder
-public record TermsResponse(
-        Long termsId,
-        TermsType termsCode,
-        String title,
-        String content,
-        boolean isRequired,
-        String version,
-        LocalDate effectiveDate
-) {
+@NoArgsConstructor
+@AllArgsConstructor
+public class TermsResponse {
+
+    private Long termsId;
+    private TermsType termsCode;
+    private String title;
+    private String content;
+    private boolean isRequired;
+    private String version;
+    private LocalDate effectiveDate;
+
     public static TermsResponse from(TermsDto dto) {
         return TermsResponse.builder()
                 .termsId(dto.termsId())
