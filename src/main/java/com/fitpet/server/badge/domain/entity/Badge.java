@@ -89,4 +89,11 @@ public class Badge {
             this.mission = mission;
         }
     }
+
+    public void assignMission(Mission mission) {
+        if (mission == null) {
+            throw new IllegalArgumentException("mission은 null일 수 없습니다.");
+        }
+        this.mission = mission;
+    }
 }

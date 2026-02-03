@@ -33,7 +33,7 @@ public class BadgeServiceImpl implements BadgeService {
         Badge badge = badgeMapper.toEntity(request);
         Mission mission = missionRepository.findById(request.missionId())
                 .orElseThrow(MissionNotFoundException::new);
-        badge.update(null, null, null, null, null, mission);
+        badge.assignMission(mission);
         Badge saved = badgeRepository.save(badge);
         log.info("[BadgeService] 뱃지 생성 완료: id={}", saved.getId());
         return badgeMapper.toDto(saved);
