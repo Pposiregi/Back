@@ -1,12 +1,12 @@
 package com.fitpet.server.badge.application.service;
 
+import com.fitpet.server.badge.application.dto.BadgeCreateCommand;
+import com.fitpet.server.badge.application.dto.BadgeResult;
+import com.fitpet.server.badge.application.dto.BadgeUpdateCommand;
 import com.fitpet.server.badge.application.mapper.BadgeMapper;
 import com.fitpet.server.badge.domain.entity.Badge;
 import com.fitpet.server.badge.domain.exception.BadgeNotFoundException;
 import com.fitpet.server.badge.domain.repository.BadgeRepository;
-import com.fitpet.server.badge.presentation.dto.BadgeCreateRequest;
-import com.fitpet.server.badge.presentation.dto.BadgeDto;
-import com.fitpet.server.badge.presentation.dto.BadgeUpdateRequest;
 import com.fitpet.server.mission.domain.entity.Mission;
 import com.fitpet.server.mission.domain.exception.MissionNotFoundException;
 import com.fitpet.server.mission.domain.repository.MissionRepository;
@@ -28,47 +28,47 @@ public class BadgeServiceImpl implements BadgeService {
 
     // 관리자 전용
     @Override
-    public BadgeDto createBadge(BadgeCreateRequest request) {
-        log.info("[BadgeService] 뱃지 생성 요청: title={}, type={}", request.title(), request.type());
-        Badge badge = badgeMapper.toEntity(request);
-        Mission mission = missionRepository.findById(request.missionId())
+    public BadgeResult createBadge(BadgeCreateCommand command) {
+        log.info("[BadgeService] 뱃지 생성 요청: title={}, type={}", command.title(), command.type());
+        Badge badge = badgeMapper.toEntity(command);
+        Mission mission = missionRepository.findById(command.missionId())
                 .orElseThrow(MissionNotFoundException::new);
         badge.assignMission(mission);
         Badge saved = badgeRepository.save(badge);
         log.info("[BadgeService] 뱃지 생성 완료: id={}", saved.getId());
-        return badgeMapper.toDto(saved);
+        return badgeMapper.toResult(saved);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public BadgeDto getBadge(Long badgeId) {
+    public BadgeResult getBadge(Long badgeId) {
         log.info("[BadgeService] 뱃지 조회 요청: id={}", badgeId);
         Badge badge = badgeRepository.findById(badgeId)
                 .orElseThrow(BadgeNotFoundException::new);
-        return badgeMapper.toDto(badge);
+        return badgeMapper.toResult(badge);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<BadgeDto> getBadges() {
+    public List<BadgeResult> getBadges() {
         log.info("[BadgeService] 뱃지 전체 조회 요청");
-        return badgeMapper.toDtos(badgeRepository.findAll());
+        return badgeMapper.toResults(badgeRepository.findAll());
     }
 
     // 관리자 전용
     @Override
-    public BadgeDto updateBadge(Long badgeId, BadgeUpdateRequest request) {
+    public BadgeResult updateBadge(Long badgeId, BadgeUpdateCommand command) {
         log.info("[BadgeService] 뱃지 수정 요청: id={}", badgeId);
         Badge badge = badgeRepository.findById(badgeId)
                 .orElseThrow(BadgeNotFoundException::new);
         Mission mission = null;
-        if (request.missionId() != null) {
-            mission = missionRepository.findById(request.missionId())
+        if (command.missionId() != null) {
+            mission = missionRepository.findById(command.missionId())
                     .orElseThrow(MissionNotFoundException::new);
         }
-        badge.update(request.title(), request.type(), request.conditionDuration(), request.conditionGoal(),
-                request.description(), mission);
-        return badgeMapper.toDto(badge);
+        badge.update(command.title(), command.type(), command.conditionDuration(), command.conditionGoal(),
+                command.description(), mission);
+        return badgeMapper.toResult(badge);
     }
 
     @Override
