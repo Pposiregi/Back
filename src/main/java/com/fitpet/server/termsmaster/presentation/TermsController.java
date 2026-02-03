@@ -49,4 +49,15 @@ public class TermsController {
 
         return ResponseEntity.ok("약관 동의 내역이 저장되었습니다.");
     }
+
+    //TODO : 우선 MDL로 관리 후 추후 관리자만 요청할 수 있게 수정
+//    @PostMapping("/modify")
+//    public ResponseEntity<Void> createTerms(@RequestBody TermsCreateRequest request) {
+//        termsService.createTerms(
+//                request.code(),
+//                request.content(),
+//                request.version()
+//        );
+//        return ResponseEntity.ok().build();
+//    }
 }
