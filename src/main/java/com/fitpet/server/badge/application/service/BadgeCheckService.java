@@ -1,13 +1,13 @@
 package com.fitpet.server.badge.application.service;
 
-import com.fitpet.server.badge.presentation.dto.BadgeCheckCreateRequest;
-import com.fitpet.server.badge.presentation.dto.BadgeCheckDto;
+import com.fitpet.server.badge.application.dto.BadgeCheckCreateCommand;
+import com.fitpet.server.badge.application.dto.BadgeCheckResult;
 import java.util.List;
 
 public interface BadgeCheckService {
-    BadgeCheckDto assignBadge(Long userId, BadgeCheckCreateRequest request);
+    BadgeCheckResult assignBadge(Long userId, BadgeCheckCreateCommand command);
 
-    List<BadgeCheckDto> getUserBadges(Long userId);
+    List<BadgeCheckResult> getUserBadges(Long userId);
 
     void revokeBadge(Long badgeCheckId);
 }

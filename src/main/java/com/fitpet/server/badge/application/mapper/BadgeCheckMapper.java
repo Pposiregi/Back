@@ -1,8 +1,8 @@
 package com.fitpet.server.badge.application.mapper;
 
+import com.fitpet.server.badge.application.dto.BadgeCheckResult;
 import com.fitpet.server.badge.domain.entity.Badge;
 import com.fitpet.server.badge.domain.entity.BadgeCheck;
-import com.fitpet.server.badge.presentation.dto.BadgeCheckDto;
 import com.fitpet.server.user.domain.entity.User;
 import java.util.List;
 import org.mapstruct.Mapper;
@@ -21,7 +21,7 @@ public interface BadgeCheckMapper {
     @Mapping(target = "badgeCheckId", source = "id")
     @Mapping(target = "userId", source = "user.id")
     @Mapping(target = "badgeId", source = "badge.id")
-    BadgeCheckDto toDto(BadgeCheck badgeCheck);
+    BadgeCheckResult toResult(BadgeCheck badgeCheck);
 
-    List<BadgeCheckDto> toDtos(List<BadgeCheck> badgeChecks);
+    List<BadgeCheckResult> toResults(List<BadgeCheck> badgeChecks);
 }

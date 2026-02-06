@@ -5,5 +5,6 @@ public enum BadgeType {
     RUN,
     MISSION,
     ATTENDANCE,
-    EAT_KCAL
+    EAT_KCAL,
+    MEAL
 }

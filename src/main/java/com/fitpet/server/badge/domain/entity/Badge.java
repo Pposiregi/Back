@@ -18,6 +18,11 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import com.fitpet.server.mission.domain.entity.Mission;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 
 @Getter
 @Entity
@@ -49,6 +54,12 @@ public class Badge {
     @Column(name = "description", length = 255)
     private String description;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "mission_id", nullable = false,
+        unique = true,
+        foreignKey = @ForeignKey(name = "fk_badge_mission"))
+    private Mission mission;
+
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -58,7 +69,7 @@ public class Badge {
     private LocalDateTime updatedAt;
 
     public void update(String title, BadgeType type, Integer conditionDuration, Long conditionGoal,
-                       String description) {
+                       String description, Mission mission) {
         if (title != null && !title.isBlank()) {
             this.title = title;
         }
@@ -74,5 +85,15 @@ public class Badge {
         if (description != null) {
             this.description = description;
         }
+        if (mission != null) {
+            this.mission = mission;
+        }
+    }
+
+    public void assignMission(Mission mission) {
+        if (mission == null) {
+            throw new IllegalArgumentException("mission은 null일 수 없습니다.");
+        }
+        this.mission = mission;
     }
 }

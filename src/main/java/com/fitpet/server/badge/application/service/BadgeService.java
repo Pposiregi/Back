@@ -1,18 +1,18 @@
 package com.fitpet.server.badge.application.service;
 
-import com.fitpet.server.badge.presentation.dto.BadgeCreateRequest;
-import com.fitpet.server.badge.presentation.dto.BadgeDto;
-import com.fitpet.server.badge.presentation.dto.BadgeUpdateRequest;
+import com.fitpet.server.badge.application.dto.BadgeCreateCommand;
+import com.fitpet.server.badge.application.dto.BadgeResult;
+import com.fitpet.server.badge.application.dto.BadgeUpdateCommand;
 import java.util.List;
 
 public interface BadgeService {
-    BadgeDto createBadge(BadgeCreateRequest request);
+    BadgeResult createBadge(BadgeCreateCommand command);
 
-    BadgeDto getBadge(Long badgeId);
+    BadgeResult getBadge(Long badgeId);
 
-    List<BadgeDto> getBadges();
+    List<BadgeResult> getBadges();
 
-    BadgeDto updateBadge(Long badgeId, BadgeUpdateRequest request);
+    BadgeResult updateBadge(Long badgeId, BadgeUpdateCommand command);
 
     void deleteBadge(Long badgeId);
 }

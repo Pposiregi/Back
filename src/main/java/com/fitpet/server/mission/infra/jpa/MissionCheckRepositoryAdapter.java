@@ -33,6 +33,11 @@ public class MissionCheckRepositoryAdapter implements MissionCheckRepository {
     }
 
     @Override
+    public Optional<MissionCheck> findByIdForUpdate(Long missionCheckId) {
+        return missionCheckJpaRepository.findByIdForUpdate(missionCheckId);
+    }
+
+    @Override
     public Optional<MissionCheck> findByPeriodKey(
         Long missionId,
         Long userId,
