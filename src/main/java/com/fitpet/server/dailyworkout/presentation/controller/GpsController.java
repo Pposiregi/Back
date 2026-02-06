@@ -52,7 +52,8 @@ public class GpsController {
             @Valid @RequestBody GpsLogRequest request
     ) {
         GpsLogResponse response = gpsSessionService.logGps(userId, request);
-        return ResponseEntity.created(URI.create("")).body(response);
+
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/end")
