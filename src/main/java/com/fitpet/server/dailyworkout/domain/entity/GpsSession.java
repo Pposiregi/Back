@@ -67,8 +67,7 @@ public class GpsSession {
     @Builder.Default
     @OneToMany(mappedBy = "gpsSession", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<GpsLog> gpsLogs = new ArrayList<>();
-
-    // [상수] METs 데이터
+    
     private static final double METS_WALKING = 3.8;
     private static final double METS_JOGGING = 7.0;
     private static final double METS_RUNNING = 10.0;
@@ -93,7 +92,7 @@ public class GpsSession {
         this.totalDistance = this.totalDistance.add(distance);
     }
 
-    //세션 종료 및 통계 자동 계산
+    // 세션 종료 및 통계 자동 계산
     public void endSession(LocalDateTime endTime, Integer requestStepCount, Integer requestCalories) {
         this.endTime = endTime;
         this.stepCount = (requestStepCount != null) ? requestStepCount : 0;
@@ -112,12 +111,12 @@ public class GpsSession {
         }
         this.avgSpeed = BigDecimal.valueOf(avgSpeedVal).setScale(2, RoundingMode.HALF_UP);
 
-        // 칼로리 계산
         if (requestCalories != null && requestCalories > 0) {
             this.burnCalories = requestCalories;
         } else {
             Double userWeight = DEFAULT_WEIGHT;
-            if (this.user != null) {
+
+            if (this.user != null && this.user.getWeightKg() != null) {
                 userWeight = this.user.getWeightKg();
             }
 
