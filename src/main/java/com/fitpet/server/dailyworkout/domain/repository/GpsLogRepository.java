@@ -8,4 +8,6 @@ public interface GpsLogRepository {
     GpsLog save(GpsLog gpsLog);
 
     List<GpsLog> findByGpsSessionOrderByRecordedAtAsc(GpsSession gpsSession);
+
+    GpsLog findTopByGpsSessionOrderByRecordedAtDesc(GpsSession gpsSession);
 }

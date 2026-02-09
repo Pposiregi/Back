@@ -1,7 +1,6 @@
 package com.fitpet.server.dailyworkout.presentation.dto.request;
 
 import jakarta.validation.constraints.NotNull;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -18,7 +17,11 @@ public class SessionEndRequest {
 
     @NotNull
     private Integer stepCount;
-    
-    @NotNull
-    private BigDecimal distance;
+
+    // @NotNull
+    // private BigDecimal distance;
+
+    // private Integer totalDistance;
+
+    private Integer burnCalories;
 }

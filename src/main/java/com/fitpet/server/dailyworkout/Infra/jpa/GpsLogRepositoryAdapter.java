@@ -22,4 +22,9 @@ public class GpsLogRepositoryAdapter implements GpsLogRepository {
     public List<GpsLog> findByGpsSessionOrderByRecordedAtAsc(GpsSession gpsSession) {
         return gpsLogJpaRepository.findByGpsSessionOrderByRecordedAtAsc(gpsSession);
     }
+
+    @Override
+    public GpsLog findTopByGpsSessionOrderByRecordedAtDesc(GpsSession gpsSession) {
+        return gpsLogJpaRepository.findTopByGpsSessionOrderByRecordedAtDesc(gpsSession);
+    }
 }
