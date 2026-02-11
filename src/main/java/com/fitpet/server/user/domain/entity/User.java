@@ -72,16 +72,19 @@ public class User {
     private Double heightCm;
 
     @Column
-    private Double pbf;  // 체지방률
+    private Double pbf;
 
     @Column(name = "target_pbf")
     private Double targetPbf;
 
+    @Column(name = "profile_image_url")
+    private String profileImageUrl;
+
     @Column(length = 50)
-    private String provider; // OAuth provider
+    private String provider;
 
     @Column(name = "provider_uid", length = 100)
-    private String providerUid; // 공급자 측 고유 ID
+    private String providerUid;
 
     @Column(name = "device_token", length = 255)
     private String deviceToken;
@@ -116,14 +119,12 @@ public class User {
     private Boolean allowActivityNotification = true;
 
     @Column(name = "last_accessed_at")
-    private LocalDateTime lastAccessedAt; // 마지막 접속 시간
-
+    private LocalDateTime lastAccessedAt;
 
     public void changePassword(String encodedPassword) {
         this.password = encodedPassword;
     }
 
-    // 사용자가 입력을 하지 않은 경우(빈값) 대비
     public void update(
             String email,
             String nickname,
@@ -186,7 +187,6 @@ public class User {
             this.targetWeightKg = null;
         } else {
             this.targetWeightKg = request.targetWeightKg();
-
         }
         if (request.pbf() == null) {
             this.pbf = null;
@@ -218,5 +218,9 @@ public class User {
 
     public void changeActivityNotificationSetting(boolean allowed) {
         this.allowActivityNotification = allowed;
+    }
+
+    public void updateProfileImageUrl(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
     }
 }
