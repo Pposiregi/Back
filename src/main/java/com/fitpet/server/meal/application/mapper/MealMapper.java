@@ -12,7 +12,10 @@ import org.mapstruct.Mapping;
 import org.mapstruct.Named;
 import org.mapstruct.ReportingPolicy;
 
-@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
+@Mapper(
+        componentModel = "spring",
+        unmappedTargetPolicy = ReportingPolicy.IGNORE
+)
 public interface MealMapper {
 
     @Mapping(target = "id", ignore = true)
@@ -29,13 +32,19 @@ public interface MealMapper {
     @Mapping(source = "uploadUrl", target = "uploadUrl")
     MealResult toResult(Meal meal, String uploadUrl);
 
+    MealResult toUpdateResult(String imageUrl, String uploadUrl);
+
     @Mapping(source = "meal.id", target = "mealId")
+    @Mapping(source = "meal.day", target = "day")
+    @Mapping(source = "meal.title", target = "title")
+    @Mapping(source = "meal.kcal", target = "kcal")
+    @Mapping(source = "meal.sequence", target = "sequence")
     @Mapping(source = "meal.imageUrl", target = "imageUrl", qualifiedByName = "generateGetUrl")
     MealDetailInfo toDetailInfo(Meal meal, @Context S3Service s3Service);
 
     @Named("generateGetUrl")
     default String generateGetUrl(String objectKey, @Context S3Service s3Service) {
-        if (s3Service == null || objectKey == null) {
+        if (s3Service == null || objectKey == null || objectKey.isBlank()) {
             return null;
         }
         return s3Service.generatePresignedGetUrl(objectKey);

@@ -1,18 +1,32 @@
 package com.fitpet.server.meal.presentation.dto.request;
 
-import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.PositiveOrZero;
-import lombok.Getter;
+import com.fitpet.server.meal.application.dto.MealUpdateCommand;
+import jakarta.validation.constraints.Min;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Getter
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class MealUpdateRequest {
+
     private String title;
 
-    @PositiveOrZero(message = "칼로리는 0 이상이어야 합니다.")
+    @Min(0)
     private Integer kcal;
 
-    @Positive(message = "순서는 1 이상이어야 합니다.")
+    @Min(1)
     private Integer sequence;
 
-    private Boolean changeImage = false;
+    private Boolean changeImage;
+
+    public MealUpdateCommand toCommand() {
+        return MealUpdateCommand.builder()
+                .title(this.title)
+                .kcal(this.kcal)
+                .sequence(this.sequence)
+                .changeImage(this.changeImage != null ? this.changeImage : false)
+                .build();
+    }
 }

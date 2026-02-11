@@ -1,12 +1,18 @@
 package com.fitpet.server.meal.presentation.dto.response;
 
-import lombok.Builder;
-import lombok.Getter;
+import com.fitpet.server.meal.application.dto.MealResult;
 
-@Getter
-@Builder
-public class MealCreateResponse {
-    private Long mealId;
-    private String imageUrl; // S3 Key
-    private String uploadUrl;
+public record MealCreateResponse(
+        Long mealId,
+        String imageUrl,
+        String uploadUrl
+) {
+
+    public static MealCreateResponse from(MealResult result) {
+        return new MealCreateResponse(
+                result.mealId(),
+                result.imageUrl(),
+                result.uploadUrl()
+        );
+    }
 }
