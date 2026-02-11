@@ -2,6 +2,7 @@ package com.fitpet.server.ranking.presentation;
 
 import com.fitpet.server.ranking.application.dto.RankingSummaryDto;
 import com.fitpet.server.ranking.application.facade.RankingFacade;
+import com.fitpet.server.ranking.domain.type.RankingFilter;
 import com.fitpet.server.ranking.presentation.dto.RankingSummaryResponse;
 import com.fitpet.server.shared.annotation.AuthUser;
 import jakarta.validation.constraints.Min;
@@ -23,8 +24,11 @@ public class RankingController {
     private final RankingFacade rankingFacade;
 
     @GetMapping("/summary")
-    public ResponseEntity<RankingSummaryResponse> getRankingSummary(@AuthUser Long userId) {
-        RankingSummaryDto rankingSummaryDto = rankingFacade.getRankingSummary(userId);
+    public ResponseEntity<RankingSummaryResponse> getRankingSummary(
+            @AuthUser Long userId,
+            @RequestParam(defaultValue = "ALL") RankingFilter filter
+    ) {
+        RankingSummaryDto rankingSummaryDto = rankingFacade.getRankingSummary(userId, filter);
         return ResponseEntity.ok(RankingSummaryResponse.from(rankingSummaryDto));
     }
 
