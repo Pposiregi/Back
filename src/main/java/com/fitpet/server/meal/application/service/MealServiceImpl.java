@@ -12,6 +12,8 @@ import com.fitpet.server.meal.presentation.dto.response.MealUpdateResponse;
 import com.fitpet.server.mission.application.service.MissionCheckService;
 import com.fitpet.server.shared.exception.BusinessException;
 import com.fitpet.server.shared.exception.ErrorCode;
+import com.fitpet.server.shared.s3.S3Service;
+import com.fitpet.server.shared.s3.type.ImageType;
 import com.fitpet.server.user.domain.entity.User;
 import com.fitpet.server.user.domain.repository.UserRepository;
 import java.time.LocalDate;
@@ -37,14 +39,13 @@ public class MealServiceImpl implements MealService {
         User user = findUserById(userId);
         Meal meal = mealMapper.toEntity(request, user);
 
-        String imageKey = s3Service.createImageKey(userId);
+        String imageKey = s3Service.createImageKey(userId, ImageType.MEAL);
         meal.setImageUrl(imageKey);
+
         Meal savedMeal = mealRepository.save(meal);
-        missionCheckService.updateMealMissions(userId, meal.getDay(),
-                MealTime.fromSequence(meal.getSequence()));
+        missionCheckService.updateMealMissions(userId, meal.getDay(), MealTime.fromSequence(meal.getSequence()));
 
         String uploadUrl = s3Service.generatePresignedPutUrl(imageKey);
-
         return mealMapper.toCreateResponse(savedMeal, uploadUrl);
     }
 
@@ -68,12 +69,12 @@ public class MealServiceImpl implements MealService {
             if (meal.getImageUrl() != null && !meal.getImageUrl().isBlank()) {
                 s3Service.deleteObject(meal.getImageUrl());
             }
-            String newImageKey = s3Service.createImageKey(userId);
+
+            String newImageKey = s3Service.createImageKey(userId, ImageType.MEAL);
             meal.setImageUrl(newImageKey);
             String uploadUrl = s3Service.generatePresignedPutUrl(newImageKey);
 
             return mealMapper.toUpdateResponse(newImageKey, uploadUrl);
-
         } else {
             return MealUpdateResponse.builder().build();
         }
@@ -84,7 +85,6 @@ public class MealServiceImpl implements MealService {
     public List<MealDetailResponse> getMealsByDate(Long userId, LocalDate day) {
         User user = findUserById(userId);
         List<Meal> meals = mealRepository.findByUserAndDay(user, day);
-
         return meals.stream()
                 .map(meal -> mealMapper.toMealResponse(meal, s3Service))
                 .collect(Collectors.toList());

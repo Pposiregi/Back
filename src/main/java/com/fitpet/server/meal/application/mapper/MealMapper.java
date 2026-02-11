@@ -1,12 +1,12 @@
 package com.fitpet.server.meal.application.mapper;
 
-import com.fitpet.server.meal.application.service.S3Service;
 import com.fitpet.server.meal.domain.entity.Meal;
 import com.fitpet.server.meal.presentation.dto.request.MealCreateRequest;
 import com.fitpet.server.meal.presentation.dto.response.MealCreateResponse;
 import com.fitpet.server.meal.presentation.dto.response.MealDetailInfo;
 import com.fitpet.server.meal.presentation.dto.response.MealDetailResponse;
 import com.fitpet.server.meal.presentation.dto.response.MealUpdateResponse;
+import com.fitpet.server.shared.s3.S3Service;
 import com.fitpet.server.user.domain.entity.User;
 import org.mapstruct.Context;
 import org.mapstruct.Mapper;
@@ -21,8 +21,12 @@ import org.mapstruct.ReportingPolicy;
 public interface MealMapper {
 
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "day", source = "request.day")
     @Mapping(target = "imageUrl", ignore = true)
+    @Mapping(target = "user", source = "user")
+    @Mapping(target = "day", source = "request.day")
+    @Mapping(target = "title", source = "request.title")
+    @Mapping(target = "kcal", source = "request.kcal")
+    @Mapping(target = "sequence", source = "request.sequence")
     Meal toEntity(MealCreateRequest request, User user);
 
     @Mapping(source = "meal.id", target = "mealId")
@@ -44,7 +48,7 @@ public interface MealMapper {
 
     @Named("generateGetUrl")
     default String generateGetUrl(String objectKey, @Context S3Service s3Service) {
-        if (s3Service == null) {
+        if (s3Service == null || objectKey == null) {
             return null;
         }
         return s3Service.generatePresignedGetUrl(objectKey);
