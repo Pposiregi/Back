@@ -16,6 +16,7 @@ import com.fitpet.server.user.presentation.dto.request.UserUpdateRequest;
 import com.fitpet.server.user.presentation.dto.response.ProfileImageUpdateResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,9 @@ public class UserServiceImpl implements UserService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final S3Service s3Service;
+    private final StringRedisTemplate redisTemplate;
+
+    private static final String USER_IMAGE_KEY = "user:images";
 
     @Override
     @Transactional
@@ -85,9 +89,23 @@ public class UserServiceImpl implements UserService {
         String newImageKey = s3Service.createImageKey(userId, ImageType.PROFILE);
         user.updateProfileImageUrl(newImageKey);
 
+        redisTemplate.opsForHash().put(USER_IMAGE_KEY, String.valueOf(userId), newImageKey);
+
         String uploadUrl = s3Service.generatePresignedPutUrl(newImageKey);
 
         return new ProfileImageUpdateResponse(newImageKey, uploadUrl);
+    }
+
+    @Override
+    @Transactional
+    public void deleteProfileImage(Long userId) {
+        User user = findUserById(userId);
+
+        if (user.getProfileImageUrl() != null && !user.getProfileImageUrl().isBlank()) {
+            s3Service.deleteObject(user.getProfileImageUrl());
+            user.updateProfileImageUrl(null);
+            redisTemplate.opsForHash().delete(USER_IMAGE_KEY, String.valueOf(userId));
+        }
     }
 
     @Override

@@ -20,4 +20,6 @@ public interface UserService {
     UserDto inputInfo(Long userId, UserInputInfoRequest request);
 
     boolean isRegistrationComplete(Long userId);
+
+    void deleteProfileImage(Long userId);
 }

@@ -4,6 +4,7 @@ import com.fitpet.server.ranking.application.dto.RankingDto;
 import com.fitpet.server.ranking.domain.entity.Ranking;
 import com.fitpet.server.ranking.domain.repository.RankingRepository;
 import com.fitpet.server.ranking.domain.type.RankingFilter;
+import com.fitpet.server.shared.s3.S3Service;
 import com.fitpet.server.user.domain.entity.User;
 import com.fitpet.server.user.domain.repository.UserRepository;
 import java.time.LocalDate;
@@ -34,10 +35,9 @@ public class RankingServiceImpl implements RankingService {
 
     private final RankingRepository rankingRepository;
     private final UserRepository userRepository;
-
+    private final S3Service s3Service;
     private final StringRedisTemplate redisTemplate;
     private final RedisScript<Long> updateRankingScript;
-
     private final ApplicationEventPublisher eventPublisher;
 
     private static final String USER_PROFILE_KEY = "user:profiles";
@@ -144,34 +144,30 @@ public class RankingServiceImpl implements RankingService {
         for (int i = 0; i < userIds.size(); i++) {
             Long userId = userIds.get(i);
             String nickname = (String) cachedNames.get(i);
-            String imageUrl = (String) cachedImages.get(i);
+            String imageKey = (String) cachedImages.get(i);
 
-            if (nickname == null) {
+            if (nickname == null || imageKey == null || imageKey.isBlank()) {
                 missIds.add(userId);
             } else {
-                profileMap.put(userId, new UserProfileInfo(nickname, imageUrl));
+                String viewableUrl = s3Service.generatePresignedGetUrl(imageKey);
+                profileMap.put(userId, new UserProfileInfo(nickname, viewableUrl));
             }
         }
 
         if (!missIds.isEmpty()) {
             List<User> missingUsers = userRepository.findAllById(missIds);
-            Map<String, String> nameUpdates = new HashMap<>();
-            Map<String, String> imageUpdates = new HashMap<>();
-
             for (User u : missingUsers) {
-                String img = u.getProfileImageUrl() != null ? u.getProfileImageUrl() : "";
-                profileMap.put(u.getId(), new UserProfileInfo(u.getNickname(), img));
+                String dbImgKey = u.getProfileImageUrl();
+                String viewableUrl = (dbImgKey != null && !dbImgKey.isBlank())
+                        ? s3Service.generatePresignedGetUrl(dbImgKey) : "";
 
-                nameUpdates.put(String.valueOf(u.getId()), u.getNickname());
-                imageUpdates.put(String.valueOf(u.getId()), img);
-            }
+                profileMap.put(u.getId(), new UserProfileInfo(u.getNickname(), viewableUrl));
 
-            if (!nameUpdates.isEmpty()) {
-                redisTemplate.opsForHash().putAll(USER_PROFILE_KEY, nameUpdates);
-                redisTemplate.opsForHash().putAll(USER_IMAGE_KEY, imageUpdates);
+                redisTemplate.opsForHash()
+                        .put(USER_IMAGE_KEY, String.valueOf(u.getId()), dbImgKey != null ? dbImgKey : "");
+                redisTemplate.opsForHash().put(USER_PROFILE_KEY, String.valueOf(u.getId()), u.getNickname());
             }
         }
-
         return profileMap;
     }
 
@@ -253,10 +249,14 @@ public class RankingServiceImpl implements RankingService {
         List<RankingDto> responses = new ArrayList<>();
         int rank = 1;
         for (Ranking r : filteredList) {
+            String dbImgKey = r.getUser().getProfileImageUrl();
+            String viewableUrl = (dbImgKey != null && !dbImgKey.isBlank())
+                    ? s3Service.generatePresignedGetUrl(dbImgKey) : "";
+
             responses.add(RankingDto.of(
                     r.getUser().getId(),
                     r.getUser().getNickname(),
-                    r.getUser().getProfileImageUrl(),
+                    viewableUrl,
                     rank++,
                     (long) Math.floor(r.getScore())));
         }
