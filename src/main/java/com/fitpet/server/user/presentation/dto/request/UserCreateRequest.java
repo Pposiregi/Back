@@ -22,7 +22,7 @@ public record UserCreateRequest(
         String password,
 
         @NotBlank
-        @Size(min = 5, max = 20)
+        @Size(min = 2, max = 10)
         String nickname,
 
         @NotNull
