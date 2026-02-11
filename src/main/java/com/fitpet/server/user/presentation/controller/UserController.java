@@ -29,38 +29,37 @@ public class UserController {
     private final UserService userService;
 
     @PostMapping
-    public ResponseEntity<UserDto> create(@Valid @RequestBody UserCreateRequest request) {
-        UserDto createdUser = userService.createUser(request);
+    public ResponseEntity<UserDto> create(@Valid @RequestBody UserCreateRequest userCreateRequest) {
+        UserDto createdUser = userService.createUser(userCreateRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdUser);
     }
 
     @GetMapping
     public ResponseEntity<UserDto> find(@AuthUser Long userId) {
-        return ResponseEntity.ok(userService.findUser(userId));
+        return ResponseEntity.status(HttpStatus.OK).body(userService.findUser(userId));
     }
 
     @PatchMapping
-    public ResponseEntity<UserDto> update(@AuthUser Long userId, @Valid @RequestBody UserUpdateRequest request) {
-        return ResponseEntity.ok(userService.updateUser(userId, request));
+    public ResponseEntity<UserDto> update(@AuthUser Long userId,
+                                          @Valid @RequestBody UserUpdateRequest userUpdateRequest) {
+        return ResponseEntity.status(HttpStatus.OK).body(userService.updateUser(userId, userUpdateRequest));
     }
 
-    // [수정] 프로필 이미지 변경 요청 (Presigned URL 발급) - 기존 랭킹 API는 제거됨
     @PostMapping("/profile-image")
     public ResponseEntity<ProfileImageUpdateResponse> updateProfileImage(@AuthUser Long userId) {
-        log.info("[UserController] 프로필 이미지 변경 요청: id: {}", userId);
         ProfileImageUpdateResponse response = userService.updateProfileImage(userId);
         return ResponseEntity.ok(response);
     }
 
     @PatchMapping("/signUp/complete")
     public ResponseEntity<UserDto> updateUserInfo(@AuthUser Long userId,
-                                                  @Valid @RequestBody UserInputInfoRequest request) {
-        return ResponseEntity.ok(userService.inputInfo(userId, request));
+                                                  @Valid @RequestBody UserInputInfoRequest userInputInfoRequest) {
+        return ResponseEntity.status(HttpStatus.OK).body(userService.inputInfo(userId, userInputInfoRequest));
     }
 
     @DeleteMapping
     public ResponseEntity<Void> delete(@AuthUser Long userId) {
         userService.deleteUser(userId);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 }
