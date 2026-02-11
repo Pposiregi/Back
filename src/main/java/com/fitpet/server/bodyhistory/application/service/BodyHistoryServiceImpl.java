@@ -33,12 +33,12 @@ public class BodyHistoryServiceImpl implements BodyHistoryService {
     private final BodyHistoryMapper bodyHistoryMapper;
 
     @Override
-    public BodyHistoryResponse createBodyHistory(BodyHistoryCreateRequest req) {
-        log.debug("[BodyHistoryService] 기록 생성 요청: userId={}", req.userId());
+    public BodyHistoryResponse createBodyHistory(Long userId, BodyHistoryCreateRequest req) {
+        log.debug("[BodyHistoryService] 기록 생성 요청: userId={}",userId);
 
-        User user = userRepository.findById(req.userId())
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> {
-                    log.warn("[BodyHistoryService] 사용자 조회 실패: userId={}", req.userId());
+                    log.warn("[BodyHistoryService] 사용자 조회 실패: userId={}",userId);
                     return new BusinessException(ErrorCode.USER_NOT_FOUND);
                 });
     
@@ -46,7 +46,7 @@ public class BodyHistoryServiceImpl implements BodyHistoryService {
         BodyHistory savedBodyHistory = bodyHistoryRepository.save(bodyHistory);
 
         log.info("[BodyHistoryService] 기록 생성 완료: historyId={}, userId={}",
-                savedBodyHistory.getId(), req.userId());
+                savedBodyHistory.getId(), userId);
     
         return bodyHistoryMapper.toResponse(savedBodyHistory);
     }
