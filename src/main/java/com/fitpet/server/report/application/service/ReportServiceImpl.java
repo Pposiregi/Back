@@ -4,7 +4,6 @@ import com.fitpet.server.dailywalk.domain.repository.DailyWalkRepository;
 import com.fitpet.server.dailyworkout.domain.entity.GpsSession;
 import com.fitpet.server.dailyworkout.domain.repository.GpsSessionRepository;
 import com.fitpet.server.meal.application.service.MealService;
-import com.fitpet.server.meal.application.service.S3Service;
 import com.fitpet.server.meal.domain.entity.Meal;
 import com.fitpet.server.meal.domain.repository.MealRepository;
 import com.fitpet.server.meal.presentation.dto.response.MealDetailInfo;
@@ -17,6 +16,7 @@ import com.fitpet.server.report.presentation.dto.response.ReportResponseDto.Acti
 import com.fitpet.server.report.presentation.dto.response.ReportResponseDto.TodayActivityResponse;
 import com.fitpet.server.shared.exception.BusinessException;
 import com.fitpet.server.shared.exception.ErrorCode;
+import com.fitpet.server.shared.s3.S3Service;
 import com.fitpet.server.user.domain.entity.User;
 import com.fitpet.server.user.domain.repository.UserRepository;
 import java.math.BigDecimal;
