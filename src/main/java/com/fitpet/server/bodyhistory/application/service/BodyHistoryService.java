@@ -8,7 +8,7 @@ import com.fitpet.server.bodyhistory.presentation.dto.response.BodyHistoryRespon
 
 public interface BodyHistoryService {
 
-    BodyHistoryResponse createBodyHistory(BodyHistoryCreateRequest request);
+    BodyHistoryResponse createBodyHistory(Long userId, BodyHistoryCreateRequest request);
 
     BodyHistoryResponse findBodyHistoryById(Long historyId);
 

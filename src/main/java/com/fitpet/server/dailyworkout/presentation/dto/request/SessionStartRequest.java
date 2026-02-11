@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor
 public class SessionStartRequest {
-
     @NotNull
     private LocalDateTime startTime;
 }

@@ -14,7 +14,7 @@ public record UserUpdateRequest(
                 message = "비밀번호는 영어, 숫자, 특수문자를 포함해야 합니다."
         )
         String password,
-        @Size(min = 5, max = 20)
+        @Size(min = 2, max = 10)
         String nickname,
         Integer age,
         Gender gender,
