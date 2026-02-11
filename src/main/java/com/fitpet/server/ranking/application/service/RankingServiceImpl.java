@@ -4,6 +4,7 @@ import com.fitpet.server.ranking.application.dto.RankingDto;
 import com.fitpet.server.ranking.application.event.UserCacheRefreshEvent;
 import com.fitpet.server.ranking.domain.entity.Ranking;
 import com.fitpet.server.ranking.domain.repository.RankingRepository;
+import com.fitpet.server.ranking.domain.type.RankingFilter;
 import com.fitpet.server.user.domain.entity.User;
 import com.fitpet.server.user.domain.repository.UserRepository;
 import java.time.LocalDate;
@@ -41,41 +42,64 @@ public class RankingServiceImpl implements RankingService {
     private final ApplicationEventPublisher eventPublisher;
 
     private static final String USER_PROFILE_KEY = "user:profiles";
+    // 성별 캐싱을 위한 Redis Hash Key 추가
+    private static final String USER_GENDER_CACHE_KEY = "user:genders";
+
     private static final long MAX_TIMESTAMP = 9_999_999_999L;
     private static final double TIME_WEIGHT_DIVIDER = 100_000_000_000.0;
     private static final int TOP_RANK_LIMIT = 10;
+    private static final String TTL_SECONDS = "259200";
 
     @Override
     @Transactional
     public void updateScore(Long userId, int steps) {
         LocalDate now = LocalDate.now();
-        String rankingKey = getRankingKey(now);
         String dirtyKey = getModifiedUsersKey(now);
 
         double weightedScore = calculateTimeWeightedScore((double) steps, System.currentTimeMillis() / 1000);
-        String ttlInSeconds = "259200";
+        String userIdStr = String.valueOf(userId);
 
+        // 유저 성별 조회 (Redis Hash -> 없으면 DB Lazy Loading)
+        RankingFilter userGender = getUserGender(userId);
+
+        // 전체 랭킹 키와 성별 랭킹 키 생성
+        String allRankingKey = getRankingKey(now, RankingFilter.ALL);
+        String genderRankingKey = getRankingKey(now, userGender);
+
+        // 전체 랭킹 업데이트
         redisTemplate.execute(updateRankingScript,
-                List.of(rankingKey, dirtyKey),
-                String.valueOf(userId),
+                List.of(allRankingKey, dirtyKey),
+                userIdStr,
                 String.valueOf(weightedScore),
-                ttlInSeconds
+                TTL_SECONDS
         );
 
-        log.info("[RankingService] 랭킹 업데이트 완료 (Lua): userId={}, score={}", userId, weightedScore);
+        // 성별 랭킹 업데이트
+        if (userGender != RankingFilter.ALL) {
+            redisTemplate.execute(updateRankingScript,
+                    List.of(genderRankingKey, dirtyKey),
+                    userIdStr,
+                    String.valueOf(weightedScore),
+                    TTL_SECONDS
+            );
+        }
+
+        log.info("[RankingService] 랭킹 업데이트 완료 (Lua): userId={}, score={}, gender={}", userId, weightedScore,
+                userGender);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<RankingDto> getTop10() {
-        return fetchTopRankings(LocalDate.now());
+    public List<RankingDto> getTop10(RankingFilter filter) {
+        return fetchTopRankings(LocalDate.now(), filter);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public RankingDto getMyRank(Long userId) {
+    public RankingDto getMyRank(Long userId, RankingFilter filter) {
         LocalDate now = LocalDate.now();
-        String redisKey = getRankingKey(now);
+        // 필터에 맞는 Redis Key 조회
+        String redisKey = getRankingKey(now, filter);
         String userIdStr = String.valueOf(userId);
 
         Long rankIndex = redisTemplate.opsForZSet().reverseRank(redisKey, userIdStr);
@@ -87,6 +111,25 @@ public class RankingServiceImpl implements RankingService {
         Map<Long, String> nicknameMap = getNicknameMap(Collections.singletonList(userId));
 
         return RankingDto.of(userId, nicknameMap.get(userId), finalRank, finalScore);
+    }
+
+    private RankingFilter getUserGender(Long userId) {
+        String userIdStr = String.valueOf(userId);
+
+        Object cachedGender = redisTemplate.opsForHash().get(USER_GENDER_CACHE_KEY, userIdStr);
+        if (cachedGender != null) {
+            return RankingFilter.valueOf((String) cachedGender);
+        }
+
+        // 캐시 미스 -> DB 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        RankingFilter filter = convertGender(user.getGender());
+
+        redisTemplate.opsForHash().put(USER_GENDER_CACHE_KEY, userIdStr, filter.name());
+
+        return filter;
     }
 
     private Map<Long, String> getNicknameMap(List<Long> userIds) {
@@ -120,13 +163,13 @@ public class RankingServiceImpl implements RankingService {
         return profileMap;
     }
 
-    private List<RankingDto> fetchTopRankings(LocalDate now) {
-        String redisKey = getRankingKey(now);
+    private List<RankingDto> fetchTopRankings(LocalDate now, RankingFilter filter) {
+        String redisKey = getRankingKey(now, filter);
         Set<ZSetOperations.TypedTuple<String>> tuples =
                 redisTemplate.opsForZSet().reverseRangeWithScores(redisKey, 0, TOP_RANK_LIMIT - 1);
 
         if (tuples == null || tuples.isEmpty()) {
-            return recoverRedisFromDatabase(now);
+            return recoverRedisFromDatabase(now, filter);
         }
 
         List<Long> userIds = tuples.stream()
@@ -137,38 +180,62 @@ public class RankingServiceImpl implements RankingService {
         return convertToResponseList(tuples, nicknameMap);
     }
 
-    private List<RankingDto> recoverRedisFromDatabase(LocalDate now) {
+    private List<RankingDto> recoverRedisFromDatabase(LocalDate now, RankingFilter filter) {
         String dateKey = now.toString();
         log.warn("[RankingService] 캐시 미스 - DB 데이터 복구 시도: {}", dateKey);
 
-        List<Ranking> rankings = rankingRepository.findTopRankings(dateKey, PageRequest.of(0, 20));
+        List<Ranking> rankings = rankingRepository.findTopRankings(dateKey, PageRequest.of(0, 100)); // 복구 시 넉넉하게 조회
 
         if (rankings.isEmpty()) {
             log.info("[RankingService] DB에도 데이터가 없어 빈 결과를 반환합니다.");
             return Collections.emptyList();
         }
 
+        String allKey = getRankingKey(now, RankingFilter.ALL);
+        String maleKey = getRankingKey(now, RankingFilter.MALE);
+        String femaleKey = getRankingKey(now, RankingFilter.FEMALE);
+
         for (Ranking r : rankings) {
             long ts = (r.getUpdatedAt() != null)
                     ? r.getUpdatedAt().atZone(ZoneId.systemDefault()).toEpochSecond()
                     : System.currentTimeMillis() / 1000;
 
-            redisTemplate.opsForZSet().add(getRankingKey(now),
-                    String.valueOf(r.getUser().getId()),
-                    calculateTimeWeightedScore(r.getScore(), ts));
+            double weightedScore = calculateTimeWeightedScore(r.getScore(), ts);
+            String userIdStr = String.valueOf(r.getUser().getId());
+            RankingFilter gender = convertGender(r.getUser().getGender());
+
+            // 전체 랭킹 복구
+            redisTemplate.opsForZSet().add(allKey, userIdStr, weightedScore);
+
+            // 성별 랭킹 복구 (성별에 맞춰 해당 키에 적재)
+            if (gender == RankingFilter.MALE) {
+                redisTemplate.opsForZSet().add(maleKey, userIdStr, weightedScore);
+            } else if (gender == RankingFilter.FEMALE) {
+                redisTemplate.opsForZSet().add(femaleKey, userIdStr, weightedScore);
+            }
+
+            // 복구하면서 성별 캐시도 함께 갱신 (선택 사항)
+            redisTemplate.opsForHash().put(USER_GENDER_CACHE_KEY, userIdStr, gender.name());
         }
 
-        List<Ranking> topRankings = rankings.stream()
+        // 요청된 필터에 맞는 리스트만 필터링하여 반환
+        List<Ranking> filteredList = rankings.stream()
+                .filter(r -> {
+                    if (filter == RankingFilter.ALL) {
+                        return true;
+                    }
+                    return convertGender(r.getUser().getGender()) == filter;
+                })
                 .sorted(Comparator.comparingDouble(Ranking::getScore).reversed())
                 .limit(TOP_RANK_LIMIT)
                 .toList();
 
-        List<Long> userIds = topRankings.stream().map(r -> r.getUser().getId()).toList();
+        List<Long> userIds = filteredList.stream().map(r -> r.getUser().getId()).toList();
         Map<Long, String> nicknameMap = getNicknameMap(userIds);
 
         List<RankingDto> responses = new ArrayList<>();
         int rank = 1;
-        for (Ranking r : topRankings) {
+        for (Ranking r : filteredList) {
             responses.add(RankingDto.of(
                     r.getUser().getId(),
                     nicknameMap.get(r.getUser().getId()),
@@ -191,8 +258,16 @@ public class RankingServiceImpl implements RankingService {
         return result;
     }
 
-    private String getRankingKey(LocalDate date) {
-        return "ranking:daily:" + date.toString();
+    // 필터에 따라 Redis Key 분기 처리
+    private String getRankingKey(LocalDate date, RankingFilter filter) {
+        String baseKey = "ranking:daily:" + date.toString();
+        if (filter == RankingFilter.MALE) {
+            return baseKey + ":MALE";
+        }
+        if (filter == RankingFilter.FEMALE) {
+            return baseKey + ":FEMALE";
+        }
+        return baseKey;
     }
 
     private String getModifiedUsersKey(LocalDate date) {
@@ -206,5 +281,22 @@ public class RankingServiceImpl implements RankingService {
     private int calculateDefaultRank(String k) {
         Long s = redisTemplate.opsForZSet().size(k);
         return (s != null ? s.intValue() : 0) + 1;
+    }
+
+    // User 엔티티의 Gender 타입을 RankingFilter로 변환
+    private RankingFilter convertGender(Object genderObj) {
+        if (genderObj == null) {
+            return RankingFilter.ALL;
+        }
+
+        String genderStr = String.valueOf(genderObj).toUpperCase();
+        if ("MALE".equals(genderStr) || "MAN".equals(genderStr)) {
+            return RankingFilter.MALE;
+        }
+        if ("FEMALE".equals(genderStr) || "WOMAN".equals(genderStr)) {
+            return RankingFilter.FEMALE;
+        }
+
+        return RankingFilter.ALL;
     }
 }

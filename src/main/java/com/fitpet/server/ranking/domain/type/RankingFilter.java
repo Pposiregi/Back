@@ -4,4 +4,4 @@ public enum RankingFilter {
     ALL,
     MALE,
     FEMALE;
-}f
+}
