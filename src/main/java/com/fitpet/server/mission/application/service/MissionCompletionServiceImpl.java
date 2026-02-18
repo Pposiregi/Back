@@ -76,12 +76,7 @@ public class MissionCompletionServiceImpl implements MissionCompletionService {
         User user = missionCheck.getUser();
         Mission mission = missionCheck.getMission();
 
-        return userMissionStatRepository.findWithLockByUserAndMission(user, mission)
-                .map(stat -> {
-                    stat.incrementClearCount();
-                    return stat;
-                })
-                .orElseGet(() -> createOrIncrementStat(user, mission));
+        return createOrIncrementStat(user, mission);
     }
 
     private UserMissionStat createOrIncrementStat(User user, Mission mission) {
