@@ -57,6 +57,12 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.OK).body(userService.inputInfo(userId, userInputInfoRequest));
     }
 
+    @DeleteMapping("/profile-image")
+    public ResponseEntity<Void> deleteProfileImage(@AuthUser Long userId) {
+        userService.deleteProfileImage(userId);
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping
     public ResponseEntity<Void> delete(@AuthUser Long userId) {
         userService.deleteUser(userId);
