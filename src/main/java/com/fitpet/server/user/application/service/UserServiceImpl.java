@@ -49,7 +49,37 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public UserDto findUser(Long userId) {
-        return userMapper.toDto(findUserById(userId));
+        User user = findUserById(userId);
+        
+        UserDto baseDto = userMapper.toDto(user);
+
+        return enrichWithPresignedUrl(baseDto, user.getProfileImageUrl());
+    }
+
+    private UserDto enrichWithPresignedUrl(UserDto dto, String imageKey) {
+        if (!StringUtils.hasText(imageKey)) {
+            return dto;
+        }
+
+        String presignedUrl = s3Service.generatePresignedGetUrl(imageKey);
+
+        return UserDto.builder()
+                .userId(dto.userId())
+                .email(dto.email())
+                .nickname(dto.nickname())
+                .profileImageUrl(presignedUrl)
+                .age(dto.age())
+                .gender(dto.gender())
+                .weightKg(dto.weightKg())
+                .targetWeightKg(dto.targetWeightKg())
+                .heightCm(dto.heightCm())
+                .pbf(dto.pbf())
+                .targetPbf(dto.targetPbf())
+                .targetStepCount(dto.targetStepCount())
+                .dailyStepCount(dto.dailyStepCount())
+                .createdAt(dto.createdAt())
+                .updatedAt(dto.updatedAt())
+                .build();
     }
 
     @Override
