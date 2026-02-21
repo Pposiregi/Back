@@ -1,10 +1,8 @@
 package com.fitpet.server.user.application.service;
 
-import com.fitpet.server.user.application.dto.GenderRankingResult;
-import com.fitpet.server.user.application.dto.RankingResult;
-import com.fitpet.server.user.application.dto.UserRanking;
+import com.fitpet.server.shared.s3.S3Service;
+import com.fitpet.server.shared.s3.type.ImageType;
 import com.fitpet.server.user.application.mapper.UserMapper;
-import com.fitpet.server.user.domain.entity.Gender;
 import com.fitpet.server.user.domain.entity.RegistrationStatus;
 import com.fitpet.server.user.domain.entity.User;
 import com.fitpet.server.user.domain.exception.DuplicateEmailException;
@@ -15,9 +13,10 @@ import com.fitpet.server.user.presentation.dto.UserDto;
 import com.fitpet.server.user.presentation.dto.request.UserCreateRequest;
 import com.fitpet.server.user.presentation.dto.request.UserInputInfoRequest;
 import com.fitpet.server.user.presentation.dto.request.UserUpdateRequest;
-import java.util.List;
+import com.fitpet.server.user.presentation.dto.response.ProfileImageUpdateResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -33,34 +32,60 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+    private final S3Service s3Service;
+    private final StringRedisTemplate redisTemplate;
+
+    private static final String USER_IMAGE_KEY = "user:images";
 
     @Override
     @Transactional
     public UserDto createUser(UserCreateRequest request) {
-        log.debug("회원가입 요청 email={}, nickname={}", request.email(), request.nickname());
-
         validateUserCreateRequest(request);
-
         User user = userMapper.toEntity(request);
         user.changePassword(passwordEncoder.encode(request.password()));
-        User saved = userRepository.save(user);
-        return userMapper.toDto(saved);
+        return userMapper.toDto(userRepository.save(user));
     }
 
     @Override
     @Transactional(readOnly = true)
     public UserDto findUser(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(UserNotFoundException::new);
-        return userMapper.toDto(user);
+        User user = findUserById(userId);
+        
+        UserDto baseDto = userMapper.toDto(user);
+
+        return enrichWithPresignedUrl(baseDto, user.getProfileImageUrl());
+    }
+
+    private UserDto enrichWithPresignedUrl(UserDto dto, String imageKey) {
+        if (!StringUtils.hasText(imageKey)) {
+            return dto;
+        }
+
+        String presignedUrl = s3Service.generatePresignedGetUrl(imageKey);
+
+        return UserDto.builder()
+                .userId(dto.userId())
+                .email(dto.email())
+                .nickname(dto.nickname())
+                .profileImageUrl(presignedUrl)
+                .age(dto.age())
+                .gender(dto.gender())
+                .weightKg(dto.weightKg())
+                .targetWeightKg(dto.targetWeightKg())
+                .heightCm(dto.heightCm())
+                .pbf(dto.pbf())
+                .targetPbf(dto.targetPbf())
+                .targetStepCount(dto.targetStepCount())
+                .dailyStepCount(dto.dailyStepCount())
+                .createdAt(dto.createdAt())
+                .updatedAt(dto.updatedAt())
+                .build();
     }
 
     @Override
     @Transactional
     public UserDto updateUser(Long userId, UserUpdateRequest request) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(UserNotFoundException::new);
-
+        User user = findUserById(userId);
         validateUserUpdateRequest(userId, request);
 
         if (StringUtils.hasText(request.password())) {
@@ -84,90 +109,76 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
+    public ProfileImageUpdateResponse updateProfileImage(Long userId) {
+        User user = findUserById(userId);
+
+        if (user.getProfileImageUrl() != null && !user.getProfileImageUrl().isBlank()) {
+            s3Service.deleteObject(user.getProfileImageUrl());
+        }
+
+        String newImageKey = s3Service.createImageKey(userId, ImageType.PROFILE);
+        user.updateProfileImageUrl(newImageKey);
+
+        redisTemplate.opsForHash().put(USER_IMAGE_KEY, String.valueOf(userId), newImageKey);
+
+        String uploadUrl = s3Service.generatePresignedPutUrl(newImageKey);
+
+        return new ProfileImageUpdateResponse(newImageKey, uploadUrl);
+    }
+
+    @Override
+    @Transactional
+    public void deleteProfileImage(Long userId) {
+        User user = findUserById(userId);
+
+        if (user.getProfileImageUrl() != null && !user.getProfileImageUrl().isBlank()) {
+            s3Service.deleteObject(user.getProfileImageUrl());
+            user.updateProfileImageUrl(null);
+            redisTemplate.opsForHash().delete(USER_IMAGE_KEY, String.valueOf(userId));
+        }
+    }
+
+    @Override
+    @Transactional
     public void deleteUser(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(UserNotFoundException::new);
+        User user = findUserById(userId);
         userRepository.delete(user);
     }
 
     @Override
     @Transactional
     public UserDto inputInfo(Long userId, UserInputInfoRequest request) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(UserNotFoundException::new);
+        User user = findUserById(userId);
 
         if (user.getRegistrationStatus() == RegistrationStatus.COMPLETE) {
-            log.warn("사용자 정보 입력 실패 - 이미 가입 완료된 사용자: id: {}", userId);
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "이미 가입이 완료된 사용자입니다.");
         }
 
         if (userRepository.existsByNicknameAndIdNot(request.nickname(), userId)) {
-            log.warn("사용자 정보 입력 실패 - 닉네임 중복: {} (요청자 id: {})", maskNickname(request.nickname()), userId);
             throw new DuplicateNicknameException();
         }
 
         user.userInformation(request);
-
-        userRepository.save(user);
-
-        return userMapper.toDto(user);
+        return userMapper.toDto(userRepository.save(user));
     }
 
     @Override
     @Transactional(readOnly = true)
     public boolean isRegistrationComplete(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(UserNotFoundException::new);
+        User user = findUserById(userId);
         return user.getRegistrationStatus() == RegistrationStatus.COMPLETE;
     }
 
-
-    @Override
-    @Transactional(readOnly = true)
-    public RankingResult getDailyStepRanking(Long targetUserId, int limit) {
-        User user = userRepository.findById(targetUserId)
+    private User findUserById(Long userId) {
+        return userRepository.findById(userId)
                 .orElseThrow(UserNotFoundException::new);
-
-        int myStepCount = user.getDailyStepCount() == null ? 0 : user.getDailyStepCount();
-
-        List<UserRanking> top10 = userRepository.findTopRankers(limit)
-                .stream()
-                .map(u -> new UserRanking(
-                        u.getId(),
-                        u.getNickname(),
-                        u.getDailyStepCount() == null ? 0 : u.getDailyStepCount()
-                ))
-                .toList();
-
-        long higherCount = userRepository.countByDailyStepCountGreaterThan(myStepCount);
-        int myRank = (int) higherCount + 1;
-
-        return new RankingResult(top10, myRank);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public GenderRankingResult getGenderDailyStepRanking(Gender gender, int limit) {
-
-        List<UserRanking> top10 = userRepository.findTopRankersByGender(gender, limit)
-                .stream()
-                .map(u -> new UserRanking(
-                        u.getId(),
-                        u.getNickname(),
-                        u.getDailyStepCount() == null ? 0 : u.getDailyStepCount()
-                ))
-                .toList();
-
-        return new GenderRankingResult(top10);
     }
 
     private void validateUserCreateRequest(UserCreateRequest request) {
         if (userRepository.existsByEmail(request.email())) {
-            log.warn("회원가입 실패 - 중복 이메일: {}", maskEmail(request.email()));
             throw new DuplicateEmailException();
         }
         if (userRepository.existsByNickname(request.nickname())) {
-            log.warn("회원가입 실패 - 중복 닉네임: {}", maskNickname(request.nickname()));
             throw new DuplicateNicknameException();
         }
     }
@@ -175,34 +186,11 @@ public class UserServiceImpl implements UserService {
     private void validateUserUpdateRequest(Long userId, UserUpdateRequest request) {
         if (StringUtils.hasText(request.email()) &&
                 userRepository.existsByEmailAndIdNot(request.email(), userId)) {
-            log.warn("사용자 수정 실패 - 이메일 중복: {} (요청자 id: {})", maskEmail(request.email()), userId);
             throw new DuplicateEmailException();
         }
         if (StringUtils.hasText(request.nickname()) &&
                 userRepository.existsByNicknameAndIdNot(request.nickname(), userId)) {
-            log.warn("사용자 수정 실패 - 닉네임 중복: {} (요청자 id: {})", maskNickname(request.nickname()), userId);
             throw new DuplicateNicknameException();
         }
-    }
-
-    private static String maskEmail(String email) {
-        if (email == null) {
-            return null;
-        }
-        int at = email.indexOf('@');
-        if (at <= 1) {
-            return "***";
-        }
-        String local = email.substring(0, at);
-        String domain = email.substring(at);
-        String prefix = local.substring(0, Math.min(2, local.length()));
-        return prefix + "***" + domain;
-    }
-
-    private static String maskNickname(String nickname) {
-        if (nickname == null || nickname.isEmpty()) {
-            return nickname;
-        }
-        return nickname.substring(0, 1) + "***";
     }
 }

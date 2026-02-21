@@ -17,7 +17,8 @@ public class MissionCheckScheduler {
 
     private final MissionCheckBatchService missionCheckBatchService;
 
-    @Scheduled(cron = "${mission.scheduler.daily-cron:0 0 0 * * *}", zone = "Asia/Seoul")
+    @Scheduled(cron = "${mission.scheduler.daily-cron:0 0 0 * * *}", zone = "Asia/Seoul") // 매일
+    //@Scheduled(cron = "${mission.scheduler.daily-cron:0 * * * * *}", zone = "Asia/Seoul") // 1분마다
     public void createDailyMissionChecks() {
         LocalDate today = LocalDate.now(ZONE_ID);
         int created = missionCheckBatchService.createDailyMissionChecks(today);

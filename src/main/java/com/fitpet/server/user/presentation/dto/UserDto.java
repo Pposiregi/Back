@@ -9,6 +9,7 @@ public record UserDto(
         Long userId,
         String email,
         String nickname,
+        String profileImageUrl,
         Integer age,
         Gender gender,
         Double weightKg,

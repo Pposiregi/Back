@@ -1,5 +1,6 @@
-package com.fitpet.server.meal.application.service;
+package com.fitpet.server.shared.s3;
 
+import com.fitpet.server.shared.s3.type.ImageType;
 import java.time.Duration;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ public class S3Service {
     @Value("${aws.s3.bucket}")
     private String bucketName;
 
+    // 업로드용 URL 생성
     public String generatePresignedPutUrl(String objectKey) {
         PutObjectRequest objectRequest = PutObjectRequest.builder()
                 .bucket(bucketName)
@@ -38,9 +40,10 @@ public class S3Service {
         return s3Presigner.presignPutObject(presignRequest).url().toString();
     }
 
+    // 조회용 URL 생성
     public String generatePresignedGetUrl(String objectKey) {
-        if (objectKey == null) {
-            return null; // 이미지 URL이 없는 경우
+        if (objectKey == null || objectKey.isBlank()) {
+            return null;
         }
 
         GetObjectRequest getObjectRequest = GetObjectRequest.builder()
@@ -56,7 +59,12 @@ public class S3Service {
         return s3Presigner.presignGetObject(presignRequest).url().toString();
     }
 
+    // 객체 삭제
     public void deleteObject(String objectKey) {
+        if (objectKey == null || objectKey.isBlank()) {
+            return;
+        }
+
         DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()
                 .bucket(bucketName)
                 .key(objectKey)
@@ -64,7 +72,11 @@ public class S3Service {
         s3Client.deleteObject(deleteObjectRequest);
     }
 
-    public String createImageKey(Long userId) {
-        return String.format("user/%d/meal/%s.jpg", userId, UUID.randomUUID());
+    //이미지 타입에 따라 경로 분기 처리
+    public String createImageKey(Long userId, ImageType imageType) {
+        return String.format("user/%d/%s/%s.jpg",
+                userId,
+                imageType.getPath(),
+                UUID.randomUUID());
     }
 }

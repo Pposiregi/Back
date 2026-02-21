@@ -1,11 +1,15 @@
 package com.fitpet.server.meal.presentation.dto.response;
 
-import lombok.Builder;
-import lombok.Getter;
+import com.fitpet.server.meal.application.dto.MealResult;
 
-@Getter
-@Builder
-public class MealUpdateResponse {
-    private String imageUrl;
-    private String uploadUrl;
+public record MealUpdateResponse(
+        String imageUrl,
+        String uploadUrl
+) {
+    public static MealUpdateResponse from(MealResult result) {
+        return new MealUpdateResponse(
+                result.imageUrl(),
+                result.uploadUrl()
+        );
+    }
 }
