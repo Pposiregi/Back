@@ -1,5 +1,6 @@
 package com.fitpet.server.user.application.service;
 
+import com.fitpet.server.pet.domain.repository.PetRepository;
 import com.fitpet.server.shared.s3.S3Service;
 import com.fitpet.server.shared.s3.type.ImageType;
 import com.fitpet.server.user.application.mapper.UserMapper;
@@ -9,6 +10,7 @@ import com.fitpet.server.user.domain.exception.DuplicateEmailException;
 import com.fitpet.server.user.domain.exception.DuplicateNicknameException;
 import com.fitpet.server.user.domain.exception.UserNotFoundException;
 import com.fitpet.server.user.domain.repository.UserRepository;
+import com.fitpet.server.user.presentation.dto.PetSummaryDto;
 import com.fitpet.server.user.presentation.dto.UserDto;
 import com.fitpet.server.user.presentation.dto.request.UserCreateRequest;
 import com.fitpet.server.user.presentation.dto.request.UserInputInfoRequest;
@@ -30,6 +32,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
+    private final PetRepository petRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final S3Service s3Service;
@@ -52,8 +55,18 @@ public class UserServiceImpl implements UserService {
         User user = findUserById(userId);
 
         UserDto baseDto = userMapper.toDto(user);
+        PetSummaryDto petSummary = petRepository.findByOwnerId(userId)
+            .map(pet -> PetSummaryDto.builder()
+                .petId(pet.getId())
+                .name(pet.getName())
+                .petType(pet.getPetType())
+                .color(pet.getColor())
+                .exp(pet.getExp())
+                .expression(pet.getExpression())
+                .build())
+            .orElse(null);
 
-        return enrichWithPresignedUrl(baseDto, user.getProfileImageUrl());
+        return enrichWithPresignedUrl(baseDto.withPet(petSummary), user.getProfileImageUrl());
     }
 
     private UserDto enrichWithPresignedUrl(UserDto dto, String imageKey) {
@@ -77,6 +90,7 @@ public class UserServiceImpl implements UserService {
             .targetPbf(dto.targetPbf())
             .targetStepCount(dto.targetStepCount())
             .dailyStepCount(dto.dailyStepCount())
+            .pet(dto.pet())
             .createdAt(dto.createdAt())
             .updatedAt(dto.updatedAt())
             .build();

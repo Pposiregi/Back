@@ -28,6 +28,7 @@ public record UserDto(
             userId,
             email,
             nickname,
+            profileImageUrl,
             age,
             gender,
             weightKg,
