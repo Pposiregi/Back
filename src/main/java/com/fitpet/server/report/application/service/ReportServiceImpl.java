@@ -3,12 +3,10 @@ package com.fitpet.server.report.application.service;
 import com.fitpet.server.dailywalk.domain.repository.DailyWalkRepository;
 import com.fitpet.server.dailyworkout.domain.entity.GpsSession;
 import com.fitpet.server.dailyworkout.domain.repository.GpsSessionRepository;
+import com.fitpet.server.meal.application.dto.MealDetailInfo;
 import com.fitpet.server.meal.application.service.MealService;
-import com.fitpet.server.meal.application.service.S3Service;
 import com.fitpet.server.meal.domain.entity.Meal;
 import com.fitpet.server.meal.domain.repository.MealRepository;
-import com.fitpet.server.meal.presentation.dto.response.MealDetailInfo;
-import com.fitpet.server.meal.presentation.dto.response.MealDetailResponse;
 import com.fitpet.server.report.application.mapper.ReportMapper;
 import com.fitpet.server.report.presentation.dto.response.DailyMealSummaryResponse;
 import com.fitpet.server.report.presentation.dto.response.DayInfo;
@@ -17,9 +15,9 @@ import com.fitpet.server.report.presentation.dto.response.ReportResponseDto.Acti
 import com.fitpet.server.report.presentation.dto.response.ReportResponseDto.TodayActivityResponse;
 import com.fitpet.server.shared.exception.BusinessException;
 import com.fitpet.server.shared.exception.ErrorCode;
+import com.fitpet.server.shared.s3.S3Service;
 import com.fitpet.server.user.domain.entity.User;
 import com.fitpet.server.user.domain.repository.UserRepository;
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
@@ -46,21 +44,14 @@ public class ReportServiceImpl implements ReportService {
 
     private final ReportMapper reportMapper;
 
-
     @Override
     public TodayActivityResponse getTodayActivity(Long userId, LocalDate date) {
         User user = findUserById(userId);
-        List<GpsSession> sessions = gpsSessionRepository.findByUserAndStartTimeBetween(user, date.atStartOfDay(),
-                date.plusDays(1).atStartOfDay());
-
-        BigDecimal totalDistance = sessions.stream()
-                .map(GpsSession::getTotalDistance)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        int totalCalories = sessions.stream()
-                .filter(s -> s.getBurnCalories() != null)
-                .mapToInt(GpsSession::getBurnCalories)
-                .sum();
+        List<GpsSession> sessions = gpsSessionRepository.findByUserAndStartTimeBetween(
+                user,
+                date.atStartOfDay(),
+                date.plusDays(1).atStartOfDay()
+        );
 
         return reportMapper.toTodayActivityResponse(sessions, date);
     }
@@ -68,7 +59,6 @@ public class ReportServiceImpl implements ReportService {
     @Override
     public List<ActivityRangeResponse> getActivityRange(Long userId, LocalDate from, LocalDate to) {
         User user = findUserById(userId);
-
         return dailyWalkRepository.findByUserAndDateBetween(user, from, to).stream()
                 .map(reportMapper::toActivityRangeResponse)
                 .collect(Collectors.toList());
@@ -76,21 +66,11 @@ public class ReportServiceImpl implements ReportService {
 
     @Override
     public DailyMealSummaryResponse getDailyMealsReport(Long userId, LocalDate day) {
-        User user = findUserById(userId);
-        List<Meal> meals = mealRepository.findByUserAndDay(user, day);
-
-        List<MealDetailInfo> mealList = meals.stream()
-                .map(meal -> {
-                    MealDetailInfo dto = reportMapper.toMealDetailInfo(meal);
-                    String viewableUrl = s3Service.generatePresignedGetUrl(meal.getImageUrl());
-                    dto.setImageUrl(viewableUrl);
-                    return dto;
-                })
-                .collect(Collectors.toList());
+        List<MealDetailInfo> mealList = mealService.getMealsByDate(userId, day);
 
         int totalKcal = mealList.stream()
-                .filter(m -> m.getKcal() != null)
-                .mapToInt(MealDetailInfo::getKcal)
+                .filter(m -> m.kcal() != null)
+                .mapToInt(MealDetailInfo::kcal)
                 .sum();
 
         return reportMapper.toDailyMealSummaryResponse(day, totalKcal, mealList);
@@ -112,6 +92,10 @@ public class ReportServiceImpl implements ReportService {
                 .map(date -> {
                     List<Meal> mealsOnDate = mealsByDate.getOrDefault(date, new ArrayList<>());
 
+                    if (mealsOnDate.isEmpty()) {
+                        return null;
+                    }
+
                     List<String> imageUrls = mealsOnDate.stream()
                             .map(meal -> s3Service.generatePresignedGetUrl(meal.getImageUrl()))
                             .filter(Objects::nonNull)
@@ -121,14 +105,14 @@ public class ReportServiceImpl implements ReportService {
                     dayInfo.setImageUrls(imageUrls);
                     return dayInfo;
                 })
-                .filter(dayInfo -> dayInfo.getCount() > 0)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
 
         return reportMapper.toMealCalendarResponse(year, month, daysInfo);
     }
 
     @Override
-    public List<MealDetailResponse> getTodayMeals(Long userId, LocalDate date) {
+    public List<MealDetailInfo> getTodayMeals(Long userId, LocalDate date) {
         return mealService.getMealsByDate(userId, date);
     }
 

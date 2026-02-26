@@ -1,5 +1,6 @@
 package com.fitpet.server.report.presentation.controller;
 
+import com.fitpet.server.meal.application.dto.MealDetailInfo;
 import com.fitpet.server.meal.presentation.dto.response.MealDetailResponse;
 import com.fitpet.server.report.application.service.ReportService;
 import com.fitpet.server.report.presentation.dto.response.DailyMealSummaryResponse;
@@ -18,54 +19,57 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/report")
+@RequestMapping("/reports")
 @RequiredArgsConstructor
 public class ReportController {
 
     private final ReportService reportService;
 
-    @GetMapping("/activity/daily")
+    @GetMapping("/activity/today")
     public ResponseEntity<TodayActivityResponse> getTodayActivity(
             @AuthUser Long userId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        TodayActivityResponse response = reportService.getTodayActivity(userId, date);
-        return ResponseEntity.ok(response);
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
+    ) {
+        return ResponseEntity.ok(reportService.getTodayActivity(userId, date));
     }
 
     @GetMapping("/activity/range")
     public ResponseEntity<List<ActivityRangeResponse>> getActivityRange(
             @AuthUser Long userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
-        List<ActivityRangeResponse> response = reportService.getActivityRange(userId, from, to);
-        return ResponseEntity.ok(response);
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
+    ) {
+        return ResponseEntity.ok(reportService.getActivityRange(userId, from, to));
     }
 
-    @GetMapping("/meals")
-    public ResponseEntity<List<MealDetailResponse>> getTodayMeals(
-            @AuthUser Long userId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate day) {
-
-        List<MealDetailResponse> response = reportService.getTodayMeals(userId, day);
-        return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/meal/day")
+    @GetMapping("/meals/daily")
     public ResponseEntity<DailyMealSummaryResponse> getDailyMealsReport(
             @AuthUser Long userId,
-            @RequestParam("day") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate day) {
-
-        DailyMealSummaryResponse response = reportService.getDailyMealsReport(userId, day);
-        return ResponseEntity.ok(response);
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
+    ) {
+        return ResponseEntity.ok(reportService.getDailyMealsReport(userId, date));
     }
 
-    @GetMapping("/meal/calendar")
+    @GetMapping("/meals/calendar")
     public ResponseEntity<MealCalendarResponse> getMealCalendarReport(
             @AuthUser Long userId,
             @RequestParam int year,
-            @RequestParam int month) {
+            @RequestParam int month
+    ) {
+        return ResponseEntity.ok(reportService.getMealCalendarReport(userId, year, month));
+    }
 
-        MealCalendarResponse response = reportService.getMealCalendarReport(userId, year, month);
+    @GetMapping("/meals/today")
+    public ResponseEntity<List<MealDetailResponse>> getTodayMeals(
+            @AuthUser Long userId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
+    ) {
+        List<MealDetailInfo> infos = reportService.getTodayMeals(userId, date);
+
+        List<MealDetailResponse> response = infos.stream()
+                .map(MealDetailResponse::from)
+                .toList();
+
         return ResponseEntity.ok(response);
     }
 }

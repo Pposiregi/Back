@@ -24,10 +24,11 @@ public interface UserMapper {
             @Mapping(target = "updatedAt", ignore = true),
             @Mapping(target = "dailyStepCount", ignore = true),
             @Mapping(target = "allowActivityNotification", ignore = true),
-            @Mapping(target = "lastAccessedAt", ignore = true)
+            @Mapping(target = "lastAccessedAt", ignore = true),
+            @Mapping(target = "profileImageUrl", ignore = true)
     })
     User toEntity(UserCreateRequest request);
-
+ 
     @Mapping(source = "id", target = "userId")
     @Mapping(target = "pet", ignore = true)
     UserDto toDto(User user);

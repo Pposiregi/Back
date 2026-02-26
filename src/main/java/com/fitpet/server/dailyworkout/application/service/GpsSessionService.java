@@ -14,9 +14,9 @@ public interface GpsSessionService {
 
     GpsSessionStartResponse startSession(Long userId, SessionStartRequest request);
 
-    GpsLogResponse logGps(GpsLogRequest request);
+    GpsLogResponse logGps(Long userId, GpsLogRequest request);
 
-    SessionEndResponse endSession(SessionEndRequest request);
+    SessionEndResponse endSession(Long userId, SessionEndRequest request);
 
     List<GpsSessionSummaryResponse> getMonthlySessions(Long userId, int year, int month);
 

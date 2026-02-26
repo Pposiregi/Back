@@ -10,9 +10,6 @@ import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.PositiveOrZero;
 
 public record BodyHistoryCreateRequest(
-        @NotNull(message = "사용자 ID는 필수입니다.")
-        Long userId,
-
         @NotNull(message = "키는 필수입니다.")
         @PositiveOrZero(message = "키는 0 이상이어야 합니다.")
         BigDecimal heightCm,

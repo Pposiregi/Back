@@ -7,5 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface GpsLogJpaRepository extends JpaRepository<GpsLog, Long> {
     List<GpsLog> findByGpsSessionOrderByRecordedAtAsc(GpsSession gpsSession);
-    
+
+    GpsLog findTopByGpsSessionOrderByRecordedAtDesc(GpsSession gpsSession);
 }

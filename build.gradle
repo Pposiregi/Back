@@ -65,9 +65,9 @@ dependencies {
     // Lombok & MapStruct
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok-mapstruct-binding:0.2.0'
     implementation 'org.mapstruct:mapstruct:1.6.3'
     annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'
-    annotationProcessor 'org.projectlombok:lombok-mapstruct-binding:0.2.0'
 
     // Configuration Processor
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
@@ -87,13 +87,12 @@ dependencies {
     implementation platform('software.amazon.awssdk:bom:2.20.41')
     implementation 'software.amazon.awssdk:s3'
 
-    //FCM
+    // FCM
     implementation 'com.google.firebase:firebase-admin:9.3.0'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
 
     // GCP
     implementation "com.google.cloud.sql:mysql-socket-factory-connector-j-8:1.27.1"
-
 }
 
 tasks.named('test') { useJUnitPlatform() }

@@ -2,8 +2,8 @@ package com.fitpet.server.report.application.mapper;
 
 import com.fitpet.server.dailywalk.domain.entity.DailyWalk;
 import com.fitpet.server.dailyworkout.domain.entity.GpsSession;
+import com.fitpet.server.meal.application.dto.MealDetailInfo;
 import com.fitpet.server.meal.domain.entity.Meal;
-import com.fitpet.server.meal.presentation.dto.response.MealDetailInfo;
 import com.fitpet.server.report.presentation.dto.response.DailyMealSummaryResponse;
 import com.fitpet.server.report.presentation.dto.response.DayInfo;
 import com.fitpet.server.report.presentation.dto.response.MealCalendarResponse;
@@ -60,7 +60,6 @@ public interface ReportMapper {
 
     MealCalendarResponse toMealCalendarResponse(int year, int month, List<DayInfo> days);
 
-    // TODO : Helper로 분리하기
     @Named("sumDistance")
     default BigDecimal sumDistance(List<GpsSession> sessions) {
         return sessions.stream()
@@ -69,7 +68,6 @@ public interface ReportMapper {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    // TODO : Helper로 분리하기
     @Named("sumCalories")
     default Integer sumCalories(List<GpsSession> sessions) {
         return sessions.stream()

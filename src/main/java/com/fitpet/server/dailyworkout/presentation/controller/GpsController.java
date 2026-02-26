@@ -13,6 +13,7 @@ import com.fitpet.server.shared.annotation.AuthUser;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import java.net.URI;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -35,30 +36,40 @@ public class GpsController {
 
     @PostMapping("/start")
     public ResponseEntity<GpsSessionStartResponse> startSession(
-        @AuthUser Long userId,
-        @Valid @RequestBody SessionStartRequest request
+            @AuthUser Long userId,
+            @Valid @RequestBody SessionStartRequest request
     ) {
         GpsSessionStartResponse response = gpsSessionService.startSession(userId, request);
-        return ResponseEntity.ok(response);
+
+        return ResponseEntity
+                .created(URI.create("/gps/sessions/" + response.getSessionId()))
+                .body(response);
     }
 
     @PostMapping("/log")
-    public ResponseEntity<GpsLogResponse> logGps(@Valid @RequestBody GpsLogRequest request) {
-        GpsLogResponse response = gpsSessionService.logGps(request);
+    public ResponseEntity<GpsLogResponse> logGps(
+            @AuthUser Long userId,
+            @Valid @RequestBody GpsLogRequest request
+    ) {
+        GpsLogResponse response = gpsSessionService.logGps(userId, request);
+
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/end")
-    public ResponseEntity<SessionEndResponse> endSession(@Valid @RequestBody SessionEndRequest request) {
-        SessionEndResponse response = gpsSessionService.endSession(request);
+    public ResponseEntity<SessionEndResponse> endSession(
+            @AuthUser Long userId,
+            @Valid @RequestBody SessionEndRequest request
+    ) {
+        SessionEndResponse response = gpsSessionService.endSession(userId, request);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/sessions")
     public ResponseEntity<List<GpsSessionSummaryResponse>> getMonthlySessions(
-        @AuthUser Long userId,
-        @RequestParam @Min(2025) @Max(2100) int year,
-        @RequestParam @Min(1) @Max(12) int month
+            @AuthUser Long userId,
+            @RequestParam @Min(2025) @Max(2100) int year,
+            @RequestParam @Min(1) @Max(12) int month
     ) {
         List<GpsSessionSummaryResponse> sessions = gpsSessionService.getMonthlySessions(userId, year, month);
         return ResponseEntity.ok(sessions);
@@ -66,8 +77,8 @@ public class GpsController {
 
     @GetMapping("/sessions/{sessionId}")
     public ResponseEntity<GpsSessionDetailResponse> getSessionDetail(
-        @AuthUser Long userId,
-        @PathVariable Long sessionId
+            @AuthUser Long userId,
+            @PathVariable Long sessionId
     ) {
         GpsSessionDetailResponse response = gpsSessionService.getSessionDetail(userId, sessionId);
         return ResponseEntity.ok(response);

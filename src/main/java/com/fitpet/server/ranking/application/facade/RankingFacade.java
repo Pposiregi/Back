@@ -1,9 +1,9 @@
 package com.fitpet.server.ranking.application.facade;
 
 import com.fitpet.server.ranking.application.dto.RankingDto;
+import com.fitpet.server.ranking.application.dto.RankingSummaryDto;
 import com.fitpet.server.ranking.application.service.RankingService;
-import com.fitpet.server.ranking.presentation.dto.RankingResponse;
-import com.fitpet.server.ranking.presentation.dto.RankingSummaryResponse;
+import com.fitpet.server.ranking.domain.type.RankingFilter;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -14,17 +14,12 @@ public class RankingFacade {
 
     private final RankingService rankingService;
 
-    public RankingSummaryResponse getRankingSummary(Long userId) {
-        List<RankingDto> top10Dtos = rankingService.getTop10();
-        RankingDto myRankDto = rankingService.getMyRank(userId);
+    public RankingSummaryDto getRankingSummary(Long userId, RankingFilter filter) {
+        List<RankingDto> top10Dtos = rankingService.getTop10(filter);
 
-        List<RankingResponse> top10Responses = top10Dtos.stream()
-                .map(RankingResponse::from)
-                .toList();
+        RankingDto myRankDto = rankingService.getMyRank(userId, filter);
 
-        RankingResponse myRankResponse = RankingResponse.from(myRankDto);
-
-        return RankingSummaryResponse.of(top10Responses, myRankResponse);
+        return RankingSummaryDto.of(top10Dtos, myRankDto);
     }
 
     public void updateScore(Long userId, int steps) {

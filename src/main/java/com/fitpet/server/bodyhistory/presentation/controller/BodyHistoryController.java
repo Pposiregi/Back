@@ -54,8 +54,11 @@ public class BodyHistoryController {
     }
 
     @PostMapping
-    public ResponseEntity<BodyHistoryResponse> create(@RequestBody @Valid BodyHistoryCreateRequest request) {
-        BodyHistoryResponse saved = bodyHistoryService.createBodyHistory(request);
+    public ResponseEntity<BodyHistoryResponse> create(
+        @AuthUser Long userId, 
+        @RequestBody @Valid BodyHistoryCreateRequest request
+    ) {
+        BodyHistoryResponse saved = bodyHistoryService.createBodyHistory(userId, request);
 
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")

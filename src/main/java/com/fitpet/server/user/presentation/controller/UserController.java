@@ -1,16 +1,12 @@
 package com.fitpet.server.user.presentation.controller;
 
 import com.fitpet.server.shared.annotation.AuthUser;
-import com.fitpet.server.user.application.dto.GenderRankingResult;
-import com.fitpet.server.user.application.dto.RankingResult;
 import com.fitpet.server.user.application.service.UserService;
-import com.fitpet.server.user.domain.entity.Gender;
 import com.fitpet.server.user.presentation.dto.UserDto;
 import com.fitpet.server.user.presentation.dto.request.UserCreateRequest;
 import com.fitpet.server.user.presentation.dto.request.UserInputInfoRequest;
 import com.fitpet.server.user.presentation.dto.request.UserUpdateRequest;
-import com.fitpet.server.user.presentation.dto.response.GenderRankingResponse;
-import com.fitpet.server.user.presentation.dto.response.RankingResponse;
+import com.fitpet.server.user.presentation.dto.response.ProfileImageUpdateResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +18,6 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RequiredArgsConstructor
@@ -34,97 +29,43 @@ public class UserController {
     private final UserService userService;
 
     @PostMapping
-    public ResponseEntity<UserDto> create(
-            @Valid @RequestBody UserCreateRequest userCreateRequest
-    ) {
-        log.info("[UserController] 사용자 회원가입 요청: email: {}, nickname: {}",
-                userCreateRequest.email(), userCreateRequest.nickname());
-
+    public ResponseEntity<UserDto> create(@Valid @RequestBody UserCreateRequest userCreateRequest) {
         UserDto createdUser = userService.createUser(userCreateRequest);
-
-        log.info("[UserController] 사용자 회원가입 완료: id: {}, email: {}",
-                createdUser.userId(), createdUser.email());
-
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(createdUser);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdUser);
     }
 
     @GetMapping
-    public ResponseEntity<UserDto> find(
-            @AuthUser Long userId
-    ) {
-        log.info("[UserController] 사용자 조회 요청: id: {}", userId);
-
-        UserDto user = userService.findUser(userId);
-
-        log.info("[UserController] 사용자 조회 완료: id: {}", userId);
-
-        return ResponseEntity.status(HttpStatus.OK).body(user);
+    public ResponseEntity<UserDto> find(@AuthUser Long userId) {
+        return ResponseEntity.status(HttpStatus.OK).body(userService.findUser(userId));
     }
 
     @PatchMapping
-    public ResponseEntity<UserDto> update(
-            @AuthUser Long userId,
-            @Valid @RequestBody UserUpdateRequest userUpdateRequest
-    ) {
-        log.info("[UserController] 사용자 수정 요청: id: {}", userId);
-
-        UserDto user = userService.updateUser(userId, userUpdateRequest);
-
-        log.info("[UserController] 사용자 수정 완료: id: {}", userId);
-
-        return ResponseEntity.status(HttpStatus.OK).body(user);
+    public ResponseEntity<UserDto> update(@AuthUser Long userId,
+                                          @Valid @RequestBody UserUpdateRequest userUpdateRequest) {
+        return ResponseEntity.status(HttpStatus.OK).body(userService.updateUser(userId, userUpdateRequest));
     }
 
-    @GetMapping("/rankings/daily-step")
-    public ResponseEntity<RankingResponse> getDailyStepRanking(
-            @AuthUser Long userId,
-            @RequestParam(defaultValue = "10") int limit
-    ) {
-        log.info("[UserController] 일일 걸음 랭킹 조회 요청: userId={}, limit={}", userId, limit);
-        RankingResult rankingResult = userService.getDailyStepRanking(userId, limit);
-        RankingResponse rankingResponse = RankingResponse.from(rankingResult);
-        log.info("[UserController] 일일 걸음 랭킹 조회 완료: userId={}, limit={}", userId, limit);
-        return ResponseEntity.ok(rankingResponse);
-    }
-
-    @GetMapping("/rankings/daily-step/gender")
-    public ResponseEntity<GenderRankingResponse> getGenderDailyStepRanking(
-            @RequestParam Gender gender,
-            @RequestParam(defaultValue = "10") int limit
-    ) {
-        log.info("[UserController] 성별 일일 걸음 랭킹 조회 요청: gender={}, limit={}", gender, limit);
-        GenderRankingResult result = userService.getGenderDailyStepRanking(gender, limit);
-        GenderRankingResponse response = GenderRankingResponse.from(result);
-        log.info("[UserController] 성별 일일 걸음 랭킹 조회 완료: gender={}, limit={}", gender, limit);
+    @PostMapping("/profile-image")
+    public ResponseEntity<ProfileImageUpdateResponse> updateProfileImage(@AuthUser Long userId) {
+        ProfileImageUpdateResponse response = userService.updateProfileImage(userId);
         return ResponseEntity.ok(response);
     }
 
     @PatchMapping("/signUp/complete")
-    public ResponseEntity<UserDto> updateUserInfo(
-            @AuthUser Long userId,
-            @Valid @RequestBody UserInputInfoRequest userInputInfoRequest
-    ) {
-        log.info("[UserController] 현재 사용자 정보 입력 요청: id: {}", userId);
+    public ResponseEntity<UserDto> updateUserInfo(@AuthUser Long userId,
+                                                  @Valid @RequestBody UserInputInfoRequest userInputInfoRequest) {
+        return ResponseEntity.status(HttpStatus.OK).body(userService.inputInfo(userId, userInputInfoRequest));
+    }
 
-        UserDto user = userService.inputInfo(userId, userInputInfoRequest);
-
-        log.info("[UserController] 현재 사용자 정보 입력 완료: id: {}", userId);
-
-        return ResponseEntity.status(HttpStatus.OK).body(user);
+    @DeleteMapping("/profile-image")
+    public ResponseEntity<Void> deleteProfileImage(@AuthUser Long userId) {
+        userService.deleteProfileImage(userId);
+        return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping
-    public ResponseEntity<Void> delete(
-            @AuthUser Long userId
-    ) {
-        log.info("[UserController] 사용자 삭제 요청: id: {}", userId);
-
+    public ResponseEntity<Void> delete(@AuthUser Long userId) {
         userService.deleteUser(userId);
-
-        log.info("[UserController] 사용자 삭제 완료: id: {}", userId);
-
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 }
