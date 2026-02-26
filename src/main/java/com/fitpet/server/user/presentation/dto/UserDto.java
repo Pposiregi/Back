@@ -6,19 +6,39 @@ import lombok.Builder;
 
 @Builder
 public record UserDto(
-        Long userId,
-        String email,
-        String nickname,
-        Integer age,
-        Gender gender,
-        Double weightKg,
-        Double targetWeightKg,
-        Double heightCm,
-        Double pbf,
-        Double targetPbf,
-        Integer targetStepCount,
-        Integer dailyStepCount,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt
+    Long userId,
+    String email,
+    String nickname,
+    Integer age,
+    Gender gender,
+    Double weightKg,
+    Double targetWeightKg,
+    Double heightCm,
+    Double pbf,
+    Double targetPbf,
+    Integer targetStepCount,
+    Integer dailyStepCount,
+    PetSummaryDto pet,
+    LocalDateTime createdAt,
+    LocalDateTime updatedAt
 ) {
+    public UserDto withPet(PetSummaryDto pet) {
+        return new UserDto(
+            userId,
+            email,
+            nickname,
+            age,
+            gender,
+            weightKg,
+            targetWeightKg,
+            heightCm,
+            pbf,
+            targetPbf,
+            targetStepCount,
+            dailyStepCount,
+            pet,
+            createdAt,
+            updatedAt
+        );
+    }
 }

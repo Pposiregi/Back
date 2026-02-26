@@ -1,5 +1,6 @@
 package com.fitpet.server.user.application.service;
 
+import com.fitpet.server.pet.domain.repository.PetRepository;
 import com.fitpet.server.user.application.dto.GenderRankingResult;
 import com.fitpet.server.user.application.dto.RankingResult;
 import com.fitpet.server.user.application.dto.UserRanking;
@@ -11,6 +12,7 @@ import com.fitpet.server.user.domain.exception.DuplicateEmailException;
 import com.fitpet.server.user.domain.exception.DuplicateNicknameException;
 import com.fitpet.server.user.domain.exception.UserNotFoundException;
 import com.fitpet.server.user.domain.repository.UserRepository;
+import com.fitpet.server.user.presentation.dto.PetSummaryDto;
 import com.fitpet.server.user.presentation.dto.UserDto;
 import com.fitpet.server.user.presentation.dto.request.UserCreateRequest;
 import com.fitpet.server.user.presentation.dto.request.UserInputInfoRequest;
@@ -31,6 +33,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
+    private final PetRepository petRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
 
@@ -52,7 +55,20 @@ public class UserServiceImpl implements UserService {
     public UserDto findUser(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(UserNotFoundException::new);
-        return userMapper.toDto(user);
+        UserDto userDto = userMapper.toDto(user);
+
+        PetSummaryDto petSummary = petRepository.findByOwnerId(userId)
+                .map(pet -> PetSummaryDto.builder()
+                        .petId(pet.getId())
+                        .name(pet.getName())
+                        .petType(pet.getPetType())
+                        .color(pet.getColor())
+                        .exp(pet.getExp())
+                        .expression(pet.getExpression())
+                        .build())
+                .orElse(null);
+
+        return userDto.withPet(petSummary);
     }
 
     @Override
