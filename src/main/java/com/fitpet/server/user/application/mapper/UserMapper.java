@@ -29,6 +29,7 @@ public interface UserMapper {
     User toEntity(UserCreateRequest request);
 
     @Mapping(source = "id", target = "userId")
+    @Mapping(target = "pet", ignore = true)
     UserDto toDto(User user);
 
 }
