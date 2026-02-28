@@ -1,0 +1,81 @@
+{
+  "version": "2.0",
+  "lastUpdated": "2026-02-28T11:25:09.974Z",
+  "activeFeatures": [
+    "request",
+    "entity",
+    "service"
+  ],
+  "primaryFeature": "request",
+  "features": {
+    "request": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-28T11:16:25.737Z",
+        "lastUpdated": "2026-02-28T11:16:25.737Z"
+      },
+      "lastFile": "/Users/user/Downloads/Back/src/main/java/com/fitpet/server/dailyworkout/presentation/dto/request/SessionEndRequest.java"
+    },
+    "entity": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-28T11:20:11.801Z",
+        "lastUpdated": "2026-02-28T11:20:11.801Z"
+      },
+      "lastFile": "/Users/user/Downloads/Back/src/main/java/com/fitpet/server/dailyworkout/domain/entity/GpsSession.java"
+    },
+    "service": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-28T11:25:09.974Z",
+        "lastUpdated": "2026-02-28T11:25:09.974Z"
+      },
+      "lastFile": "/Users/user/Downloads/Back/src/main/java/com/fitpet/server/dailyworkout/application/service/GpsSessionServiceImpl.java"
+    }
+  },
+  "pipeline": {
+    "currentPhase": 1,
+    "level": "Dynamic",
+    "phaseHistory": []
+  },
+  "session": {
+    "startedAt": "2026-02-28T10:42:07.048Z",
+    "onboardingCompleted": false,
+    "lastActivity": "2026-02-28T11:25:09.974Z"
+  },
+  "history": [
+    {
+      "timestamp": "2026-02-28T11:16:25.737Z",
+      "feature": "request",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T11:20:11.801Z",
+      "feature": "entity",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T11:25:09.974Z",
+      "feature": "service",
+      "phase": "do",
+      "action": "updated"
+    }
+  ]
+}

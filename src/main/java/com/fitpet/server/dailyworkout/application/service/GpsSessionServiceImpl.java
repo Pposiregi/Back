@@ -149,7 +149,8 @@ public class GpsSessionServiceImpl implements GpsSessionService {
         session.endSession(
                 request.getEndTime(),
                 request.getStepCount(),
-                request.getBurnCalories()
+                request.getBurnCalories(),
+                request.getTotalDistance()
         );
 
         log.info("GPS 세션 종료 완료: sessionId={}, totalDistance={}, burnCalories={}",
