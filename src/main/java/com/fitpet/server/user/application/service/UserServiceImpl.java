@@ -1,7 +1,14 @@
 package com.fitpet.server.user.application.service;
 
+import com.fitpet.server.pet.domain.repository.PetRepository;
 import com.fitpet.server.shared.s3.S3Service;
 import com.fitpet.server.shared.s3.type.ImageType;
+import com.fitpet.server.user.application.dto.PetSummaryResult;
+import com.fitpet.server.user.application.dto.ProfileImageUpdateResult;
+import com.fitpet.server.user.application.dto.UserCreateCommand;
+import com.fitpet.server.user.application.dto.UserInputInfoCommand;
+import com.fitpet.server.user.application.dto.UserResult;
+import com.fitpet.server.user.application.dto.UserUpdateCommand;
 import com.fitpet.server.user.application.mapper.UserMapper;
 import com.fitpet.server.user.domain.entity.RegistrationStatus;
 import com.fitpet.server.user.domain.entity.User;
@@ -9,11 +16,6 @@ import com.fitpet.server.user.domain.exception.DuplicateEmailException;
 import com.fitpet.server.user.domain.exception.DuplicateNicknameException;
 import com.fitpet.server.user.domain.exception.UserNotFoundException;
 import com.fitpet.server.user.domain.repository.UserRepository;
-import com.fitpet.server.user.presentation.dto.UserDto;
-import com.fitpet.server.user.presentation.dto.request.UserCreateRequest;
-import com.fitpet.server.user.presentation.dto.request.UserInputInfoRequest;
-import com.fitpet.server.user.presentation.dto.request.UserUpdateRequest;
-import com.fitpet.server.user.presentation.dto.response.ProfileImageUpdateResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -30,6 +32,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
+    private final PetRepository petRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final S3Service s3Service;
@@ -39,77 +42,70 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public UserDto createUser(UserCreateRequest request) {
-        validateUserCreateRequest(request);
-        User user = userMapper.toEntity(request);
-        user.changePassword(passwordEncoder.encode(request.password()));
-        return userMapper.toDto(userRepository.save(user));
+    public UserResult createUser(UserCreateCommand command) {
+        validateUserCreateRequest(command);
+        User user = userMapper.toEntity(command);
+        user.changePassword(passwordEncoder.encode(command.password()));
+        return userMapper.toResult(userRepository.save(user));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public UserDto findUser(Long userId) {
+    public UserResult findUser(Long userId) {
         User user = findUserById(userId);
-        
-        UserDto baseDto = userMapper.toDto(user);
 
-        return enrichWithPresignedUrl(baseDto, user.getProfileImageUrl());
+        UserResult baseResult = userMapper.toResult(user);
+        PetSummaryResult petSummary = petRepository.findByOwnerId(userId)
+            .map(pet -> PetSummaryResult.builder()
+                .petId(pet.getId())
+                .name(pet.getName())
+                .petType(pet.getPetType())
+                .color(pet.getColor())
+                .exp(pet.getExp())
+                .expression(pet.getExpression())
+                .build())
+            .orElse(null);
+
+        return enrichWithPresignedUrl(baseResult.withPet(petSummary), user.getProfileImageUrl());
     }
 
-    private UserDto enrichWithPresignedUrl(UserDto dto, String imageKey) {
+    private UserResult enrichWithPresignedUrl(UserResult result, String imageKey) {
         if (!StringUtils.hasText(imageKey)) {
-            return dto;
+            return result;
         }
 
         String presignedUrl = s3Service.generatePresignedGetUrl(imageKey);
-
-        return UserDto.builder()
-                .userId(dto.userId())
-                .email(dto.email())
-                .nickname(dto.nickname())
-                .profileImageUrl(presignedUrl)
-                .age(dto.age())
-                .gender(dto.gender())
-                .weightKg(dto.weightKg())
-                .targetWeightKg(dto.targetWeightKg())
-                .heightCm(dto.heightCm())
-                .pbf(dto.pbf())
-                .targetPbf(dto.targetPbf())
-                .targetStepCount(dto.targetStepCount())
-                .dailyStepCount(dto.dailyStepCount())
-                .createdAt(dto.createdAt())
-                .updatedAt(dto.updatedAt())
-                .build();
+        return result.withProfileImageUrl(presignedUrl);
     }
 
     @Override
     @Transactional
-    public UserDto updateUser(Long userId, UserUpdateRequest request) {
+    public UserResult updateUser(Long userId, UserUpdateCommand command) {
         User user = findUserById(userId);
-        validateUserUpdateRequest(userId, request);
+        validateUserUpdateRequest(userId, command);
 
-        if (StringUtils.hasText(request.password())) {
-            user.changePassword(passwordEncoder.encode(request.password()));
+        if (StringUtils.hasText(command.password())) {
+            user.changePassword(passwordEncoder.encode(command.password()));
         }
 
         user.update(
-                request.email(),
-                request.nickname(),
-                request.age(),
-                request.gender(),
-                request.weightKg(),
-                request.targetWeightKg(),
-                request.heightCm(),
-                request.pbf(),
-                request.targetPbf(),
-                request.targetStepCount()
+            command.email(),
+            command.nickname(),
+            command.age(),
+            command.gender(),
+            command.weightKg(),
+            command.targetWeightKg(),
+            command.heightCm(),
+            command.pbf(),
+            command.targetPbf(),
+            command.targetStepCount()
         );
-        return userMapper.toDto(user);
+        return userMapper.toResult(user);
     }
 
     @Override
     @Transactional
-    public ProfileImageUpdateResponse updateProfileImage(Long userId) {
+    public ProfileImageUpdateResult updateProfileImage(Long userId) {
         User user = findUserById(userId);
 
         if (user.getProfileImageUrl() != null && !user.getProfileImageUrl().isBlank()) {
@@ -123,7 +119,7 @@ public class UserServiceImpl implements UserService {
 
         String uploadUrl = s3Service.generatePresignedPutUrl(newImageKey);
 
-        return new ProfileImageUpdateResponse(newImageKey, uploadUrl);
+        return new ProfileImageUpdateResult(newImageKey, uploadUrl);
     }
 
     @Override
@@ -147,19 +143,30 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public UserDto inputInfo(Long userId, UserInputInfoRequest request) {
+    public UserResult inputInfo(Long userId, UserInputInfoCommand command) {
         User user = findUserById(userId);
 
         if (user.getRegistrationStatus() == RegistrationStatus.COMPLETE) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "이미 가입이 완료된 사용자입니다.");
         }
 
-        if (userRepository.existsByNicknameAndIdNot(request.nickname(), userId)) {
+        if (userRepository.existsByNicknameAndIdNot(command.nickname(), userId)) {
             throw new DuplicateNicknameException();
         }
 
-        user.userInformation(request);
-        return userMapper.toDto(userRepository.save(user));
+        user.userInformation(
+            command.nickname(),
+            command.age(),
+            command.gender(),
+            command.weightKg(),
+            command.heightCm(),
+            command.targetWeightKg(),
+            command.pbf(),
+            command.targetPbf(),
+            command.targetStepCount()
+        );
+
+        return userMapper.toResult(userRepository.save(user));
     }
 
     @Override
@@ -171,25 +178,25 @@ public class UserServiceImpl implements UserService {
 
     private User findUserById(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(UserNotFoundException::new);
+            .orElseThrow(UserNotFoundException::new);
     }
 
-    private void validateUserCreateRequest(UserCreateRequest request) {
-        if (userRepository.existsByEmail(request.email())) {
+    private void validateUserCreateRequest(UserCreateCommand command) {
+        if (userRepository.existsByEmail(command.email())) {
             throw new DuplicateEmailException();
         }
-        if (userRepository.existsByNickname(request.nickname())) {
+        if (userRepository.existsByNickname(command.nickname())) {
             throw new DuplicateNicknameException();
         }
     }
 
-    private void validateUserUpdateRequest(Long userId, UserUpdateRequest request) {
-        if (StringUtils.hasText(request.email()) &&
-                userRepository.existsByEmailAndIdNot(request.email(), userId)) {
+    private void validateUserUpdateRequest(Long userId, UserUpdateCommand command) {
+        if (StringUtils.hasText(command.email()) &&
+            userRepository.existsByEmailAndIdNot(command.email(), userId)) {
             throw new DuplicateEmailException();
         }
-        if (StringUtils.hasText(request.nickname()) &&
-                userRepository.existsByNicknameAndIdNot(request.nickname(), userId)) {
+        if (StringUtils.hasText(command.nickname()) &&
+            userRepository.existsByNicknameAndIdNot(command.nickname(), userId)) {
             throw new DuplicateNicknameException();
         }
     }

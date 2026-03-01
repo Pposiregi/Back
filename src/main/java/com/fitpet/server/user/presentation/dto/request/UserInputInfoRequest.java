@@ -1,5 +1,6 @@
 package com.fitpet.server.user.presentation.dto.request;
 
+import com.fitpet.server.user.application.dto.UserInputInfoCommand;
 import com.fitpet.server.user.domain.entity.Gender;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -36,4 +37,17 @@ public record UserInputInfoRequest(
 
         Integer targetStepCount
 ) {
+    public UserInputInfoCommand toCommand() {
+        return new UserInputInfoCommand(
+            nickname,
+            age,
+            gender,
+            weightKg,
+            heightCm,
+            targetWeightKg,
+            pbf,
+            targetPbf,
+            targetStepCount
+        );
+    }
 }
