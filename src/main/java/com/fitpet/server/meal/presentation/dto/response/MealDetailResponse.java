@@ -9,7 +9,8 @@ public record MealDetailResponse(
         String title,
         Integer kcal,
         Integer sequence,
-        String imageUrl
+        String imageUrl,
+        boolean existImage
 ) {
     public static MealDetailResponse from(MealDetailInfo info) {
         return new MealDetailResponse(
@@ -18,7 +19,8 @@ public record MealDetailResponse(
                 info.title(),
                 info.kcal(),
                 info.sequence(),
-                info.imageUrl()
+                info.imageUrl(),
+                info.existImage()
         );
     }
 }

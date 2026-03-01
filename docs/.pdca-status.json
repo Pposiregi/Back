@@ -1,11 +1,14 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-02-28T13:03:47.741Z",
+  "lastUpdated": "2026-03-01T12:12:52.206Z",
   "activeFeatures": [
     "request",
     "entity",
     "service",
-    "response"
+    "response",
+    "dto",
+    "mapper",
+    "controller"
   ],
   "primaryFeature": "request",
   "features": {
@@ -18,9 +21,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-28T11:16:25.737Z",
-        "lastUpdated": "2026-02-28T11:16:25.737Z"
+        "lastUpdated": "2026-02-28T14:54:16.060Z"
       },
-      "lastFile": "/Users/user/Downloads/Back/src/main/java/com/fitpet/server/dailyworkout/presentation/dto/request/SessionEndRequest.java"
+      "lastFile": "/Users/user/Downloads/Back/src/main/java/com/fitpet/server/meal/presentation/dto/request/MealCreateRequest.java"
     },
     "entity": {
       "phase": "do",
@@ -31,7 +34,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-28T11:20:11.801Z",
-        "lastUpdated": "2026-02-28T11:20:11.801Z"
+        "lastUpdated": "2026-02-28T13:07:54.215Z"
       },
       "lastFile": "/Users/user/Downloads/Back/src/main/java/com/fitpet/server/dailyworkout/domain/entity/GpsSession.java"
     },
@@ -44,9 +47,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-28T11:25:09.974Z",
-        "lastUpdated": "2026-02-28T11:25:09.974Z"
+        "lastUpdated": "2026-02-28T15:08:05.259Z"
       },
-      "lastFile": "/Users/user/Downloads/Back/src/main/java/com/fitpet/server/dailyworkout/application/service/GpsSessionServiceImpl.java"
+      "lastFile": "/Users/user/Downloads/Back/src/main/java/com/fitpet/server/meal/application/service/MealServiceImpl.java"
     },
     "response": {
       "phase": "do",
@@ -57,9 +60,48 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-28T13:03:47.741Z",
-        "lastUpdated": "2026-02-28T13:03:47.741Z"
+        "lastUpdated": "2026-02-28T15:00:56.841Z"
       },
-      "lastFile": "/Users/user/Downloads/Back/src/main/java/com/fitpet/server/dailyworkout/presentation/dto/response/GpsLogResponse.java"
+      "lastFile": "/Users/user/Downloads/Back/src/main/java/com/fitpet/server/meal/presentation/dto/response/MealDetailResponse.java"
+    },
+    "dto": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-28T14:55:54.009Z",
+        "lastUpdated": "2026-02-28T15:00:43.857Z"
+      },
+      "lastFile": "/Users/user/Downloads/Back/src/main/java/com/fitpet/server/meal/application/dto/MealDetailInfo.java"
+    },
+    "mapper": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-28T15:00:22.856Z",
+        "lastUpdated": "2026-02-28T15:00:22.856Z"
+      },
+      "lastFile": "/Users/user/Downloads/Back/src/main/java/com/fitpet/server/meal/application/mapper/MealMapper.java"
+    },
+    "controller": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-03-01T12:12:52.206Z",
+        "lastUpdated": "2026-03-01T12:12:52.206Z"
+      },
+      "lastFile": "/Users/user/Downloads/Back/src/main/java/com/fitpet/server/report/presentation/controller/ReportController.java"
     }
   },
   "pipeline": {
@@ -70,7 +112,7 @@
   "session": {
     "startedAt": "2026-02-28T10:42:07.048Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-02-28T13:03:47.741Z"
+    "lastActivity": "2026-03-01T12:12:52.206Z"
   },
   "history": [
     {
@@ -94,6 +136,78 @@
     {
       "timestamp": "2026-02-28T13:03:47.741Z",
       "feature": "response",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T13:07:54.215Z",
+      "feature": "entity",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T14:54:16.060Z",
+      "feature": "request",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T14:55:54.009Z",
+      "feature": "dto",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T14:58:20.366Z",
+      "feature": "dto",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T14:58:47.983Z",
+      "feature": "response",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T14:59:12.939Z",
+      "feature": "response",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T15:00:22.856Z",
+      "feature": "mapper",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T15:00:43.857Z",
+      "feature": "dto",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T15:00:56.841Z",
+      "feature": "response",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T15:01:14.421Z",
+      "feature": "service",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-28T15:08:05.259Z",
+      "feature": "service",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-01T12:12:52.206Z",
+      "feature": "controller",
       "phase": "do",
       "action": "updated"
     }

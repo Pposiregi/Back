@@ -26,12 +26,16 @@ public class MealCreateRequest {
     @Min(1)
     private Integer sequence;
 
+    @NotNull
+    private Boolean existImage;
+
     public MealCreateCommand toCommand() {
         return MealCreateCommand.builder()
                 .day(this.day)
                 .title(this.title)
                 .kcal(this.kcal)
                 .sequence(this.sequence)
+                .existImage(Boolean.TRUE.equals(this.existImage))
                 .build();
     }
 }

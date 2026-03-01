@@ -8,7 +8,7 @@ public record MealUpdateResponse(
 ) {
     public static MealUpdateResponse from(MealResult result) {
         return new MealUpdateResponse(
-                result.imageUrl(),
+                result.imageKey(),
                 result.uploadUrl()
         );
     }

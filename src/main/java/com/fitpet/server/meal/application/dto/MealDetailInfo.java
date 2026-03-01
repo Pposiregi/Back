@@ -10,6 +10,7 @@ public record MealDetailInfo(
         String title,
         Integer kcal,
         Integer sequence,
-        String imageUrl
+        String imageUrl,
+        boolean existImage
 ) {
 }

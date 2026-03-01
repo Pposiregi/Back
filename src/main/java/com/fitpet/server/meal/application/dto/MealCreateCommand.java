@@ -8,6 +8,7 @@ public record MealCreateCommand(
         LocalDate day,
         String title,
         Integer kcal,
-        Integer sequence
+        Integer sequence,
+        boolean existImage
 ) {
 }

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew compileJava 2>&1 | tail -80)",
+      "Bash(./gradlew compileJava 2>&1 | tail -20)"
+    ]
+  }
+}

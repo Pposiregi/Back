@@ -28,11 +28,11 @@ public interface MealMapper {
     Meal toEntity(MealCreateCommand command, User user);
 
     @Mapping(source = "meal.id", target = "mealId")
-    @Mapping(source = "meal.imageUrl", target = "imageUrl")
+    @Mapping(source = "meal.imageUrl", target = "imageKey")
     @Mapping(source = "uploadUrl", target = "uploadUrl")
     MealResult toResult(Meal meal, String uploadUrl);
 
-    MealResult toUpdateResult(String imageUrl, String uploadUrl);
+    MealResult toUpdateResult(String imageKey, String uploadUrl);
 
     @Mapping(source = "meal.id", target = "mealId")
     @Mapping(source = "meal.day", target = "day")
@@ -40,6 +40,7 @@ public interface MealMapper {
     @Mapping(source = "meal.kcal", target = "kcal")
     @Mapping(source = "meal.sequence", target = "sequence")
     @Mapping(source = "meal.imageUrl", target = "imageUrl", qualifiedByName = "generateGetUrl")
+    @Mapping(source = "meal.imageUrl", target = "existImage", qualifiedByName = "imageExists")
     MealDetailInfo toDetailInfo(Meal meal, @Context S3Service s3Service);
 
     @Named("generateGetUrl")
@@ -48,5 +49,10 @@ public interface MealMapper {
             return null;
         }
         return s3Service.generatePresignedGetUrl(objectKey);
+    }
+
+    @Named("imageExists")
+    default boolean imageExists(String objectKey) {
+        return objectKey != null && !objectKey.isBlank();
     }
 }

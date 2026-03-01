@@ -4,14 +4,14 @@ import com.fitpet.server.meal.application.dto.MealResult;
 
 public record MealCreateResponse(
         Long mealId,
-        String imageUrl,
+        String imageKey,
         String uploadUrl
 ) {
 
     public static MealCreateResponse from(MealResult result) {
         return new MealCreateResponse(
                 result.mealId(),
-                result.imageUrl(),
+                result.imageKey(),
                 result.uploadUrl()
         );
     }
