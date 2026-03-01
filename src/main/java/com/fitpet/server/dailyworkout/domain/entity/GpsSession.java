@@ -93,9 +93,13 @@ public class GpsSession {
     }
 
     // 세션 종료 및 통계 자동 계산
-    public void endSession(LocalDateTime endTime, Integer requestStepCount, Integer requestCalories) {
+    public void endSession(LocalDateTime endTime, Integer requestStepCount, Integer requestCalories, BigDecimal requestTotalDistance) {
         this.endTime = endTime;
         this.stepCount = (requestStepCount != null) ? requestStepCount : 0;
+
+        if (requestTotalDistance != null) {
+            this.totalDistance = requestTotalDistance;
+        }
 
         long durationSeconds = ChronoUnit.SECONDS.between(this.startTime, this.endTime);
         if (durationSeconds < 1) {
