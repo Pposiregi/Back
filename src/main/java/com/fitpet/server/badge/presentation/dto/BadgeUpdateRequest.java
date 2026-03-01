@@ -7,6 +7,7 @@ public record BadgeUpdateRequest(
     BadgeType type,
     Integer conditionDuration,
     Long conditionGoal,
-    String description
+    String description,
+    Long missionId
 ) {
 }

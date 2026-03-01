@@ -39,7 +39,8 @@ class UserRankingPerformanceTest {
 
         // 아무 유저나 하나 골라서 내 순위 계산용으로 사용
         Long targetUserId = userJpaRepository
-            .findTopRankers(PageRequest.of(0, 1))
+            .findAll(PageRequest.of(0, 1))
+            .getContent()
             .get(0)
             .getId();
 
@@ -94,7 +95,6 @@ class UserRankingPerformanceTest {
                 .nickname("user" + i)
                 .age(20 + random.nextInt(30))
                 .gender(random.nextBoolean() ? Gender.male : Gender.female)
-                .dailyStepCount(random.nextInt(20_000)) // 0 ~ 19999
                 .registrationStatus(RegistrationStatus.COMPLETE)
                 .build();
 

@@ -2,6 +2,11 @@ package com.fitpet.server.badge.presentation.controller;
 
 import com.fitpet.server.badge.application.service.BadgeCheckService;
 import com.fitpet.server.badge.application.service.BadgeService;
+import com.fitpet.server.badge.application.dto.BadgeCheckCreateCommand;
+import com.fitpet.server.badge.application.dto.BadgeCheckResult;
+import com.fitpet.server.badge.application.dto.BadgeCreateCommand;
+import com.fitpet.server.badge.application.dto.BadgeResult;
+import com.fitpet.server.badge.application.dto.BadgeUpdateCommand;
 import com.fitpet.server.badge.presentation.dto.BadgeCheckCreateRequest;
 import com.fitpet.server.badge.presentation.dto.BadgeCheckDto;
 import com.fitpet.server.badge.presentation.dto.BadgeCreateRequest;
@@ -36,28 +41,31 @@ public class BadgeController {
     @PostMapping
     public ResponseEntity<BadgeDto> createBadge(
             @Valid @RequestBody BadgeCreateRequest request) {
-        BadgeDto created = badgeService.createBadge(request);
+        BadgeResult created = badgeService.createBadge(toCommand(request));
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{badgeId}")
                 .buildAndExpand(created.badgeId())
                 .toUri();
-        return ResponseEntity.created(location).body(created);
+        return ResponseEntity.created(location).body(toBadgeDto(created));
     }
 
     @GetMapping
     public ResponseEntity<List<BadgeDto>> getBadges() {
-        return ResponseEntity.ok(badgeService.getBadges());
+        List<BadgeDto> badges = badgeService.getBadges().stream()
+                .map(BadgeController::toBadgeDto)
+                .toList();
+        return ResponseEntity.ok(badges);
     }
 
     @GetMapping("/{badgeId}")
     public ResponseEntity<BadgeDto> getBadge(@PathVariable Long badgeId) {
-        return ResponseEntity.ok(badgeService.getBadge(badgeId));
+        return ResponseEntity.ok(toBadgeDto(badgeService.getBadge(badgeId)));
     }
 
     @PatchMapping("/{badgeId}")
     public ResponseEntity<BadgeDto> updateBadge(@PathVariable Long badgeId,
                                                 @Valid @RequestBody BadgeUpdateRequest request) {
-        return ResponseEntity.ok(badgeService.updateBadge(badgeId, request));
+        return ResponseEntity.ok(toBadgeDto(badgeService.updateBadge(badgeId, toCommand(request))));
     }
 
     @DeleteMapping("/{badgeId}")
@@ -71,20 +79,68 @@ public class BadgeController {
             @AuthUser Long userId,
             @Valid @RequestBody BadgeCheckCreateRequest request) {
 
-        BadgeCheckDto response = badgeCheckService.assignBadge(userId, request);
-        return ResponseEntity.ok(response);
+        BadgeCheckResult response = badgeCheckService.assignBadge(userId, new BadgeCheckCreateCommand(request.badgeId()));
+        return ResponseEntity.ok(toBadgeCheckDto(response));
     }
 
     @GetMapping("/users")
     public ResponseEntity<List<BadgeCheckDto>> getUserBadges(
             @AuthUser Long userId
     ) {
-        return ResponseEntity.ok(badgeCheckService.getUserBadges(userId));
+        List<BadgeCheckDto> checks = badgeCheckService.getUserBadges(userId).stream()
+                .map(BadgeController::toBadgeCheckDto)
+                .toList();
+        return ResponseEntity.ok(checks);
     }
 
     @DeleteMapping("/checks/{badgeCheckId}")
     public ResponseEntity<Void> revokeBadge(@PathVariable Long badgeCheckId) {
         badgeCheckService.revokeBadge(badgeCheckId);
         return ResponseEntity.noContent().build();
+    }
+
+    private static BadgeCreateCommand toCommand(BadgeCreateRequest request) {
+        return new BadgeCreateCommand(
+                request.title(),
+                request.type(),
+                request.conditionDuration(),
+                request.conditionGoal(),
+                request.description(),
+                request.missionId()
+        );
+    }
+
+    private static BadgeUpdateCommand toCommand(BadgeUpdateRequest request) {
+        return new BadgeUpdateCommand(
+                request.title(),
+                request.type(),
+                request.conditionDuration(),
+                request.conditionGoal(),
+                request.description(),
+                request.missionId()
+        );
+    }
+
+    private static BadgeDto toBadgeDto(BadgeResult result) {
+        return new BadgeDto(
+                result.badgeId(),
+                result.title(),
+                result.type(),
+                result.conditionDuration(),
+                result.conditionGoal(),
+                result.description(),
+                result.createdAt(),
+                result.updatedAt()
+        );
+    }
+
+    private static BadgeCheckDto toBadgeCheckDto(BadgeCheckResult result) {
+        return new BadgeCheckDto(
+                result.badgeCheckId(),
+                result.userId(),
+                result.badgeId(),
+                result.createdAt(),
+                result.updatedAt()
+        );
     }
 }

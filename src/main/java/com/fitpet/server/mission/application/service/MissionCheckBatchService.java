@@ -13,6 +13,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -104,7 +105,7 @@ public class MissionCheckBatchService {
                 missionCheckRepository.findExistingKeys(userIds, missionIds, type, period.start())
         );
 
-        List<MissionCheck> toSave = new java.util.ArrayList<>();
+        List<MissionCheck> toSave = new ArrayList<>();
         for (User user : users) {
             for (Mission mission : missions) {
                 if (existingKeys.contains(new MissionCheckKey(mission.getId(), user.getId()))) {

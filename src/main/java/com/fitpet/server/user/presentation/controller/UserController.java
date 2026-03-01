@@ -30,31 +30,32 @@ public class UserController {
 
     @PostMapping
     public ResponseEntity<UserDto> create(@Valid @RequestBody UserCreateRequest userCreateRequest) {
-        UserDto createdUser = userService.createUser(userCreateRequest);
+        UserDto createdUser = UserDto.from(userService.createUser(userCreateRequest.toCommand()));
         return ResponseEntity.status(HttpStatus.CREATED).body(createdUser);
     }
 
     @GetMapping
     public ResponseEntity<UserDto> find(@AuthUser Long userId) {
-        return ResponseEntity.status(HttpStatus.OK).body(userService.findUser(userId));
+        return ResponseEntity.status(HttpStatus.OK).body(UserDto.from(userService.findUser(userId)));
     }
 
     @PatchMapping
     public ResponseEntity<UserDto> update(@AuthUser Long userId,
                                           @Valid @RequestBody UserUpdateRequest userUpdateRequest) {
-        return ResponseEntity.status(HttpStatus.OK).body(userService.updateUser(userId, userUpdateRequest));
+        return ResponseEntity.status(HttpStatus.OK)
+            .body(UserDto.from(userService.updateUser(userId, userUpdateRequest.toCommand())));
     }
 
     @PostMapping("/profile-image")
     public ResponseEntity<ProfileImageUpdateResponse> updateProfileImage(@AuthUser Long userId) {
-        ProfileImageUpdateResponse response = userService.updateProfileImage(userId);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ProfileImageUpdateResponse.from(userService.updateProfileImage(userId)));
     }
 
     @PatchMapping("/signUp/complete")
     public ResponseEntity<UserDto> updateUserInfo(@AuthUser Long userId,
                                                   @Valid @RequestBody UserInputInfoRequest userInputInfoRequest) {
-        return ResponseEntity.status(HttpStatus.OK).body(userService.inputInfo(userId, userInputInfoRequest));
+        return ResponseEntity.status(HttpStatus.OK)
+            .body(UserDto.from(userService.inputInfo(userId, userInputInfoRequest.toCommand())));
     }
 
     @DeleteMapping("/profile-image")

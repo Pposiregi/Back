@@ -32,4 +32,9 @@ public class BadgeRepositoryAdapter implements BadgeRepository {
     public void delete(Badge badge) {
         badgeJpaRepository.delete(badge);
     }
+
+    @Override
+    public List<Badge> findEligibleByMissionId(Long missionId, Long clearCount) {
+        return badgeJpaRepository.findEligibleByMissionIdAndClearCount(missionId, clearCount);
+    }
 }

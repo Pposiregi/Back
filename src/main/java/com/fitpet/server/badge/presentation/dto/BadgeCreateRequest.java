@@ -9,6 +9,7 @@ public record BadgeCreateRequest(
         @NotNull BadgeType type,
         Integer conditionDuration,
         Long conditionGoal,
-        String description
+        String description,
+        @NotNull Long missionId
 ) {
 }

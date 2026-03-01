@@ -1,9 +1,9 @@
 package com.fitpet.server.badge.application.mapper;
 
+import com.fitpet.server.badge.application.dto.BadgeCreateCommand;
+import com.fitpet.server.badge.application.dto.BadgeResult;
+import com.fitpet.server.badge.application.dto.BadgeUpdateCommand;
 import com.fitpet.server.badge.domain.entity.Badge;
-import com.fitpet.server.badge.presentation.dto.BadgeCreateRequest;
-import com.fitpet.server.badge.presentation.dto.BadgeDto;
-import com.fitpet.server.badge.presentation.dto.BadgeUpdateRequest;
 import java.util.List;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
@@ -15,15 +15,17 @@ import org.mapstruct.NullValuePropertyMappingStrategy;
 public interface BadgeMapper {
 
     @Mapping(target = "id", ignore = true)
+    @Mapping(target = "mission", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    Badge toEntity(BadgeCreateRequest request);
+    Badge toEntity(BadgeCreateCommand command);
 
     @Mapping(target = "badgeId", source = "id")
-    BadgeDto toDto(Badge badge);
+    @Mapping(target = "missionId", source = "mission.id")
+    BadgeResult toResult(Badge badge);
 
-    List<BadgeDto> toDtos(List<Badge> badges);
+    List<BadgeResult> toResults(List<Badge> badges);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
-    void update(@MappingTarget Badge badge, BadgeUpdateRequest request);
+    void update(@MappingTarget Badge badge, BadgeUpdateCommand command);
 }

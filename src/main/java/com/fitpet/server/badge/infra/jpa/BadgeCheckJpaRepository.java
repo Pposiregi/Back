@@ -7,5 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface BadgeCheckJpaRepository extends JpaRepository<BadgeCheck, Long> {
     Optional<BadgeCheck> findByUser_IdAndBadge_Id(Long userId, Long badgeId);
+
     List<BadgeCheck> findAllByUser_IdOrderByCreatedAtDesc(Long userId);
+
+    boolean existsByUser_IdAndBadge_Id(Long userId, Long badgeId);
 }

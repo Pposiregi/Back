@@ -1,23 +1,23 @@
 package com.fitpet.server.user.application.service;
 
-import com.fitpet.server.user.presentation.dto.UserDto;
-import com.fitpet.server.user.presentation.dto.request.UserCreateRequest;
-import com.fitpet.server.user.presentation.dto.request.UserInputInfoRequest;
-import com.fitpet.server.user.presentation.dto.request.UserUpdateRequest;
-import com.fitpet.server.user.presentation.dto.response.ProfileImageUpdateResponse;
+import com.fitpet.server.user.application.dto.ProfileImageUpdateResult;
+import com.fitpet.server.user.application.dto.UserCreateCommand;
+import com.fitpet.server.user.application.dto.UserInputInfoCommand;
+import com.fitpet.server.user.application.dto.UserResult;
+import com.fitpet.server.user.application.dto.UserUpdateCommand;
 
 public interface UserService {
-    UserDto createUser(UserCreateRequest request);
+    UserResult createUser(UserCreateCommand command);
 
-    UserDto findUser(Long userId);
+    UserResult findUser(Long userId);
 
-    UserDto updateUser(Long userId, UserUpdateRequest request);
+    UserResult updateUser(Long userId, UserUpdateCommand command);
 
-    ProfileImageUpdateResponse updateProfileImage(Long userId);
+    ProfileImageUpdateResult updateProfileImage(Long userId);
 
     void deleteUser(Long userId);
 
-    UserDto inputInfo(Long userId, UserInputInfoRequest request);
+    UserResult inputInfo(Long userId, UserInputInfoCommand command);
 
     boolean isRegistrationComplete(Long userId);
 

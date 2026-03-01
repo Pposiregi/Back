@@ -12,7 +12,6 @@ import com.fitpet.server.mission.domain.entity.MissionCategory;
 import com.fitpet.server.mission.domain.entity.MissionCheck;
 import com.fitpet.server.mission.domain.entity.MissionType;
 import com.fitpet.server.mission.domain.exception.MissionCheckAccessDeniedException;
-import com.fitpet.server.mission.domain.exception.MissionCheckNotCompletableException;
 import com.fitpet.server.mission.domain.exception.MissionCheckNotFoundException;
 import com.fitpet.server.mission.domain.exception.MissionNotFoundException;
 import com.fitpet.server.mission.domain.repository.MissionCheckRepository;
@@ -46,6 +45,7 @@ public class MissionCheckServiceImpl implements MissionCheckService {
     private final MealRepository mealRepository;
     private final UserRepository userRepository;
     private final PetExpressionService petExpressionService;
+    private final MissionCompletionService missionCompletionService;
 
     @Override
     public MissionCheckResult upsertMissionCheck(Long missionId, Long userId, MissionCheckCommand request) {
@@ -88,29 +88,10 @@ public class MissionCheckServiceImpl implements MissionCheckService {
 
     @Override
     public MissionCheckResult completeMissionCheck(Long userId, Long missionCheckId) {
-        MissionCheck missionCheck = missionCheckRepository.findById(missionCheckId)
-                .orElseThrow(MissionCheckNotFoundException::new);
-
-        if (!missionCheck.getUser().getId().equals(userId)) {
-            log.warn("[MissionCheckService] 완료 권한 없음: 요청자 userId={}, 기록 소유자 userId={}, checkId={}",
-                    userId, missionCheck.getUser().getId(), missionCheckId);
-            throw new MissionCheckAccessDeniedException();
-        }
-
-        if (missionCheck.isCompleted()) {
-            return missionCheckMapper.toDto(missionCheck);
-        }
-
-        Mission mission = missionCheck.getMission();
-        if (!isCompleted(missionCheck.getProgressValue(), mission.getGoal())) {
-            throw new MissionCheckNotCompletableException();
-        }
-
-        missionCheck.updateProgress(missionCheck.getProgressValue(), true, LocalDateTime.now());
-        MissionCheck saved = missionCheckRepository.save(missionCheck);
+        MissionCheck completed = missionCompletionService.completeMission(userId, missionCheckId);
         petExpressionService.updateExpression(userId, PetExpression.HAPPY);
         log.info("[MissionCheckService] 수행 완료 처리: missionCheckId={}, userId={}", missionCheckId, userId);
-        return missionCheckMapper.toDto(saved);
+        return missionCheckMapper.toDto(completed);
     }
 
     @Override

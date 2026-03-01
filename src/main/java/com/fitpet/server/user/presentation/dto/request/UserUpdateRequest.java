@@ -1,5 +1,6 @@
 package com.fitpet.server.user.presentation.dto.request;
 
+import com.fitpet.server.user.application.dto.UserUpdateCommand;
 import com.fitpet.server.user.domain.entity.Gender;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
@@ -14,7 +15,7 @@ public record UserUpdateRequest(
                 message = "비밀번호는 영어, 숫자, 특수문자를 포함해야 합니다."
         )
         String password,
-        @Size(min = 5, max = 20)
+        @Size(min = 2, max = 10)
         String nickname,
         Integer age,
         Gender gender,
@@ -25,4 +26,19 @@ public record UserUpdateRequest(
         Double targetPbf,
         Integer targetStepCount
 ) {
+    public UserUpdateCommand toCommand() {
+        return new UserUpdateCommand(
+            email,
+            password,
+            nickname,
+            age,
+            gender,
+            weightKg,
+            targetWeightKg,
+            heightCm,
+            pbf,
+            targetPbf,
+            targetStepCount
+        );
+    }
 }
