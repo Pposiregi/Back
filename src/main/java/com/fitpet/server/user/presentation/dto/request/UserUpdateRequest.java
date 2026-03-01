@@ -1,5 +1,6 @@
 package com.fitpet.server.user.presentation.dto.request;
 
+import com.fitpet.server.user.application.dto.UserUpdateCommand;
 import com.fitpet.server.user.domain.entity.Gender;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
@@ -25,4 +26,19 @@ public record UserUpdateRequest(
         Double targetPbf,
         Integer targetStepCount
 ) {
+    public UserUpdateCommand toCommand() {
+        return new UserUpdateCommand(
+            email,
+            password,
+            nickname,
+            age,
+            gender,
+            weightKg,
+            targetWeightKg,
+            heightCm,
+            pbf,
+            targetPbf,
+            targetStepCount
+        );
+    }
 }

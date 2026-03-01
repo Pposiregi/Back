@@ -1,8 +1,8 @@
 package com.fitpet.server.user.application.mapper;
 
+import com.fitpet.server.user.application.dto.UserCreateCommand;
+import com.fitpet.server.user.application.dto.UserResult;
 import com.fitpet.server.user.domain.entity.User;
-import com.fitpet.server.user.presentation.dto.UserDto;
-import com.fitpet.server.user.presentation.dto.request.UserCreateRequest;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Mappings;
@@ -27,10 +27,10 @@ public interface UserMapper {
             @Mapping(target = "lastAccessedAt", ignore = true),
             @Mapping(target = "profileImageUrl", ignore = true)
     })
-    User toEntity(UserCreateRequest request);
+    User toEntity(UserCreateCommand command);
  
     @Mapping(source = "id", target = "userId")
     @Mapping(target = "pet", ignore = true)
-    UserDto toDto(User user);
+    UserResult toResult(User user);
 
 }

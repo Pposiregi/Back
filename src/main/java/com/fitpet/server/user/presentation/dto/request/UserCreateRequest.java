@@ -1,5 +1,6 @@
 package com.fitpet.server.user.presentation.dto.request;
 
+import com.fitpet.server.user.application.dto.UserCreateCommand;
 import com.fitpet.server.user.domain.entity.Gender;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -49,4 +50,19 @@ public record UserCreateRequest(
         @NotNull
         Integer targetStepCount
 ) {
+    public UserCreateCommand toCommand() {
+        return new UserCreateCommand(
+                email,
+                password,
+                nickname,
+                age,
+                gender,
+                weightKg,
+                targetWeightKg,
+                heightCm,
+                pbf,
+                targetPbf,
+                targetStepCount
+        );
+    }
 }

@@ -1,6 +1,5 @@
 package com.fitpet.server.user.domain.entity;
 
-import com.fitpet.server.user.presentation.dto.request.UserInputInfoRequest;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -176,32 +175,42 @@ public class User {
         this.dailyStepCount = dailyStepCount;
     }
 
-    public void userInformation(UserInputInfoRequest request) {
-        this.nickname = request.nickname();
-        this.age = request.age();
-        this.gender = request.gender();
-        this.weightKg = request.weightKg();
-        this.heightCm = request.heightCm();
+    public void userInformation(
+            String nickname,
+            int age,
+            Gender gender,
+            Double weightKg,
+            Double heightCm,
+            Double targetWeightKg,
+            Double pbf,
+            Double targetPbf,
+            Integer targetStepCount
+    ) {
+        this.nickname = nickname;
+        this.age = age;
+        this.gender = gender;
+        this.weightKg = weightKg;
+        this.heightCm = heightCm;
 
-        if (request.targetWeightKg() == null) {
+        if (targetWeightKg == null) {
             this.targetWeightKg = null;
         } else {
-            this.targetWeightKg = request.targetWeightKg();
+            this.targetWeightKg = targetWeightKg;
         }
-        if (request.pbf() == null) {
+        if (pbf == null) {
             this.pbf = null;
         } else {
-            this.pbf = request.pbf();
+            this.pbf = pbf;
         }
-        if (request.targetPbf() == null) {
+        if (targetPbf == null) {
             this.targetPbf = null;
         } else {
-            this.targetPbf = request.targetPbf();
+            this.targetPbf = targetPbf;
         }
-        if (request.targetStepCount() == null) {
+        if (targetStepCount == null) {
             this.targetStepCount = null;
         } else {
-            this.targetStepCount = request.targetStepCount();
+            this.targetStepCount = targetStepCount;
         }
         this.dailyStepCount = 0;
         this.registrationStatus = RegistrationStatus.COMPLETE;
