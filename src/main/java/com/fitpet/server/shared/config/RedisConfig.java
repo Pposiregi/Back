@@ -53,8 +53,15 @@ public class RedisConfig {
     @Bean
     public RedisScript<Long> updateRankingScript() {
         DefaultRedisScript<Long> script = new DefaultRedisScript<>();
-
         script.setLocation(new ClassPathResource("redis/lua/update_ranking_and_dirty.lua"));
+        script.setResultType(Long.class);
+        return script;
+    }
+
+    @Bean
+    public RedisScript<Long> updateStepAndRankingScript() {
+        DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+        script.setLocation(new ClassPathResource("redis/lua/update_step_and_ranking.lua"));
         script.setResultType(Long.class);
         return script;
     }

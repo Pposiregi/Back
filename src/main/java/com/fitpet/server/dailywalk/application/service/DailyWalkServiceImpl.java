@@ -20,6 +20,7 @@ import com.fitpet.server.user.domain.repository.UserRepository;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PastOrPresent;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -28,6 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,6 +45,12 @@ public class DailyWalkServiceImpl implements DailyWalkService {
     private final PetExpressionService petExpressionService;
     private final RankingService rankingService;
     private final MissionCheckService missionCheckService;
+    private final StringRedisTemplate redisTemplate;
+
+    private static final String STEPS_KEY = "dailywalk:steps:";
+    private static final String DISTANCE_KEY = "dailywalk:distance:";
+    private static final String CALORIES_KEY = "dailywalk:calories:";
+    private static final Duration TTL = Duration.ofDays(3);
 
     @Override
     @Transactional(readOnly = true)
@@ -62,13 +70,23 @@ public class DailyWalkServiceImpl implements DailyWalkService {
         LocalDateTime start = date.atStartOfDay();
         LocalDateTime end = start.plusDays(1);
 
-        DailyWalk found = dailyWalkRepository
-                .findByUser_IdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(userId, start, end)
-                .orElseThrow(DailyWalkNotFoundException::new);
+        Optional<DailyWalk> dbResult = dailyWalkRepository
+                .findByUser_IdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(userId, start, end);
 
-        log.info("[DailyWalkService] 사용자의 해당 날짜 조회 성공 : id={}, userId={}, date={} ",
-                found.getId(), userId, date);
-        return DailyWalkResponse.from(found);
+        if (dbResult.isPresent()) {
+            return DailyWalkResponse.from(dbResult.get());
+        }
+
+        // Redis fallback (아직 DB에 반영되지 않은 오늘 데이터)
+        if (date.equals(LocalDate.now())) {
+            DailyWalkResponse cached = readFromRedisCache(userId, date.toString());
+            if (cached != null) {
+                log.info("[DailyWalkService] Redis 캐시에서 조회 성공: userId={}", userId);
+                return cached;
+            }
+        }
+
+        throw new DailyWalkNotFoundException();
     }
 
     @Override
@@ -95,7 +113,15 @@ public class DailyWalkServiceImpl implements DailyWalkService {
         return startDate.datesUntil(today.plusDays(1))
                 .map(date -> {
                     DailyWalk walk = byDate.get(date);
-                    int step = (walk != null && walk.getStep() != null) ? walk.getStep() : 0;
+                    int step;
+                    if (walk != null) {
+                        step = walk.getStep() != null ? walk.getStep() : 0;
+                    } else if (date.equals(today)) {
+                        // 오늘 데이터가 DB에 없으면 Redis에서 확인
+                        step = readStepFromRedis(userId, today.toString());
+                    } else {
+                        step = 0;
+                    }
                     return new DailyStepSummaryResponse(date, step);
                 })
                 .toList();
@@ -113,46 +139,63 @@ public class DailyWalkServiceImpl implements DailyWalkService {
                 });
 
         LocalDate date = (req.date() != null) ? req.date() : LocalDate.now();
+        String dateStr = date.toString();
+        String userIdStr = String.valueOf(userId);
         LocalDateTime startOfDay = date.atStartOfDay();
         LocalDateTime endOfDay = startOfDay.plusDays(1);
 
-        Optional<DailyWalk> existing =
-                dailyWalkRepository.findByUser_IdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
-                        userId, startOfDay, endOfDay);
+        // Redis에 기존 데이터가 있으면 write-behind 방식으로 누적
+        Object cachedSteps = redisTemplate.opsForHash().get(STEPS_KEY + dateStr, userIdStr);
+        if (cachedSteps != null) {
+            return updateRedisAndReturn(userId, userIdStr, dateStr, req.step(), req.distanceKm(), req.burnCalories(),
+                    user, date);
+        }
+
+        // Redis 없음 → DB 확인
+        Optional<DailyWalk> existing = dailyWalkRepository
+                .findByUser_IdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(userId, startOfDay, endOfDay);
 
         if (existing.isPresent()) {
             DailyWalk walk = existing.get();
-            walk.update(req.step(), req.distanceKm(), req.burnCalories());
+            // DB 데이터를 Redis로 올리고 write-behind로 전환
+            int newStep = walk.getStep() + req.step();
+            BigDecimal newDistance = walk.getDistanceKm().add(req.distanceKm());
+            int newCalories = walk.getBurnCalories() + req.burnCalories();
+
+            // 기존 DB 값 기준으로 Redis 초기화 후 Lua로 원자적 업데이트
+            populateRedisCache(userIdStr, dateStr, walk.getStep(), walk.getDistanceKm(), walk.getBurnCalories());
+            long finalStep = rankingService.updateStepHashAndRankingScore(
+                    userId, newStep, req.step(), req.distanceKm(), req.burnCalories(), date);
 
             if (date.equals(LocalDate.now())) {
-                handleDailyStepUpdate(user, walk.getStep(), date, req.step());
+                handleDailyStepUpdate(user, (int) finalStep, date, req.step());
             }
 
-            log.info("[DailyWalkService] 업데이트 완료: id={}, userId={}, createdAt={}",
-                    walk.getId(), userId, walk.getCreatedAt());
-            return DailyWalkResponse.from(walk);
+            log.info("[DailyWalkService] write-behind 전환 완료: id={}, userId={}", walk.getId(), userId);
+            return new DailyWalkResponse(walk.getId(), (int) finalStep, newDistance, newCalories,
+                    walk.getCreatedAt(), LocalDateTime.now());
         }
 
+        // 오늘 첫 기록 → DB에 저장 (ID 확보), Redis에도 캐싱
         DailyWalk walk = dailyWalkMapper.toEntity(req, user, startOfDay);
         DailyWalk saved = dailyWalkRepository.save(walk);
+
+        populateRedisCache(userIdStr, dateStr, saved.getStep(), saved.getDistanceKm(), saved.getBurnCalories());
 
         if (date.equals(LocalDate.now())) {
             handleDailyStepUpdate(user, saved.getStep(), date, req.step());
         }
 
-        log.info("[DailyWalkService] 저장 완료: dailyWalkId={}, userId={}, createdAt={}",
-                saved.getId(), saved.getUser().getId(), saved.getCreatedAt());
-
+        log.info("[DailyWalkService] 저장 완료: dailyWalkId={}, userId={}", saved.getId(), userId);
         return DailyWalkResponse.from(saved);
     }
 
     @Override
-    public void updateDailyWalkStep(
-            @NotNull Long userId,
-            DailyWalkStepUpdateRequest req) {
-
+    public void updateDailyWalkStep(@NotNull Long userId, DailyWalkStepUpdateRequest req) {
         log.debug("[DailyWalkService] 걸음수 수정 요청 userId={}, req={}", userId, req);
 
+        String dateStr = req.date().toString();
+        String userIdStr = String.valueOf(userId);
         LocalDateTime start = req.date().atStartOfDay();
         LocalDateTime end = start.plusDays(1);
 
@@ -162,17 +205,24 @@ public class DailyWalkServiceImpl implements DailyWalkService {
                     return new UserNotFoundException();
                 });
 
-        DailyWalk walk = dailyWalkRepository.findByUser_IdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
-                        userId, start, end)
-                .orElseThrow(DailyWalkNotFoundException::new);
-
-        walk.update(req.step(), req.distanceKm(), req.burnCalories());
-
-        if (req.date().equals(LocalDate.now())) {
-            handleDailyStepUpdate(user, walk.getStep(), req.date(), req.step());
+        // Redis에 없으면 DB에서 로드
+        Object cachedSteps = redisTemplate.opsForHash().get(STEPS_KEY + dateStr, userIdStr);
+        if (cachedSteps == null) {
+            DailyWalk walk = dailyWalkRepository
+                    .findByUser_IdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(userId, start, end)
+                    .orElseThrow(DailyWalkNotFoundException::new);
+            populateRedisCache(userIdStr, dateStr, walk.getStep(), walk.getDistanceKm(), walk.getBurnCalories());
         }
 
-        log.info("[DailyWalkService] 걸음수 수정 완료: userId={}, req={}", userId, req);
+        int estimatedTotal = estimateCurrentSteps(userIdStr, dateStr) + req.step();
+        long newSteps = rankingService.updateStepHashAndRankingScore(
+                userId, estimatedTotal, req.step(), req.distanceKm(), req.burnCalories(), req.date());
+
+        if (req.date().equals(LocalDate.now())) {
+            handleDailyStepUpdate(user, (int) newSteps, req.date(), req.step());
+        }
+
+        log.info("[DailyWalkService] 걸음수 수정 완료 (write-behind): userId={}", userId);
     }
 
     @Override
@@ -193,6 +243,68 @@ public class DailyWalkServiceImpl implements DailyWalkService {
         log.info("[DailyWalkService] 삭제 완료: dailyWalkId={}", dailyWalkId);
     }
 
+    // ─── private helpers ───────────────────────────────────────────────────────
+
+    private DailyWalkResponse updateRedisAndReturn(Long userId, String userIdStr, String dateStr,
+                                                    int stepDelta, BigDecimal distanceDelta, int caloriesDelta,
+                                                    User user, LocalDate date) {
+        // 걸음수 Hash + 랭킹 ZSet을 단일 Lua 스크립트로 원자적 업데이트
+        int estimatedTotal = estimateCurrentSteps(userIdStr, dateStr) + stepDelta;
+        long newSteps = rankingService.updateStepHashAndRankingScore(
+                userId, estimatedTotal, stepDelta, distanceDelta, caloriesDelta, date);
+
+        if (date.equals(LocalDate.now())) {
+            handleDailyStepUpdate(user, (int) newSteps, date, stepDelta);
+        }
+
+        log.info("[DailyWalkService] write-behind 원자적 업데이트 완료: userId={}, steps={}", userId, newSteps);
+        return new DailyWalkResponse(null, (int) newSteps, null, null, null, LocalDateTime.now());
+    }
+
+    private void populateRedisCache(String userIdStr, String dateStr,
+                                    int steps, BigDecimal distance, int calories) {
+        String stepsKey = STEPS_KEY + dateStr;
+        String distKey = DISTANCE_KEY + dateStr;
+        String calKey = CALORIES_KEY + dateStr;
+
+        redisTemplate.opsForHash().put(stepsKey, userIdStr, String.valueOf(steps));
+        redisTemplate.opsForHash().put(distKey, userIdStr, distance.toPlainString());
+        redisTemplate.opsForHash().put(calKey, userIdStr, String.valueOf(calories));
+
+        redisTemplate.expire(stepsKey, TTL);
+        redisTemplate.expire(distKey, TTL);
+        redisTemplate.expire(calKey, TTL);
+    }
+
+    private int estimateCurrentSteps(String userIdStr, String dateStr) {
+        Object val = redisTemplate.opsForHash().get(STEPS_KEY + dateStr, userIdStr);
+        return val != null ? Integer.parseInt((String) val) : 0;
+    }
+
+    private int readStepFromRedis(Long userId, String dateStr) {
+        Object val = redisTemplate.opsForHash().get(STEPS_KEY + dateStr, String.valueOf(userId));
+        return val != null ? Integer.parseInt((String) val) : 0;
+    }
+
+    private DailyWalkResponse readFromRedisCache(Long userId, String dateStr) {
+        String userIdStr = String.valueOf(userId);
+        Object steps = redisTemplate.opsForHash().get(STEPS_KEY + dateStr, userIdStr);
+        if (steps == null) {
+            return null;
+        }
+        Object distance = redisTemplate.opsForHash().get(DISTANCE_KEY + dateStr, userIdStr);
+        Object calories = redisTemplate.opsForHash().get(CALORIES_KEY + dateStr, userIdStr);
+
+        return new DailyWalkResponse(
+                null,
+                Integer.parseInt((String) steps),
+                distance != null ? new BigDecimal((String) distance) : BigDecimal.ZERO,
+                calories != null ? Integer.parseInt((String) calories) : 0,
+                null,
+                LocalDateTime.now()
+        );
+    }
+
     private void handleDailyStepUpdate(User user, int newStep, LocalDate date, int delta) {
         user.updateDailyStepCount(newStep);
 
@@ -204,7 +316,6 @@ public class DailyWalkServiceImpl implements DailyWalkService {
         if (delta > 0 && date.equals(LocalDate.now())) {
             missionCheckService.updateStepMissions(user.getId(), date, BigDecimal.valueOf(delta));
         }
-
-        rankingService.updateScore(user.getId(), newStep);
+        // 랭킹 ZSet 업데이트는 Lua 스크립트에서 이미 처리됨
     }
 }

@@ -1,23 +1,16 @@
 package com.fitpet.server.ranking.application.service;
 
-import com.fitpet.server.ranking.application.dto.RankingSyncContext;
-import com.fitpet.server.ranking.domain.entity.Ranking;
-import com.fitpet.server.ranking.domain.repository.RankingRepository;
-import com.fitpet.server.user.domain.repository.UserRepository;
+import com.fitpet.server.dailywalk.domain.repository.DailyWalkRepository;
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
-import org.springframework.data.redis.connection.StringRedisConnection;
 import org.springframework.data.redis.core.Cursor;
-import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -28,18 +21,22 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class RankingSyncServiceImpl implements RankingSyncService {
 
-    private final RankingRepository rankingRepository;
-    private final UserRepository userRepository;
+    private final DailyWalkRepository dailyWalkRepository;
     private final StringRedisTemplate redisTemplate;
 
     @Autowired
     @Lazy
     private RankingSyncService self;
 
+    private static final String DAILYWALK_STEPS_KEY = "dailywalk:steps:";
+    private static final String DAILYWALK_DISTANCE_KEY = "dailywalk:distance:";
+    private static final String DAILYWALK_CALORIES_KEY = "dailywalk:calories:";
+    private static final String DAILYWALK_DIRTY_KEY = "dailywalk:dirty:";
+
     @Override
     public void syncRedisToDatabase() {
-        RankingSyncContext context = createSyncContext(LocalDate.now());
-        String dirtyKey = context.getDirtyKey();
+        String dateStr = LocalDate.now().toString();
+        String dirtyKey = DAILYWALK_DIRTY_KEY + dateStr;
 
         ScanOptions options = ScanOptions.scanOptions().count(100).build();
 
@@ -50,103 +47,66 @@ public class RankingSyncServiceImpl implements RankingSyncService {
                 chunk.add(cursor.next());
 
                 if (chunk.size() >= 100) {
-                    self.flushChunkToDatabase(chunk, context);
+                    self.flushChunkToDatabase(chunk, dateStr);
                     chunk.clear();
                 }
             }
 
             if (!chunk.isEmpty()) {
-                self.flushChunkToDatabase(chunk, context);
+                self.flushChunkToDatabase(chunk, dateStr);
             }
 
         } catch (Exception e) {
-            log.error("[RankingSync] 동기화 중 치명적 오류 발생", e);
+            log.error("[DailyWalkSync] 동기화 중 치명적 오류 발생", e);
         }
     }
 
     @Override
     @Transactional
-    public void flushChunkToDatabase(List<String> userIds, RankingSyncContext context) {
-        if (userIds.isEmpty()) {
+    public void flushChunkToDatabase(List<String> userIdStrs, String dateStr) {
+        if (userIdStrs.isEmpty()) {
             return;
         }
 
-        Map<String, Double> scoreMap = fetchScoresInBatch(userIds, context.getRedisKey());
+        String stepsKey = DAILYWALK_STEPS_KEY + dateStr;
+        String distanceKey = DAILYWALK_DISTANCE_KEY + dateStr;
+        String caloriesKey = DAILYWALK_CALORIES_KEY + dateStr;
+        String dirtyKey = DAILYWALK_DIRTY_KEY + dateStr;
 
-        List<Long> longUserIds = convertToLongIds(userIds);
+        LocalDateTime startOfDay = LocalDate.parse(dateStr).atStartOfDay();
+        LocalDateTime endOfDay = startOfDay.plusDays(1);
 
-        Map<Long, Ranking> existingRankings = loadExistingRankings(longUserIds, context.getDateKey());
+        for (String userIdStr : userIdStrs) {
+            try {
+                Long userId = Long.parseLong(userIdStr);
 
-        List<Ranking> rankingsToSave = userIds.stream()
-                .map(id -> mapToRankingEntity(id, context, existingRankings, scoreMap))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .toList();
+                Object steps = redisTemplate.opsForHash().get(stepsKey, userIdStr);
+                Object distance = redisTemplate.opsForHash().get(distanceKey, userIdStr);
+                Object calories = redisTemplate.opsForHash().get(caloriesKey, userIdStr);
 
-        if (!rankingsToSave.isEmpty()) {
-            rankingRepository.saveAll(rankingsToSave);
+                if (steps == null) {
+                    log.warn("[DailyWalkSync] Redis 데이터 없음 - 건너뜀: userId={}, date={}", userId, dateStr);
+                    redisTemplate.opsForSet().remove(dirtyKey, userIdStr);
+                    continue;
+                }
 
-            redisTemplate.opsForSet().remove(context.getDirtyKey(), userIds.toArray());
-        }
-    }
+                int totalSteps = Integer.parseInt((String) steps);
+                BigDecimal totalDistance = new BigDecimal(distance != null ? (String) distance : "0");
+                int totalCalories = calories != null ? Integer.parseInt((String) calories) : 0;
 
+                int updated = dailyWalkRepository.updateStepByUserIdAndDate(
+                        userId, startOfDay, endOfDay, totalSteps, totalDistance, totalCalories);
 
-    private Map<String, Double> fetchScoresInBatch(List<String> userIds, String redisKey) {
-        List<Object> results = redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
-            StringRedisConnection stringConn = (StringRedisConnection) connection;
-            for (String userId : userIds) {
-                stringConn.zScore(redisKey, userId);
+                if (updated == 0) {
+                    log.warn("[DailyWalkSync] DB 업데이트 실패(레코드 없음): userId={}, date={}", userId, dateStr);
+                } else {
+                    redisTemplate.opsForSet().remove(dirtyKey, userIdStr);
+                    log.debug("[DailyWalkSync] 동기화 완료: userId={}, steps={}", userId, totalSteps);
+                }
+
+            } catch (Exception e) {
+                log.error("[DailyWalkSync] userId={} 동기화 실패", userIdStr, e);
             }
-            return null;
-        });
-
-        Map<String, Double> scoreMap = new HashMap<>();
-        for (int i = 0; i < userIds.size(); i++) {
-            Object result = results.get(i);
-            if (result instanceof Double) {
-                scoreMap.put(userIds.get(i), (Double) result);
-            }
         }
-        return scoreMap;
-    }
-
-    private RankingSyncContext createSyncContext(LocalDate date) {
-        String dateStr = date.toString();
-        return RankingSyncContext.of(
-                dateStr,
-                "ranking:daily:" + dateStr,
-                "ranking:dirty:" + dateStr
-        );
-    }
-
-    private List<Long> convertToLongIds(List<String> ids) {
-        return ids.stream().map(Long::parseLong).toList();
-    }
-
-    private Map<Long, Ranking> loadExistingRankings(List<Long> ids, String key) {
-        return rankingRepository.findAllByUserIdInAndDateKey(ids, key).stream()
-                .collect(Collectors.toMap(r -> r.getUser().getId(), r -> r));
-    }
-
-    private Optional<Ranking> mapToRankingEntity(String userIdStr, RankingSyncContext context,
-                                                 Map<Long, Ranking> existingMap,
-                                                 Map<String, Double> scoreMap) {
-
-        Double redisScore = scoreMap.get(userIdStr);
-
-        if (redisScore == null) {
-            return Optional.empty();
-        }
-
-        Long userId = Long.parseLong(userIdStr);
-
-        Ranking ranking = existingMap.getOrDefault(userId, Ranking.builder()
-                .user(userRepository.getReferenceById(userId))
-                .score(0)
-                .dateKey(context.getDateKey())
-                .build());
-
-        ranking.updateScore(Math.floor(redisScore));
-        return Optional.of(ranking);
     }
 }
