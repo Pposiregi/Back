@@ -22,9 +22,9 @@ public interface DailyWalkService {
 
     List<DailyStepSummaryResult> getWeeklySteps(@NotNull Long userId);
 
-    DailyWalkResult createDailyWalk(@NotNull Long userId, DailyWalkCreateCommand cmd);
+    DailyWalkResult createDailyWalk(@NotNull Long userId, @NotNull DailyWalkCreateCommand cmd);
 
-    void updateDailyWalkStep(@NotNull Long userId, DailyWalkStepUpdateCommand cmd);
+    void updateDailyWalkStep(@NotNull Long userId, @NotNull DailyWalkStepUpdateCommand cmd);
 
     void deleteDailyWalk(@NotNull Long userId, @NotNull Long dailyWalkId);
 }
