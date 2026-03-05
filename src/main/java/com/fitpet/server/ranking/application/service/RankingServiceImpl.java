@@ -92,8 +92,8 @@ public class RankingServiceImpl implements RankingService {
 
     @Override
     @Transactional
-    public long updateStepHashAndRankingScore(Long userId, int totalSteps, int stepDelta,
-                                              BigDecimal distanceDelta, int caloriesDelta,
+    public long updateStepHashAndRankingScore(Long userId, int totalSteps,
+                                              BigDecimal totalDistance, int totalCalories,
                                               LocalDate date) {
         String dateStr = date.toString();
         String userIdStr = String.valueOf(userId);
@@ -110,18 +110,18 @@ public class RankingServiceImpl implements RankingService {
                           DAILYWALK_CALORIES_KEY + dateStr, DAILYWALK_DIRTY_KEY + dateStr,
                           allRankingKey);
 
-        Long newSteps = redisTemplate.execute(updateStepAndRankingScript,
+        Long result = redisTemplate.execute(updateStepAndRankingScript,
                 keys,
                 userIdStr,
-                String.valueOf(stepDelta),
-                distanceDelta.toPlainString(),
-                String.valueOf(caloriesDelta),
+                String.valueOf(totalSteps),
+                totalDistance.toPlainString(),
+                String.valueOf(totalCalories),
                 String.valueOf(weightedScore),
                 TTL_SECONDS
         );
 
-        log.info("[RankingService] 걸음수 Hash + 랭킹 ZSet 원자적 업데이트: userId={}, newSteps={}", userId, newSteps);
-        return newSteps != null ? newSteps : totalSteps;
+        log.info("[RankingService] 걸음수 Hash + 랭킹 ZSet SET 업데이트: userId={}, totalSteps={}", userId, totalSteps);
+        return result != null ? result : totalSteps;
     }
 
     @Override
