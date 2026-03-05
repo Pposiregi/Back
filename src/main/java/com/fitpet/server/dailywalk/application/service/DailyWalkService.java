@@ -1,9 +1,9 @@
 package com.fitpet.server.dailywalk.application.service;
 
-import com.fitpet.server.dailywalk.presentation.dto.request.DailyWalkCreateRequest;
-import com.fitpet.server.dailywalk.presentation.dto.request.DailyWalkStepUpdateRequest;
-import com.fitpet.server.dailywalk.presentation.dto.response.DailyStepSummaryResponse;
-import com.fitpet.server.dailywalk.presentation.dto.response.DailyWalkResponse;
+import com.fitpet.server.dailywalk.application.dto.DailyStepSummaryResult;
+import com.fitpet.server.dailywalk.application.dto.DailyWalkCreateCommand;
+import com.fitpet.server.dailywalk.application.dto.DailyWalkResult;
+import com.fitpet.server.dailywalk.application.dto.DailyWalkStepUpdateCommand;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PastOrPresent;
 import java.time.LocalDate;
@@ -12,21 +12,19 @@ import org.springframework.validation.annotation.Validated;
 
 @Validated
 public interface DailyWalkService {
-    List<DailyWalkResponse> getAllByUserId(@NotNull Long userId);
 
-    DailyWalkResponse getDailyWalkByUserIdAndDate(
+    List<DailyWalkResult> getAllByUserId(@NotNull Long userId);
+
+    DailyWalkResult getDailyWalkByUserIdAndDate(
             @NotNull Long userId,
             @NotNull @PastOrPresent LocalDate date
     );
 
-    List<DailyStepSummaryResponse> getWeeklySteps(@NotNull Long userId);
+    List<DailyStepSummaryResult> getWeeklySteps(@NotNull Long userId);
 
-    DailyWalkResponse createDailyWalk(@NotNull Long userId, DailyWalkCreateRequest req);
+    DailyWalkResult createDailyWalk(@NotNull Long userId, DailyWalkCreateCommand cmd);
+
+    void updateDailyWalkStep(@NotNull Long userId, DailyWalkStepUpdateCommand cmd);
 
     void deleteDailyWalk(@NotNull Long userId, @NotNull Long dailyWalkId);
-
-    void updateDailyWalkStep(
-            @NotNull Long userId,
-            DailyWalkStepUpdateRequest req
-    );
 }
