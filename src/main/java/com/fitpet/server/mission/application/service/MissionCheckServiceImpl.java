@@ -4,6 +4,8 @@ import com.fitpet.server.meal.domain.entity.MealTime;
 import com.fitpet.server.meal.domain.repository.MealRepository;
 import com.fitpet.server.mission.application.dto.MissionCheckCommand;
 import com.fitpet.server.mission.application.dto.MissionCheckResult;
+import com.fitpet.server.mission.application.dto.MissionProgressEvent;
+import com.fitpet.server.mission.application.dto.MissionProgressEventType;
 import com.fitpet.server.mission.application.dto.MissionProgressResult;
 import com.fitpet.server.mission.application.dto.MissionProgressUpdateItem;
 import com.fitpet.server.mission.application.mapper.MissionCheckMapper;
@@ -28,6 +30,7 @@ import java.time.LocalTime;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -46,6 +49,7 @@ public class MissionCheckServiceImpl implements MissionCheckService {
     private final UserRepository userRepository;
     private final PetExpressionService petExpressionService;
     private final MissionCompletionService missionCompletionService;
+    private final MissionProgressEventPublisher missionProgressEventPublisher;
 
     @Override
     public MissionCheckResult upsertMissionCheck(Long missionId, Long userId, MissionCheckCommand request) {
@@ -58,6 +62,9 @@ public class MissionCheckServiceImpl implements MissionCheckService {
 
         UpdateResult result = upsertMissionCheck(mission, user, period, request.progressValue());
         MissionCheck saved = missionCheckRepository.save(result.missionCheck());
+        if (result.changed()) {
+            publishMissionProgressEvent(saved, MissionProgressEventType.UPSERT);
+        }
 
         log.info("[MissionCheckService] 수행 여부 저장: missionCheckId={}, missionId={}, userId={}",
                 saved.getId(), missionId, userId);
@@ -89,6 +96,7 @@ public class MissionCheckServiceImpl implements MissionCheckService {
     @Override
     public MissionCheckResult completeMissionCheck(Long userId, Long missionCheckId) {
         MissionCheck completed = missionCompletionService.completeMission(userId, missionCheckId);
+        publishMissionProgressEvent(completed, MissionProgressEventType.COMPLETED);
         petExpressionService.updateExpression(userId, PetExpression.HAPPY);
         log.info("[MissionCheckService] 수행 완료 처리: missionCheckId={}, userId={}", missionCheckId, userId);
         return missionCheckMapper.toDto(completed);
@@ -226,8 +234,11 @@ public class MissionCheckServiceImpl implements MissionCheckService {
 
         if (existing.isPresent()) {
             MissionCheck current = existing.get();
+            BigDecimal beforeProgress = current.getProgressValue();
+            boolean beforeCompleted = current.isCompleted();
             applyProgressIfActive(current, progressValue);
-            return new UpdateResult(current, List.of());
+            boolean changed = hasMissionStateChanged(beforeProgress, beforeCompleted, current);
+            return new UpdateResult(current, List.of(), changed);
         }
 
         BigDecimal progress = defaultProgress(progressValue);
@@ -242,7 +253,7 @@ public class MissionCheckServiceImpl implements MissionCheckService {
                 .completedAt(null)
                 .build();
 
-        return new UpdateResult(created, List.of());
+        return new UpdateResult(created, List.of(), true);
     }
 
     private void applyProgressIfActive(MissionCheck current, BigDecimal delta) {
@@ -264,10 +275,11 @@ public class MissionCheckServiceImpl implements MissionCheckService {
             BigDecimal newProgress = current.add(delta);
             check.updateProgress(newProgress, false, null);
             missionCheckRepository.save(check);
+            publishMissionProgressEvent(check, MissionProgressEventType.STEP_PROGRESS);
             updated.add(toUpdateItem(check));
         }
 
-        return new UpdateResult(null, updated);
+        return new UpdateResult(null, updated, !updated.isEmpty());
     }
 
     private UpdateResult applyMealProgress(
@@ -289,10 +301,49 @@ public class MissionCheckServiceImpl implements MissionCheckService {
             BigDecimal newProgress = current.add(BigDecimal.ONE);
             check.updateProgress(newProgress, false, null);
             missionCheckRepository.save(check);
+            publishMissionProgressEvent(check, MissionProgressEventType.MEAL_PROGRESS);
             updated.add(toUpdateItem(check));
         }
 
-        return new UpdateResult(null, updated);
+        return new UpdateResult(null, updated, !updated.isEmpty());
+    }
+
+    private void publishMissionProgressEvent(MissionCheck check, MissionProgressEventType eventType) {
+        Mission mission = check.getMission();
+        MissionProgressEvent event = new MissionProgressEvent(
+                UUID.randomUUID().toString(),
+                eventType,
+                check.getUser().getId(),
+                check.getId(),
+                mission.getId(),
+                mission.getCategory(),
+                check.getPeriodType(),
+                mission.getGoal(),
+                check.getProgressValue(),
+                check.isCompleted(),
+                check.getCompletedAt(),
+                LocalDateTime.now()
+        );
+        missionProgressEventPublisher.publishAfterCommit(event);
+    }
+
+    private static boolean hasMissionStateChanged(
+            BigDecimal beforeProgress,
+            boolean beforeCompleted,
+            MissionCheck current
+    ) {
+        boolean progressChanged = !isEqualProgress(beforeProgress, current.getProgressValue());
+        return progressChanged || beforeCompleted != current.isCompleted();
+    }
+
+    private static boolean isEqualProgress(BigDecimal left, BigDecimal right) {
+        if (left == null && right == null) {
+            return true;
+        }
+        if (left == null || right == null) {
+            return false;
+        }
+        return left.compareTo(right) == 0;
     }
 
     private List<MissionCheck> findActiveChecks(Long userId, MissionCategory category, LocalDate date) {
@@ -405,7 +456,8 @@ public class MissionCheckServiceImpl implements MissionCheckService {
 
     private record UpdateResult(
             MissionCheck missionCheck,
-            List<MissionProgressUpdateItem> updatedItems
+            List<MissionProgressUpdateItem> updatedItems,
+            boolean changed
     ) {
     }
 
