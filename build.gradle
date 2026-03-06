@@ -50,6 +50,7 @@ dependencies {
 
     // Monitoring
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'io.micrometer:micrometer-registry-prometheus'
 
     // Logback expression filters
     implementation 'org.codehaus.janino:janino:3.1.12'
