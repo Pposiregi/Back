@@ -67,6 +67,11 @@ public class DailyWalkRepositoryAdapter implements DailyWalkRepository {
     }
 
     @Override
+    public List<DailyWalk> findAllByCreatedAtBetween(LocalDateTime start, LocalDateTime end) {
+        return jpaRepository.findAllByCreatedAtBetween(start, end);
+    }
+
+    @Override
     public int updateStepByUserIdAndDate(Long userId,
                                          LocalDateTime start,
                                          LocalDateTime end,

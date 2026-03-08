@@ -1,5 +1,6 @@
 package com.fitpet.server.dailywalk.presentation.dto.request;
 
+import com.fitpet.server.dailywalk.application.dto.DailyWalkStepUpdateCommand;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -19,4 +20,7 @@ public record DailyWalkStepUpdateRequest(
         @NotNull @PositiveOrZero
         Integer burnCalories
 ) {
+    public DailyWalkStepUpdateCommand toCommand() {
+        return new DailyWalkStepUpdateCommand(date, step, distanceKm, burnCalories);
+    }
 }

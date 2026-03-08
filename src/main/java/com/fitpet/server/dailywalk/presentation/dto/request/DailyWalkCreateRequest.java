@@ -1,5 +1,6 @@
 package com.fitpet.server.dailywalk.presentation.dto.request;
 
+import com.fitpet.server.dailywalk.application.dto.DailyWalkCreateCommand;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
@@ -21,4 +22,7 @@ public record DailyWalkCreateRequest(
         @PastOrPresent
         LocalDate date
 ) {
+    public DailyWalkCreateCommand toCommand() {
+        return new DailyWalkCreateCommand(step, distanceKm, burnCalories, date);
+    }
 }

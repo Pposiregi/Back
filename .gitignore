@@ -64,5 +64,8 @@ logs/
 
 # Claude Code
 .claude/
-.bkit/
+
+docs/
+
+.bkit
 

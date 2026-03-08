@@ -38,4 +38,6 @@ public interface DailyWalkRepository {
                                   BigDecimal distanceKm,
                                   Integer burnCalories
     );
+
+    List<DailyWalk> findAllByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
 }

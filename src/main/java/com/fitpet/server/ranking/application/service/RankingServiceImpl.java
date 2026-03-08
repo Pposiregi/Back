@@ -1,14 +1,15 @@
 package com.fitpet.server.ranking.application.service;
 
+import com.fitpet.server.dailywalk.domain.entity.DailyWalk;
+import com.fitpet.server.dailywalk.domain.repository.DailyWalkRepository;
 import com.fitpet.server.ranking.application.dto.RankingDto;
-import com.fitpet.server.ranking.domain.entity.Ranking;
-import com.fitpet.server.ranking.domain.repository.RankingRepository;
 import com.fitpet.server.ranking.domain.type.RankingFilter;
 import com.fitpet.server.shared.s3.S3Service;
 import com.fitpet.server.user.domain.entity.User;
 import com.fitpet.server.user.domain.repository.UserRepository;
+import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.ZoneId;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -21,7 +22,6 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.data.redis.core.script.RedisScript;
@@ -33,12 +33,18 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class RankingServiceImpl implements RankingService {
 
-    private final RankingRepository rankingRepository;
+    private final DailyWalkRepository dailyWalkRepository;
     private final UserRepository userRepository;
     private final S3Service s3Service;
     private final StringRedisTemplate redisTemplate;
     private final RedisScript<Long> updateRankingScript;
+    private final RedisScript<Long> updateStepAndRankingScript;
     private final ApplicationEventPublisher eventPublisher;
+
+    private static final String DAILYWALK_STEPS_KEY = "dailywalk:steps:";
+    private static final String DAILYWALK_DISTANCE_KEY = "dailywalk:distance:";
+    private static final String DAILYWALK_CALORIES_KEY = "dailywalk:calories:";
+    private static final String DAILYWALK_DIRTY_KEY = "dailywalk:dirty:";
 
     private static final String USER_PROFILE_KEY = "user:profiles";
     private static final String USER_IMAGE_KEY = "user:images";
@@ -56,8 +62,6 @@ public class RankingServiceImpl implements RankingService {
     @Transactional
     public void updateScore(Long userId, int steps) {
         LocalDate now = LocalDate.now();
-        String dirtyKey = getModifiedUsersKey(now);
-
         double weightedScore = calculateTimeWeightedScore((double) steps, System.currentTimeMillis() / 1000);
         String userIdStr = String.valueOf(userId);
 
@@ -67,7 +71,7 @@ public class RankingServiceImpl implements RankingService {
         String genderRankingKey = getRankingKey(now, userGender);
 
         redisTemplate.execute(updateRankingScript,
-                List.of(allRankingKey, dirtyKey),
+                List.of(allRankingKey),
                 userIdStr,
                 String.valueOf(weightedScore),
                 TTL_SECONDS
@@ -75,7 +79,7 @@ public class RankingServiceImpl implements RankingService {
 
         if (userGender != RankingFilter.ALL) {
             redisTemplate.execute(updateRankingScript,
-                    List.of(genderRankingKey, dirtyKey),
+                    List.of(genderRankingKey),
                     userIdStr,
                     String.valueOf(weightedScore),
                     TTL_SECONDS
@@ -84,6 +88,40 @@ public class RankingServiceImpl implements RankingService {
 
         log.info("[RankingService] 랭킹 업데이트 완료 (Lua): userId={}, score={}, gender={}", userId, weightedScore,
                 userGender);
+    }
+
+    @Override
+    @Transactional
+    public long updateStepHashAndRankingScore(Long userId, int totalSteps,
+                                              BigDecimal totalDistance, int totalCalories,
+                                              LocalDate date) {
+        String dateStr = date.toString();
+        String userIdStr = String.valueOf(userId);
+        double weightedScore = calculateTimeWeightedScore(totalSteps, System.currentTimeMillis() / 1000);
+        RankingFilter gender = getUserGender(userId);
+
+        String allRankingKey = getRankingKey(date, RankingFilter.ALL);
+
+        List<String> keys = (gender != RankingFilter.ALL)
+                ? List.of(DAILYWALK_STEPS_KEY + dateStr, DAILYWALK_DISTANCE_KEY + dateStr,
+                          DAILYWALK_CALORIES_KEY + dateStr, DAILYWALK_DIRTY_KEY + dateStr,
+                          allRankingKey, getRankingKey(date, gender))
+                : List.of(DAILYWALK_STEPS_KEY + dateStr, DAILYWALK_DISTANCE_KEY + dateStr,
+                          DAILYWALK_CALORIES_KEY + dateStr, DAILYWALK_DIRTY_KEY + dateStr,
+                          allRankingKey);
+
+        Long result = redisTemplate.execute(updateStepAndRankingScript,
+                keys,
+                userIdStr,
+                String.valueOf(totalSteps),
+                totalDistance.toPlainString(),
+                String.valueOf(totalCalories),
+                String.valueOf(weightedScore),
+                TTL_SECONDS
+        );
+
+        log.info("[RankingService] 걸음수 Hash + 랭킹 ZSet SET 업데이트: userId={}, totalSteps={}", userId, totalSteps);
+        return result != null ? result : totalSteps;
     }
 
     @Override
@@ -189,12 +227,14 @@ public class RankingServiceImpl implements RankingService {
     }
 
     private List<RankingDto> recoverRedisFromDatabase(LocalDate now, RankingFilter filter) {
-        String dateKey = now.toString();
-        log.warn("[RankingService] 캐시 미스 - DB 데이터 복구 시도: {}", dateKey);
+        log.warn("[RankingService] 캐시 미스 - daily_walk DB 데이터 복구 시도: {}", now);
 
-        List<Ranking> rankings = rankingRepository.findTopRankings(dateKey, PageRequest.of(0, 100));
+        LocalDateTime startOfDay = now.atStartOfDay();
+        LocalDateTime endOfDay = startOfDay.plusDays(1);
 
-        if (rankings.isEmpty()) {
+        List<DailyWalk> walks = dailyWalkRepository.findAllByCreatedAtBetween(startOfDay, endOfDay);
+
+        if (walks.isEmpty()) {
             return Collections.emptyList();
         }
 
@@ -206,14 +246,13 @@ public class RankingServiceImpl implements RankingService {
         Map<String, String> imageUpdates = new HashMap<>();
         Map<String, String> genderUpdates = new HashMap<>();
 
-        for (Ranking r : rankings) {
-            long ts = (r.getUpdatedAt() != null)
-                    ? r.getUpdatedAt().atZone(ZoneId.systemDefault()).toEpochSecond()
-                    : System.currentTimeMillis() / 1000;
+        long ts = System.currentTimeMillis() / 1000;
 
-            double weightedScore = calculateTimeWeightedScore(r.getScore(), ts);
-            String userIdStr = String.valueOf(r.getUser().getId());
-            RankingFilter gender = convertGender(r.getUser().getGender());
+        for (DailyWalk walk : walks) {
+            User u = walk.getUser();
+            double weightedScore = calculateTimeWeightedScore(walk.getStep(), ts);
+            String userIdStr = String.valueOf(u.getId());
+            RankingFilter gender = convertGender(u.getGender());
 
             redisTemplate.opsForZSet().add(allKey, userIdStr, weightedScore);
             if (gender == RankingFilter.MALE) {
@@ -223,10 +262,8 @@ public class RankingServiceImpl implements RankingService {
             }
 
             genderUpdates.put(userIdStr, gender.name());
-            nameUpdates.put(userIdStr, r.getUser().getNickname());
-
-            String img = r.getUser().getProfileImageUrl() != null ? r.getUser().getProfileImageUrl() : "";
-            imageUpdates.put(userIdStr, img);
+            nameUpdates.put(userIdStr, u.getNickname());
+            imageUpdates.put(userIdStr, u.getProfileImageUrl() != null ? u.getProfileImageUrl() : "");
         }
 
         if (!nameUpdates.isEmpty()) {
@@ -235,30 +272,24 @@ public class RankingServiceImpl implements RankingService {
             redisTemplate.opsForHash().putAll(USER_GENDER_CACHE_KEY, genderUpdates);
         }
 
-        List<Ranking> filteredList = rankings.stream()
-                .filter(r -> {
-                    if (filter == RankingFilter.ALL) {
-                        return true;
-                    }
-                    return convertGender(r.getUser().getGender()) == filter;
+        List<DailyWalk> filteredList = walks.stream()
+                .filter(walk -> {
+                    if (filter == RankingFilter.ALL) return true;
+                    return convertGender(walk.getUser().getGender()) == filter;
                 })
-                .sorted(Comparator.comparingDouble(Ranking::getScore).reversed())
+                .sorted(Comparator.comparingInt(DailyWalk::getStep).reversed())
                 .limit(TOP_RANK_LIMIT)
                 .toList();
 
         List<RankingDto> responses = new ArrayList<>();
         int rank = 1;
-        for (Ranking r : filteredList) {
-            String dbImgKey = r.getUser().getProfileImageUrl();
+        for (DailyWalk walk : filteredList) {
+            User u = walk.getUser();
+            String dbImgKey = u.getProfileImageUrl();
             String viewableUrl = (dbImgKey != null && !dbImgKey.isBlank())
                     ? s3Service.generatePresignedGetUrl(dbImgKey) : "";
 
-            responses.add(RankingDto.of(
-                    r.getUser().getId(),
-                    r.getUser().getNickname(),
-                    viewableUrl,
-                    rank++,
-                    (long) Math.floor(r.getScore())));
+            responses.add(RankingDto.of(u.getId(), u.getNickname(), viewableUrl, rank++, (long) walk.getStep()));
         }
 
         return responses;
@@ -292,10 +323,6 @@ public class RankingServiceImpl implements RankingService {
             return baseKey + ":FEMALE";
         }
         return baseKey;
-    }
-
-    private String getModifiedUsersKey(LocalDate date) {
-        return "ranking:dirty:" + date.toString();
     }
 
     private double calculateTimeWeightedScore(double s, long ts) {

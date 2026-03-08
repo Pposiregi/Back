@@ -36,13 +36,15 @@ public class DailyWalkController {
 
     @GetMapping
     public ResponseEntity<List<DailyWalkResponse>> listByUser(@AuthUser Long userId) {
-        List<DailyWalkResponse> body = dailyWalkService.getAllByUserId(userId);
+        List<DailyWalkResponse> body = dailyWalkService.getAllByUserId(userId)
+                .stream().map(DailyWalkResponse::from).toList();
         return ResponseEntity.ok(body);
     }
 
     @GetMapping("/steps/weekly")
     public ResponseEntity<List<DailyStepSummaryResponse>> getWeeklySteps(@AuthUser Long userId) {
-        List<DailyStepSummaryResponse> body = dailyWalkService.getWeeklySteps(userId);
+        List<DailyStepSummaryResponse> body = dailyWalkService.getWeeklySteps(userId)
+                .stream().map(DailyStepSummaryResponse::from).toList();
         return ResponseEntity.ok(body);
     }
 
@@ -53,8 +55,9 @@ public class DailyWalkController {
             @PastOrPresent
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
     ) {
-        DailyWalkResponse dailyWalk = dailyWalkService.getDailyWalkByUserIdAndDate(userId, date);
-        return ResponseEntity.ok(dailyWalk);
+        DailyWalkResponse body = DailyWalkResponse.from(
+                dailyWalkService.getDailyWalkByUserIdAndDate(userId, date));
+        return ResponseEntity.ok(body);
     }
 
     @PostMapping
@@ -62,7 +65,8 @@ public class DailyWalkController {
             @AuthUser Long userId,
             @RequestBody @Valid DailyWalkCreateRequest req
     ) {
-        DailyWalkResponse saved = dailyWalkService.createDailyWalk(userId, req);
+        DailyWalkResponse saved = DailyWalkResponse.from(
+                dailyWalkService.createDailyWalk(userId, req.toCommand()));
 
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
@@ -77,7 +81,7 @@ public class DailyWalkController {
             @AuthUser Long userId,
             @RequestBody @Valid DailyWalkStepUpdateRequest req
     ) {
-        dailyWalkService.updateDailyWalkStep(userId, req);
+        dailyWalkService.updateDailyWalkStep(userId, req.toCommand());
         return ResponseEntity.noContent().build();
     }
 

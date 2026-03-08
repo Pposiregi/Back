@@ -55,6 +55,17 @@ public interface DailyWalkJpaRepository extends JpaRepository<DailyWalk, Long> {
 
     void deleteById(Long id);
 
+    @Query("""
+            select dw from DailyWalk dw
+            join fetch dw.user
+            where dw.createdAt >= :start
+              and dw.createdAt < :end
+            """)
+    List<DailyWalk> findAllByCreatedAtBetween(
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end
+    );
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             update DailyWalk dw
