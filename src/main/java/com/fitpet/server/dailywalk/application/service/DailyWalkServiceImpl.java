@@ -124,7 +124,7 @@ public class DailyWalkServiceImpl implements DailyWalkService {
     }
 
     @Override
-    public DailyWalkResult createDailyWalk(@NotNull Long userId, DailyWalkCreateCommand cmd) {
+    public DailyWalkResult createDailyWalk(@NotNull Long userId, @NotNull DailyWalkCreateCommand cmd) {
         log.debug("[DailyWalkService] 생성 요청: userId={}, step={}, distanceKm={}, burnCalories={}, date={}",
                 userId, cmd.step(), cmd.distanceKm(), cmd.burnCalories(), cmd.date());
 
@@ -173,7 +173,7 @@ public class DailyWalkServiceImpl implements DailyWalkService {
     }
 
     @Override
-    public void updateDailyWalkStep(@NotNull Long userId, DailyWalkStepUpdateCommand cmd) {
+    public void updateDailyWalkStep(@NotNull Long userId, @NotNull DailyWalkStepUpdateCommand cmd) {
         log.debug("[DailyWalkService] 걸음수 수정 요청 userId={}, cmd={}", userId, cmd);
 
         String dateStr = cmd.date().toString();
