@@ -56,8 +56,8 @@ services:
       - prometheus
       - loki
     environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change-me}
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?Set GRAFANA_ADMIN_USER in your shell or external env file}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in your shell or external env file}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_USERS_DEFAULT_THEME: dark
       GF_AUTH_ANONYMOUS_ENABLED: "false"
