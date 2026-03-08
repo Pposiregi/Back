@@ -3,6 +3,7 @@
     <!-- allow overriding log directory via LOG_PATH env/property -->
     <property name="LOG_PATH" value="${LOG_PATH:-logs}"/>
     <property name="APP_NAME" value="fitpet"/>
+    <property name="APP_ENV" value="${SPRING_PROFILES_ACTIVE:-local}"/>
 
     <conversionRule conversionWord="clr"
         converterClass="org.springframework.boot.logging.logback.ColorConverter"/>
@@ -28,6 +29,20 @@
         </rollingPolicy>
         <encoder>
             <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/${APP_NAME}-json.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/${APP_NAME}-json-%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>5GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <timeZone>Asia/Seoul</timeZone>
+            <customFields>{"app":"${APP_NAME}","env":"${APP_ENV}"}</customFields>
+            <includeMdc>true</includeMdc>
         </encoder>
     </appender>
 
@@ -76,6 +91,7 @@
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="DAILY_FILE"/>
+        <appender-ref ref="JSON_FILE"/>
         <appender-ref ref="SERVICE_FILE"/>
         <appender-ref ref="CONTROLLER_FILE"/>
     </root>

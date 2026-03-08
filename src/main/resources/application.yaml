@@ -67,8 +67,10 @@ oauth:
     user-info-uri: ${spring.security.oauth2.client.provider.kakao.user-info-uri}
 
 logging:
+  file:
+    path: ${LOG_PATH:logs}
   level:
-    org.springframework.security: DEBUG
+    org.springframework.security: INFO
 
 cloud:
   aws:
@@ -106,6 +108,9 @@ management:
       export:
         enabled: true
   metrics:
+    tags:
+      application: fitpet
+      env: ${spring.profiles.active:local}
     distribution:
       percentiles-histogram:
         http.server.requests: true
