@@ -5,7 +5,7 @@ import lombok.Builder;
 @Builder
 public record MealResult(
         Long mealId,
-        String imageUrl,
+        String imageKey,
         String uploadUrl
 ) {
 }

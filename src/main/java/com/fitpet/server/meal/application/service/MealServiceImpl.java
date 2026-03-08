@@ -38,13 +38,15 @@ public class MealServiceImpl implements MealService {
 
         Meal meal = mealMapper.toEntity(command, user);
 
-        String imageKey = s3Service.createImageKey(userId, ImageType.MEAL);
-        meal.setImageUrl(imageKey);
+        String uploadUrl = null;
+        if (command.existImage()) {
+            String imageKey = s3Service.createImageKey(userId, ImageType.MEAL);
+            meal.setImageUrl(imageKey);
+            uploadUrl = s3Service.generatePresignedPutUrl(imageKey);
+        }
 
         Meal savedMeal = mealRepository.save(meal);
         missionCheckService.updateMealMissions(userId, meal.getDay(), MealTime.fromSequence(meal.getSequence()));
-
-        String uploadUrl = s3Service.generatePresignedPutUrl(imageKey);
 
         return mealMapper.toResult(savedMeal, uploadUrl);
     }
@@ -79,7 +81,7 @@ public class MealServiceImpl implements MealService {
 
         return MealResult.builder()
                 .mealId(meal.getId())
-                .imageUrl(meal.getImageUrl())
+                .imageKey(meal.getImageUrl())
                 .build();
     }
 

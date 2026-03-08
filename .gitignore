@@ -61,4 +61,8 @@ logs/
 
 /src/main/resources/fcm/firebase-service-account-key.json
 
-.bkit
+
+# Claude Code
+.claude/
+.bkit/
+
