@@ -3,7 +3,7 @@
     <!-- allow overriding log directory via LOG_PATH env/property -->
     <property name="LOG_PATH" value="${LOG_PATH:-logs}"/>
     <property name="APP_NAME" value="fitpet"/>
-    <property name="APP_ENV" value="${SPRING_PROFILES_ACTIVE:-local}"/>
+    <springProperty scope="context" name="APP_ENV" source="spring.profiles.active" defaultValue="local"/>
 
     <conversionRule conversionWord="clr"
         converterClass="org.springframework.boot.logging.logback.ColorConverter"/>
