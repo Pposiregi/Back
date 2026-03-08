@@ -380,7 +380,23 @@ public class MissionCheckServiceImpl implements MissionCheckService {
                 }
             }
         }
-        return isThreeMealTitle(title);
+        if (isThreeMealTitle(title)) {
+            return true;
+        }
+        return isGenericMealMissionTitle(title);
+    }
+
+    private static boolean isGenericMealMissionTitle(String title) {
+        return title != null
+                && !title.isBlank()
+                && !hasSpecificMealTimingKeyword(title);
+    }
+
+    private static boolean hasSpecificMealTimingKeyword(String title) {
+        return matchesBreakfastTitle(title)
+                || matchesLunchTitle(title)
+                || matchesDinnerTitle(title)
+                || isThreeMealTitle(title);
     }
 
     private static boolean matchesBreakfastTitle(String title) {
