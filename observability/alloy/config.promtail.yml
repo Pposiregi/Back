@@ -44,5 +44,3 @@ scrape_configs:
           logger:
           trace_id:
           span_id:
-      - output:
-          source: message
