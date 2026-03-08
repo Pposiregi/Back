@@ -51,6 +51,10 @@ public class MissionProgressRedisPublisher implements MissionProgressEventPublis
         } catch (JsonProcessingException e) {
             meterRegistry.counter(PUBLISH_METRIC, "event_type", eventType, "status", "failure").increment();
             log.warn("[MissionProgressRedisPublisher] 이벤트 직렬화 실패: eventId={}", event.eventId(), e);
+        } catch (Exception e) {
+            meterRegistry.counter(PUBLISH_METRIC, "event_type", eventType, "status", "failure").increment();
+            log.warn("[MissionProgressRedisPublisher] Redis publish 실패: eventId={}, eventType={}",
+                    event.eventId(), eventType, e);
         }
     }
 }
