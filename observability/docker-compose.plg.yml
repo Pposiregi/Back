@@ -29,18 +29,24 @@ services:
     ports:
       - "3100:3100"
 
-  promtail:
-    image: grafana/promtail:2.9.8
-    container_name: fitpet-promtail
+  alloy:
+    image: grafana/alloy:v1.12.1
+    container_name: fitpet-alloy
     restart: unless-stopped
-    command: -config.file=/etc/promtail/promtail-config.yml
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - --config.format=promtail
+      - /etc/alloy/config.promtail.yml
     depends_on:
       - loki
     volumes:
-      - ./promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - ./alloy/config.promtail.yml:/etc/alloy/config.promtail.yml:ro
       - ../logs:/var/log/fitpet:ro
-      - /var/log:/host/var/log:ro
-      - promtail-data:/var/lib/promtail
+      - alloy-data:/var/lib/alloy/data
+    ports:
+      - "12345:12345"
 
   grafana:
     image: grafana/grafana:11.1.0
@@ -68,4 +74,4 @@ volumes:
   prometheus-data:
   loki-data:
   grafana-data:
-  promtail-data:
+  alloy-data:
