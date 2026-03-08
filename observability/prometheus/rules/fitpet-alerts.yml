@@ -1,0 +1,59 @@
+groups:
+  - name: fitpet-platform
+    interval: 30s
+    rules:
+      - alert: FitPetTargetDown
+        expr: up{job="fitpet-app"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: fitpet
+        annotations:
+          summary: "FitPet scrape target down"
+          description: "Prometheus cannot scrape {{ $labels.job }} ({{ $labels.instance }}) for more than 2 minutes."
+
+      - alert: FitPetHigh5xxErrorRate
+        expr: |
+          (
+            sum(rate(http_server_requests_seconds_count{job="fitpet-app",status=~"5.."}[5m]))
+            /
+            clamp_min(sum(rate(http_server_requests_seconds_count{job="fitpet-app"}[5m])), 1)
+          ) > 0.03
+        for: 5m
+        labels:
+          severity: warning
+          service: fitpet
+        annotations:
+          summary: "High 5xx error rate"
+          description: "5xx error ratio is above 3% for 5 minutes."
+
+      - alert: FitPetHighHttpP95Latency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (
+              rate(http_server_requests_seconds_bucket{job="fitpet-app",uri!~"/actuator.*"}[5m])
+            )
+          ) > 1.5
+        for: 10m
+        labels:
+          severity: warning
+          service: fitpet
+        annotations:
+          summary: "HTTP p95 latency is high"
+          description: "HTTP p95 latency is over 1.5s for 10 minutes."
+
+      - alert: FitPetMissionDeliverySuccessRateLow
+        expr: |
+          (
+            sum(rate(mission_progress_delivery_total{job="fitpet-app",status="success"}[5m]))
+            /
+            clamp_min(sum(rate(mission_progress_delivery_total{job="fitpet-app",status="attempt"}[5m])), 1)
+          ) < 0.95
+        for: 5m
+        labels:
+          severity: warning
+          service: fitpet
+        annotations:
+          summary: "Mission delivery success rate dropped"
+          description: "Mission delivery success rate is below 95% for 5 minutes."
