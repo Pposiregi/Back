@@ -1,5 +1,6 @@
 package com.fitpet.server.mission.infra.redis;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fitpet.server.mission.application.dto.MissionProgressEvent;
 import com.fitpet.server.mission.application.service.MissionProgressStreamService;
@@ -26,13 +27,22 @@ public class MissionProgressRedisSubscriber implements MessageListener {
     public void onMessage(Message message, byte[] pattern) {
         String payload = new String(message.getBody(), StandardCharsets.UTF_8);
         meterRegistry.counter(CONSUME_METRIC, "status", "received").increment();
+
+        MissionProgressEvent event;
         try {
-            MissionProgressEvent event = objectMapper.readValue(payload, MissionProgressEvent.class);
+            event = objectMapper.readValue(payload, MissionProgressEvent.class);
+        } catch (JsonProcessingException e) {
+            meterRegistry.counter(CONSUME_METRIC, "status", "decode_failure").increment();
+            log.warn("[MissionProgressRedisSubscriber] 이벤트 역직렬화 실패: payloadSize={}", payload.length(), e);
+            return;
+        }
+
+        try {
             missionProgressStreamService.emitMissionProgress(event);
             meterRegistry.counter(CONSUME_METRIC, "status", "processed").increment();
         } catch (Exception e) {
-            meterRegistry.counter(CONSUME_METRIC, "status", "decode_failure").increment();
-            log.warn("[MissionProgressRedisSubscriber] 이벤트 역직렬화 실패: payload={}", payload, e);
+            meterRegistry.counter(CONSUME_METRIC, "status", "emit_failure").increment();
+            log.warn("[MissionProgressRedisSubscriber] 이벤트 전달 실패: eventId={}", event.eventId(), e);
         }
     }
 }
