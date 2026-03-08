@@ -45,10 +45,12 @@ groups:
 
       - alert: FitPetMissionDeliverySuccessRateLow
         expr: |
+          sum(rate(mission_progress_delivery_total{job="fitpet-app",status="attempt"}[5m])) > 0
+          and
           (
             sum(rate(mission_progress_delivery_total{job="fitpet-app",status="success"}[5m]))
             /
-            clamp_min(sum(rate(mission_progress_delivery_total{job="fitpet-app",status="attempt"}[5m])), 1)
+            sum(rate(mission_progress_delivery_total{job="fitpet-app",status="attempt"}[5m]))
           ) < 0.95
         for: 5m
         labels:
