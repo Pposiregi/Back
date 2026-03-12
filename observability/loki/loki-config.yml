@@ -59,4 +59,3 @@ ruler:
     local:
       directory: /loki/rules
   rule_path: /loki/rules-temp
-  alertmanager_url: http://localhost:9093
