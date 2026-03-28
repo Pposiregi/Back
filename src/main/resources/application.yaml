@@ -67,8 +67,10 @@ oauth:
     user-info-uri: ${spring.security.oauth2.client.provider.kakao.user-info-uri}
 
 logging:
+  file:
+    path: ${LOG_PATH:logs}
   level:
-    org.springframework.security: DEBUG
+    org.springframework.security: INFO
 
 cloud:
   aws:
@@ -92,3 +94,24 @@ fcm:
 springdoc:
   swagger-ui:
     disable-swagger-default-url: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  metrics:
+    tags:
+      application: fitpet
+      env: ${spring.profiles.active:local}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        mission.progress.delivery.latency: true

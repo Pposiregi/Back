@@ -3,6 +3,8 @@ package com.fitpet.server.shared.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fitpet.server.mission.infra.redis.MissionProgressRedisChannels;
+import com.fitpet.server.mission.infra.redis.MissionProgressRedisSubscriber;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
@@ -21,6 +23,8 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.data.redis.core.script.RedisScript;
+import org.springframework.data.redis.listener.ChannelTopic;
+import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
@@ -82,6 +86,20 @@ public class RedisConfig {
         StringRedisTemplate stringRedisTemplate = new StringRedisTemplate();
         stringRedisTemplate.setConnectionFactory(redisConnectionFactory());
         return stringRedisTemplate;
+    }
+
+    @Bean
+    public RedisMessageListenerContainer redisMessageListenerContainer(
+            RedisConnectionFactory connectionFactory,
+            MissionProgressRedisSubscriber missionProgressRedisSubscriber
+    ) {
+        RedisMessageListenerContainer container = new RedisMessageListenerContainer();
+        container.setConnectionFactory(connectionFactory);
+        container.addMessageListener(
+                missionProgressRedisSubscriber,
+                new ChannelTopic(MissionProgressRedisChannels.MISSION_PROGRESS)
+        );
+        return container;
     }
 
     @Bean
