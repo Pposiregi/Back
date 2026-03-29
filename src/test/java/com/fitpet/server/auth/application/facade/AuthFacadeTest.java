@@ -11,6 +11,7 @@ import com.fitpet.server.auth.application.service.AuthService;
 import com.fitpet.server.auth.domain.entity.type.AuthEventType;
 import com.fitpet.server.auth.domain.entity.type.AuthProvider;
 import com.fitpet.server.auth.domain.exception.InvalidLoginException;
+import com.fitpet.server.auth.domain.exception.OAuthInvalidTokenException;
 import com.fitpet.server.auth.presentation.dto.LoginRequest;
 import com.fitpet.server.auth.presentation.dto.TokenResponse;
 import com.fitpet.server.security.jwt.JwtTokenProvider;
@@ -77,5 +78,71 @@ class AuthFacadeTest {
         assertThat(logged.eventType()).isEqualTo(AuthEventType.LOGOUT);
         assertThat(logged.userId()).isEqualTo(1L);
         assertThat(logged.success()).isTrue();
+    }
+
+    @Test
+    void 구글_로그인_성공시_GOOGLE_provider_success_true_로그가_기록된다() {
+        TokenResponse token = TokenResponse.success(RegistrationStatus.COMPLETE, "access", "refresh");
+        when(authService.loginWithGoogle("id-token")).thenReturn(token);
+        when(jwtTokenProvider.getUserId("refresh", true)).thenReturn(2L);
+
+        sut.loginWithGoogle("id-token", "3.3.3.3", "ua");
+
+        ArgumentCaptor<CreateAuthLogCommand> captor = ArgumentCaptor.forClass(CreateAuthLogCommand.class);
+        verify(authLogService).record(captor.capture());
+        CreateAuthLogCommand logged = captor.getValue();
+        assertThat(logged.success()).isTrue();
+        assertThat(logged.userId()).isEqualTo(2L);
+        assertThat(logged.provider()).isEqualTo(AuthProvider.GOOGLE);
+        assertThat(logged.eventType()).isEqualTo(AuthEventType.LOGIN);
+        assertThat(logged.attemptedEmail()).isNull();
+    }
+
+    @Test
+    void 구글_로그인_실패시_GOOGLE_provider_success_false_로그가_기록되고_예외가_전파된다() {
+        when(authService.loginWithGoogle("bad-token")).thenThrow(new OAuthInvalidTokenException());
+
+        assertThatThrownBy(() -> sut.loginWithGoogle("bad-token", "3.3.3.3", "ua"))
+                .isInstanceOf(OAuthInvalidTokenException.class);
+
+        ArgumentCaptor<CreateAuthLogCommand> captor = ArgumentCaptor.forClass(CreateAuthLogCommand.class);
+        verify(authLogService).record(captor.capture());
+        CreateAuthLogCommand logged = captor.getValue();
+        assertThat(logged.success()).isFalse();
+        assertThat(logged.userId()).isNull();
+        assertThat(logged.provider()).isEqualTo(AuthProvider.GOOGLE);
+    }
+
+    @Test
+    void 카카오_로그인_성공시_KAKAO_provider_success_true_로그가_기록된다() {
+        TokenResponse token = TokenResponse.success(RegistrationStatus.INCOMPLETE, "access", "refresh");
+        when(authService.loginWithKakao("kakao-token")).thenReturn(token);
+        when(jwtTokenProvider.getUserId("refresh", true)).thenReturn(3L);
+
+        sut.loginWithKakao("kakao-token", "4.4.4.4", "ua");
+
+        ArgumentCaptor<CreateAuthLogCommand> captor = ArgumentCaptor.forClass(CreateAuthLogCommand.class);
+        verify(authLogService).record(captor.capture());
+        CreateAuthLogCommand logged = captor.getValue();
+        assertThat(logged.success()).isTrue();
+        assertThat(logged.userId()).isEqualTo(3L);
+        assertThat(logged.provider()).isEqualTo(AuthProvider.KAKAO);
+        assertThat(logged.eventType()).isEqualTo(AuthEventType.LOGIN);
+        assertThat(logged.attemptedEmail()).isNull();
+    }
+
+    @Test
+    void 카카오_로그인_실패시_KAKAO_provider_success_false_로그가_기록되고_예외가_전파된다() {
+        when(authService.loginWithKakao("bad-token")).thenThrow(new OAuthInvalidTokenException());
+
+        assertThatThrownBy(() -> sut.loginWithKakao("bad-token", "4.4.4.4", "ua"))
+                .isInstanceOf(OAuthInvalidTokenException.class);
+
+        ArgumentCaptor<CreateAuthLogCommand> captor = ArgumentCaptor.forClass(CreateAuthLogCommand.class);
+        verify(authLogService).record(captor.capture());
+        CreateAuthLogCommand logged = captor.getValue();
+        assertThat(logged.success()).isFalse();
+        assertThat(logged.userId()).isNull();
+        assertThat(logged.provider()).isEqualTo(AuthProvider.KAKAO);
     }
 }
