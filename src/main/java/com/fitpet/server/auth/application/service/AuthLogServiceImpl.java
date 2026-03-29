@@ -21,7 +21,7 @@ public class AuthLogServiceImpl implements AuthLogService {
         try {
             authLogRepository.save(buildLog(cmd));
         } catch (Exception e) {
-            log.error("[AuthLog] 로그 저장 실패 (무시): userId={}, event={}", cmd.userId(), cmd.eventType(), e);
+            log.error("[AuthLog] 로그 저장 실패 : userId={}, event={}", cmd.userId(), cmd.eventType(), e);
         }
     }
 

@@ -21,8 +21,6 @@ public class AuthFacade {
     private final AuthLogService authLogService;
     private final JwtTokenProvider jwtTokenProvider;
 
-    // ─── Public (흐름만) ───────────────────────────────────────
-
     public TokenResponse login(LoginRequest request, String ip, String ua) {
         try {
             TokenResponse result = authService.login(request);
@@ -70,8 +68,6 @@ public class AuthFacade {
     public TokenResponse refresh(String refreshToken) {
         return authService.refresh(refreshToken);
     }
-
-    // ─── Private (상세 구현) ───────────────────────────────────
 
     private void recordLogin(TokenResponse result, String email,
                              AuthProvider provider, String ip, String ua, boolean success) {
