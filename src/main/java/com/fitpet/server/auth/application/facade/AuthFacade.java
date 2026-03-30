@@ -72,9 +72,13 @@ public class AuthFacade {
 
     private void recordLogin(TokenResponse result, String email,
                              AuthProvider provider, String ip, String ua, boolean success) {
-        Long userId = success ? extractUserIdFromResult(result) : null;
-        authLogService.record(new CreateAuthLogCommand(
-                userId, email, AuthEventType.LOGIN, provider, ip, ua, success));
+        try {
+            Long userId = success ? extractUserIdFromResult(result) : null;
+            authLogService.record(new CreateAuthLogCommand(
+                    userId, email, AuthEventType.LOGIN, provider, ip, ua, success));
+        } catch (Exception e) {
+            log.error("[AuthFacade] 로그인 로그 기록 실패 (무시): provider={}, success={}", provider, success, e);
+        }
     }
 
     private void recordLogout(Long userId, String ip, String ua, boolean success) {
