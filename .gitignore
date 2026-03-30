@@ -69,3 +69,4 @@ docs/
 
 .bkit
 
+docker-compose-local.yml

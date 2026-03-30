@@ -1,10 +1,12 @@
 package com.fitpet.server.auth.presentation.controller;
 
-import com.fitpet.server.auth.application.service.AuthService;
+import com.fitpet.server.auth.application.facade.AuthFacade;
 import com.fitpet.server.auth.presentation.dto.LoginRequest;
 import com.fitpet.server.auth.presentation.dto.SocialLoginRequest;
 import com.fitpet.server.auth.presentation.dto.TokenResponse;
 import com.fitpet.server.security.jwt.JwtTokenProvider;
+import com.fitpet.server.shared.util.ClientIpUtils;
+import jakarta.servlet.http.HttpServletRequest;
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -24,7 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class AuthController {
 
-    private final AuthService authService;
+    private final AuthFacade authFacade;
     private final JwtTokenProvider jwtTokenProvider;
 
     private ResponseEntity<TokenResponse> withRefreshCookie(TokenResponse tokens) {
@@ -42,27 +44,35 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<TokenResponse> login(@RequestBody LoginRequest request) {
-        return withRefreshCookie(authService.login(request));
+    public ResponseEntity<TokenResponse> login(
+            @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        String ip = ClientIpUtils.extract(httpRequest);
+        String ua = httpRequest.getHeader(HttpHeaders.USER_AGENT);
+        return withRefreshCookie(authFacade.login(request, ip, ua));
     }
 
-    // Refresh 시 쿠키에서 읽음
+    // Refresh 시 쿠키에서 읽음 (로그 기록 대상 아님)
     @PostMapping("/refresh")
     public ResponseEntity<TokenResponse> refresh(@CookieValue("REFRESH_TOKEN") String refreshToken) {
-        return withRefreshCookie(authService.refresh(refreshToken));
+        return withRefreshCookie(authFacade.refresh(refreshToken));
     }
 
     // Logout 시 서버에서 Redis 삭제 + 쿠키 만료
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(
-        @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authHeader
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authHeader,
+            HttpServletRequest httpRequest
     ) {
         String accessToken = extractBearerToken(authHeader);
         if (accessToken == null) {
             return unauthorized();
         }
 
-        authService.logout(accessToken);
+        String ip = ClientIpUtils.extract(httpRequest);
+        String ua = httpRequest.getHeader(HttpHeaders.USER_AGENT);
+        authFacade.logout(accessToken, ip, ua);
 
         ResponseCookie expire = ResponseCookie.from("REFRESH_TOKEN", "")
             //TODO : 프론트 측 개발 끝난 후 secure true로 변경
@@ -77,13 +87,23 @@ public class AuthController {
     }
 
     @PostMapping("/oauth/google")
-    public ResponseEntity<TokenResponse> google(@RequestBody SocialLoginRequest req) {
-        return withRefreshCookie(authService.loginWithGoogle(req.idToken()));
+    public ResponseEntity<TokenResponse> google(
+            @RequestBody SocialLoginRequest req,
+            HttpServletRequest httpRequest
+    ) {
+        String ip = ClientIpUtils.extract(httpRequest);
+        String ua = httpRequest.getHeader(HttpHeaders.USER_AGENT);
+        return withRefreshCookie(authFacade.loginWithGoogle(req.idToken(), ip, ua));
     }
 
     @PostMapping("/oauth/kakao")
-    public ResponseEntity<TokenResponse> kakao(@RequestBody SocialLoginRequest req) {
-        return withRefreshCookie(authService.loginWithKakao(req.accessToken()));
+    public ResponseEntity<TokenResponse> kakao(
+            @RequestBody SocialLoginRequest req,
+            HttpServletRequest httpRequest
+    ) {
+        String ip = ClientIpUtils.extract(httpRequest);
+        String ua = httpRequest.getHeader(HttpHeaders.USER_AGENT);
+        return withRefreshCookie(authFacade.loginWithKakao(req.accessToken(), ip, ua));
     }
 
     private static ResponseEntity<Void> unauthorized() {
