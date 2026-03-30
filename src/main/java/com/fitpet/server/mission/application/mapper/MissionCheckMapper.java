@@ -13,6 +13,7 @@ public interface MissionCheckMapper {
     @Mapping(target = "missionCheckId", source = "id")
     @Mapping(target = "missionId", source = "mission.id")
     @Mapping(target = "userId", source = "user.id")
+    @Mapping(target = "clearCount", ignore = true)
     MissionCheckResult toDto(MissionCheck missionCheck);
 
     List<MissionCheckResult> toDtos(List<MissionCheck> missionChecks);
