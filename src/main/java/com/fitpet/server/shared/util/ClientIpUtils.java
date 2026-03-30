@@ -7,9 +7,7 @@ public class ClientIpUtils {
     private static final String[] IP_HEADERS = {
             "X-Forwarded-For",
             "Proxy-Client-IP",
-            "WL-Proxy-Client-IP",
-            "HTTP_CLIENT_IP",
-            "HTTP_X_FORWARDED_FOR"
+            "WL-Proxy-Client-IP"
     };
 
     public static String extract(HttpServletRequest request) {
