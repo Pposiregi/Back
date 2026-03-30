@@ -55,8 +55,9 @@ public class AuthFacade {
     }
 
     public void logout(String accessToken, String ip, String ua) {
-        Long userId = extractUserId(accessToken);
+        Long userId = null;
         try {
+            userId = extractUserId(accessToken);
             authService.logout(accessToken);
             recordLogout(userId, ip, ua, true);
         } catch (Exception e) {
