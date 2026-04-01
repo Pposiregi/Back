@@ -9,5 +9,7 @@ public interface UserMissionStatRepository {
 
     Optional<UserMissionStat> findWithLockByUserAndMission(User user, Mission mission);
 
+    boolean insertIfAbsent(User user, Mission mission);
+
     UserMissionStat save(UserMissionStat stat);
 }

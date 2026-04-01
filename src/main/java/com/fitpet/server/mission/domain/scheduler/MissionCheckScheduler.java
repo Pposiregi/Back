@@ -16,6 +16,18 @@ public class MissionCheckScheduler {
     private static final ZoneId ZONE_ID = ZoneId.of("Asia/Seoul");
 
     private final MissionCheckBatchService missionCheckBatchService;
+//      테스트용 코드
+//    @EventListener(ApplicationReadyEvent.class)
+//    public void createMissionChecksOnStartup() {
+//        LocalDate today = LocalDate.now(ZONE_ID);
+//        int dailyCreated = missionCheckBatchService.createDailyMissionChecks(today);
+//        int weeklyCreated = missionCheckBatchService.createWeeklyMissionChecks(today);
+//        int monthlyCreated = missionCheckBatchService.createMonthlyMissionChecks(today);
+//        log.info(
+//                "[MissionCheckScheduler] 서버 시작 배치 완료: date={}, dailyCreated={}, weeklyCreated={}, monthlyCreated={}",
+//                today, dailyCreated, weeklyCreated, monthlyCreated
+//        );
+//    }
 
     @Scheduled(cron = "${mission.scheduler.daily-cron:0 0 0 * * *}", zone = "Asia/Seoul") // 매일
     //@Scheduled(cron = "${mission.scheduler.daily-cron:0 * * * * *}", zone = "Asia/Seoul") // 1분마다
