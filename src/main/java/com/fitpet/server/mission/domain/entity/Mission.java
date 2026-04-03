@@ -87,11 +87,16 @@ public class Mission {
         if (type != null) {
             this.type = type;
         }
+        MissionCategory targetCategory = category != null ? category : this.category;
         if (category != null) {
             this.category = category;
-            this.mealPolicy = category == MissionCategory.MEAL ? mealPolicy : null;
-        } else if (mealPolicy != null) {
-            this.mealPolicy = mealPolicy;
+        }
+        if (targetCategory == MissionCategory.MEAL) {
+            if (mealPolicy != null) {
+                this.mealPolicy = mealPolicy;
+            }
+        } else {
+            this.mealPolicy = null;
         }
         if (goal != null) {
             this.goal = goal;
