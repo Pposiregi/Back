@@ -102,21 +102,7 @@ public class MissionCheckServiceImpl implements MissionCheckService {
         publishMissionProgressEvent(completed, MissionProgressEventType.COMPLETED);
         petExpressionService.updateExpression(userId, PetExpression.HAPPY);
         log.info("[MissionCheckService] 수행 완료 처리: missionCheckId={}, userId={}", missionCheckId, userId);
-        MissionCheckResult result = missionCheckMapper.toDto(completed);
-        return new MissionCheckResult(
-                result.missionCheckId(),
-                result.missionId(),
-                result.userId(),
-                result.completed(),
-                result.progressValue(),
-                result.periodType(),
-                result.periodStart(),
-                result.periodEnd(),
-                result.completedAt(),
-                result.createdAt(),
-                result.updatedAt(),
-                completionResult.clearCount()
-        );
+        return missionCheckMapper.toDto(completed, completionResult.clearCount());
     }
 
     @Override
