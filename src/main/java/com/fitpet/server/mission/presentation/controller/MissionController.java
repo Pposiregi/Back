@@ -171,6 +171,7 @@ public class MissionController {
                 request.description(),
                 request.type(),
                 request.category(),
+                request.mealPolicy(),
                 request.goal()
         );
     }
@@ -182,6 +183,7 @@ public class MissionController {
                 request.description(),
                 request.type(),
                 request.category(),
+                request.mealPolicy(),
                 request.goal()
         );
     }
@@ -198,6 +200,7 @@ public class MissionController {
                 result.description(),
                 result.type(),
                 result.category(),
+                result.mealPolicy(),
                 result.goal(),
                 result.createdAt(),
                 result.updatedAt()
@@ -216,7 +219,8 @@ public class MissionController {
                 result.periodEnd(),
                 result.completedAt(),
                 result.createdAt(),
-                result.updatedAt()
+                result.updatedAt(),
+                result.clearCount()
         );
     }
 

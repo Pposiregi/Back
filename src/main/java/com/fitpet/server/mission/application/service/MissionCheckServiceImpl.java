@@ -4,6 +4,7 @@ import com.fitpet.server.meal.domain.entity.MealTime;
 import com.fitpet.server.meal.domain.repository.MealRepository;
 import com.fitpet.server.mission.application.dto.MissionCheckCommand;
 import com.fitpet.server.mission.application.dto.MissionCheckResult;
+import com.fitpet.server.mission.application.dto.MissionCompletionResult;
 import com.fitpet.server.mission.application.dto.MissionProgressEvent;
 import com.fitpet.server.mission.application.dto.MissionProgressEventType;
 import com.fitpet.server.mission.application.dto.MissionProgressResult;
@@ -12,6 +13,7 @@ import com.fitpet.server.mission.application.mapper.MissionCheckMapper;
 import com.fitpet.server.mission.domain.entity.Mission;
 import com.fitpet.server.mission.domain.entity.MissionCategory;
 import com.fitpet.server.mission.domain.entity.MissionCheck;
+import com.fitpet.server.mission.domain.entity.MealMissionPolicy;
 import com.fitpet.server.mission.domain.entity.MissionType;
 import com.fitpet.server.mission.domain.exception.MissionCheckAccessDeniedException;
 import com.fitpet.server.mission.domain.exception.MissionCheckNotFoundException;
@@ -95,11 +97,12 @@ public class MissionCheckServiceImpl implements MissionCheckService {
 
     @Override
     public MissionCheckResult completeMissionCheck(Long userId, Long missionCheckId) {
-        MissionCheck completed = missionCompletionService.completeMission(userId, missionCheckId);
+        MissionCompletionResult completionResult = missionCompletionService.completeMission(userId, missionCheckId);
+        MissionCheck completed = completionResult.missionCheck();
         publishMissionProgressEvent(completed, MissionProgressEventType.COMPLETED);
         petExpressionService.updateExpression(userId, PetExpression.HAPPY);
         log.info("[MissionCheckService] 수행 완료 처리: missionCheckId={}, userId={}", missionCheckId, userId);
-        return missionCheckMapper.toDto(completed);
+        return missionCheckMapper.toDto(completed, completionResult.clearCount());
     }
 
     @Override
@@ -359,79 +362,21 @@ public class MissionCheckServiceImpl implements MissionCheckService {
             MealTime mealTime,
             boolean firstMealOfTime
     ) {
-        if (mealTime == null || !firstMealOfTime) {
+        MealMissionPolicy mealPolicy = resolveMealMissionPolicy(mission);
+        if (mealPolicy == null) {
             return false;
         }
-        String title = mission.getTitle();
-        switch (mealTime) {
-            case BREAKFAST -> {
-                if (matchesBreakfastTitle(title)) {
-                    return true;
-                }
-            }
-            case LUNCH -> {
-                if (matchesLunchTitle(title)) {
-                    return true;
-                }
-            }
-            case DINNER -> {
-                if (matchesDinnerTitle(title)) {
-                    return true;
-                }
-            }
+        return mealPolicy.matches(mealTime, firstMealOfTime);
+    }
+
+    private static MealMissionPolicy resolveMealMissionPolicy(Mission mission) {
+        if (mission.getCategory() != MissionCategory.MEAL) {
+            return null;
         }
-        if (isThreeMealTitle(title)) {
-            return true;
+        if (mission.getMealPolicy() != null) {
+            return mission.getMealPolicy();
         }
-        return isGenericMealMissionTitle(title);
-    }
-
-    private static boolean isGenericMealMissionTitle(String title) {
-        return title != null
-                && !title.isBlank()
-                && !hasSpecificMealTimingKeyword(title);
-    }
-
-    private static boolean hasSpecificMealTimingKeyword(String title) {
-        return matchesBreakfastTitle(title)
-                || matchesLunchTitle(title)
-                || matchesDinnerTitle(title)
-                || isThreeMealTitle(title);
-    }
-
-    private static boolean matchesBreakfastTitle(String title) {
-        return containsAny(title, "아침", "첫 끼", "첫끼");
-    }
-
-    private static boolean matchesLunchTitle(String title) {
-        return containsAny(title, "점심", "균형");
-    }
-
-    private static boolean matchesDinnerTitle(String title) {
-        return containsAny(title, "저녁", "마무리", "마지막");
-    }
-
-    private static boolean containsAny(String title, String... keywords) {
-        if (title == null || title.isBlank()) {
-            return false;
-        }
-        String lower = title.toLowerCase();
-        for (String keyword : keywords) {
-            if (lower.contains(keyword)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean isThreeMealTitle(String title) {
-        if (title == null) {
-            return false;
-        }
-        return title.contains("세 끼")
-                || title.contains("세끼")
-                || title.contains("3끼")
-                || title.contains("3 끼");
+        return MealMissionPolicy.infer(mission.getTitle());
     }
 
     private MissionProgressResult toProgressResult(MissionCheck check) {

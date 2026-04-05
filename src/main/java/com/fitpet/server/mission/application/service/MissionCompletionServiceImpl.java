@@ -4,6 +4,7 @@ import com.fitpet.server.badge.domain.entity.Badge;
 import com.fitpet.server.badge.domain.entity.BadgeCheck;
 import com.fitpet.server.badge.domain.repository.BadgeCheckRepository;
 import com.fitpet.server.badge.domain.repository.BadgeRepository;
+import com.fitpet.server.mission.application.dto.MissionCompletionResult;
 import com.fitpet.server.mission.domain.entity.Mission;
 import com.fitpet.server.mission.domain.entity.MissionCheck;
 import com.fitpet.server.mission.domain.entity.UserMissionStat;
@@ -33,14 +34,20 @@ public class MissionCompletionServiceImpl implements MissionCompletionService {
 
     @Transactional
     @Override
-    public MissionCheck completeMission(Long userId, Long missionCheckId) {
+    public MissionCompletionResult completeMission(Long userId, Long missionCheckId) {
         MissionCheck missionCheck = missionCheckRepository.findByIdForUpdate(missionCheckId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MISSION_CHECK_NOT_FOUND));
 
         validateOwner(missionCheck, userId);
 
         if (missionCheck.isCompleted()) {
-            return missionCheck;
+            Integer clearCount = userMissionStatRepository.findWithLockByUserAndMission(
+                            missionCheck.getUser(),
+                            missionCheck.getMission()
+                    )
+                    .map(UserMissionStat::getClearCount)
+                    .orElse(null);
+            return new MissionCompletionResult(missionCheck, clearCount);
         }
 
         if (!isGoalReached(missionCheck)) {
@@ -52,7 +59,7 @@ public class MissionCompletionServiceImpl implements MissionCompletionService {
 
         UserMissionStat stat = adjustClearCount(missionCheck);
         awardBadges(missionCheck.getUser(), missionCheck.getMission(), stat.getClearCount());
-        return missionCheck;
+        return new MissionCompletionResult(missionCheck, stat.getClearCount());
     }
 
     private void validateOwner(MissionCheck missionCheck, Long userId) {

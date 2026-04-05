@@ -51,6 +51,10 @@ public class Mission {
     @Column(nullable = false, length = 20)
     private MissionCategory category;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "meal_policy", length = 20)
+    private MealMissionPolicy mealPolicy;
+
     @Column(nullable = false)
     private BigDecimal goal;
 
@@ -68,6 +72,7 @@ public class Mission {
             String description,
             MissionType type,
             MissionCategory category,
+            MealMissionPolicy mealPolicy,
             BigDecimal goal
     ) {
         if (title != null && !title.isBlank()) {
@@ -82,8 +87,16 @@ public class Mission {
         if (type != null) {
             this.type = type;
         }
+        MissionCategory targetCategory = category != null ? category : this.category;
         if (category != null) {
             this.category = category;
+        }
+        if (targetCategory == MissionCategory.MEAL) {
+            if (mealPolicy != null) {
+                this.mealPolicy = mealPolicy;
+            }
+        } else {
+            this.mealPolicy = null;
         }
         if (goal != null) {
             this.goal = goal;

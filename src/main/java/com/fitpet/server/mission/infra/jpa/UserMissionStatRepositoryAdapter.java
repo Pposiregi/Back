@@ -20,6 +20,11 @@ public class UserMissionStatRepositoryAdapter implements UserMissionStatReposito
     }
 
     @Override
+    public boolean insertIfAbsent(User user, Mission mission) {
+        return userMissionStatJpaRepository.insertIfAbsent(user.getId(), mission.getId()) > 0;
+    }
+
+    @Override
     public UserMissionStat save(UserMissionStat stat) {
         return userMissionStatJpaRepository.save(stat);
     }
