@@ -1,6 +1,7 @@
 package com.fitpet.server.user.presentation.controller;
 
 import com.fitpet.server.shared.annotation.AuthUser;
+import com.fitpet.server.user.application.facade.UserFacade;
 import com.fitpet.server.user.application.service.UserService;
 import com.fitpet.server.user.presentation.dto.UserDto;
 import com.fitpet.server.user.presentation.dto.request.UserCreateRequest;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
     private final UserService userService;
+    private final UserFacade userFacade;
 
     @PostMapping
     public ResponseEntity<UserDto> create(@Valid @RequestBody UserCreateRequest userCreateRequest) {
@@ -41,9 +43,9 @@ public class UserController {
 
     @PatchMapping
     public ResponseEntity<UserDto> update(@AuthUser Long userId,
-                                          @Valid @RequestBody UserUpdateRequest userUpdateRequest) {
+            @Valid @RequestBody UserUpdateRequest userUpdateRequest) {
         return ResponseEntity.status(HttpStatus.OK)
-            .body(UserDto.from(userService.updateUser(userId, userUpdateRequest.toCommand())));
+                .body(UserDto.from(userService.updateUser(userId, userUpdateRequest.toCommand())));
     }
 
     @PostMapping("/profile-image")
@@ -53,9 +55,9 @@ public class UserController {
 
     @PatchMapping("/signUp/complete")
     public ResponseEntity<UserDto> updateUserInfo(@AuthUser Long userId,
-                                                  @Valid @RequestBody UserInputInfoRequest userInputInfoRequest) {
+            @Valid @RequestBody UserInputInfoRequest request) {
         return ResponseEntity.status(HttpStatus.OK)
-            .body(UserDto.from(userService.inputInfo(userId, userInputInfoRequest.toCommand())));
+                .body(UserDto.from(userFacade.completeSignUp(userId, request.toCommand(), request.toTermsCommands())));
     }
 
     @DeleteMapping("/profile-image")
