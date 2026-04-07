@@ -3,6 +3,9 @@ package com.fitpet.server.termsmaster.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -55,6 +58,13 @@ class TermsAgreementServiceTest {
         return t;
     }
 
+    private TermsAgreement agreementOf(User user, Terms terms, boolean isAgreed) {
+        return TermsAgreement.builder()
+                .user(user)
+                .terms(terms)
+                .isAgreed(isAgreed)
+                .build();
+    }
 
     @Test
     void saveTermsAgreements_모든_약관에_동의하면_저장된다() {
@@ -64,6 +74,9 @@ class TermsAgreementServiceTest {
 
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(testUser()));
         when(termsRepository.findAllActiveTerms(any())).thenReturn(List.of(service, privacy, marketing));
+        // INSERT 경로: 기존 레코드 없음
+        when(termsAgreementRepository.findByUserIdAndTermsId(eq(USER_ID), anyLong()))
+                .thenReturn(Optional.empty());
 
         sut.saveTermsAgreements(USER_ID, List.of(
                 new TermsAgreementCommand(1L, true),
@@ -84,6 +97,8 @@ class TermsAgreementServiceTest {
 
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(testUser()));
         when(termsRepository.findAllActiveTerms(any())).thenReturn(List.of(service, privacy, marketing));
+        when(termsAgreementRepository.findByUserIdAndTermsId(eq(USER_ID), anyLong()))
+                .thenReturn(Optional.empty());
 
         sut.saveTermsAgreements(USER_ID, List.of(
                 new TermsAgreementCommand(1L, true),
@@ -123,9 +138,105 @@ class TermsAgreementServiceTest {
 
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(testUser()));
         when(termsRepository.findAllActiveTerms(any())).thenReturn(List.of(service));
+        // validateRequiredAgreement 에서 먼저 예외 발생 → findByUserIdAndTermsId 호출 안 됨
 
         assertThatThrownBy(() -> sut.saveTermsAgreements(USER_ID, List.of(
                 new TermsAgreementCommand(1L, false)
+        )))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining(ErrorCode.REQUIRED_TERMS_NOT_AGREED.getMessage());
+    }
+
+    @Test
+    void saveTermsAgreements_이미_동의한_약관에_재요청시_updateAgreed가_호출된다() {
+        // given: MARKETING(선택)은 required=false → isAgreed=false 로 재요청해도 예외 없음
+        User user = testUser();
+        Terms marketing = termsOf(3L, TermsType.MARKETING, "2.0");
+        TermsAgreement existingAgreement = agreementOf(user, marketing, true);
+
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(termsRepository.findAllActiveTerms(any())).thenReturn(List.of(marketing));
+        // UPDATE 경로: 기존 레코드 존재
+        when(termsAgreementRepository.findByUserIdAndTermsId(USER_ID, 3L))
+                .thenReturn(Optional.of(existingAgreement));
+
+        // when: 동의 → 철회
+        sut.saveTermsAgreements(USER_ID, List.of(
+                new TermsAgreementCommand(3L, false)
+        ));
+
+        // then: saveAll 에 기존 객체(UPDATE)가 담겨야 함 — 새 인스턴스(INSERT)가 아님
+        ArgumentCaptor<List<TermsAgreement>> captor = ArgumentCaptor.forClass(List.class);
+        verify(termsAgreementRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).hasSize(1);
+        assertThat(captor.getValue().get(0)).isSameAs(existingAgreement);
+        assertThat(captor.getValue().get(0).isAgreed()).isFalse();
+    }
+
+    @Test
+    void saveTermsAgreements_이미_동의한_약관에_재동의시_isAgreed가_true로_유지된다() {
+        // given
+        User user = testUser();
+        Terms marketing = termsOf(3L, TermsType.MARKETING, "2.0");
+        TermsAgreement existingAgreement = agreementOf(user, marketing, false);
+
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(termsRepository.findAllActiveTerms(any())).thenReturn(List.of(marketing));
+        when(termsAgreementRepository.findByUserIdAndTermsId(USER_ID, 3L))
+                .thenReturn(Optional.of(existingAgreement));
+
+        // when: 기존 false → true 로 변경
+        sut.saveTermsAgreements(USER_ID, List.of(
+                new TermsAgreementCommand(3L, true)
+        ));
+
+        // then: updateAgreed(true) 가 적용된 기존 객체가 saveAll 에 전달됨
+        ArgumentCaptor<List<TermsAgreement>> captor = ArgumentCaptor.forClass(List.class);
+        verify(termsAgreementRepository).saveAll(captor.capture());
+        TermsAgreement saved = captor.getValue().get(0);
+        assertThat(saved).isSameAs(existingAgreement);
+        assertThat(saved.isAgreed()).isTrue();
+    }
+
+    @Test
+    void saveTermsAgreements_기존_레코드_없으면_새로운_TermsAgreement를_생성한다() {
+        // given
+        User user = testUser();
+        Terms marketing = termsOf(3L, TermsType.MARKETING, "2.0");
+
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(termsRepository.findAllActiveTerms(any())).thenReturn(List.of(marketing));
+        // INSERT 경로: 기존 레코드 없음
+        when(termsAgreementRepository.findByUserIdAndTermsId(USER_ID, 3L))
+                .thenReturn(Optional.empty());
+
+        // when
+        sut.saveTermsAgreements(USER_ID, List.of(
+                new TermsAgreementCommand(3L, true)
+        ));
+
+        // then: 새 객체가 saveAll 에 전달됨 (existingAgreement 인스턴스와 다름)
+        ArgumentCaptor<List<TermsAgreement>> captor = ArgumentCaptor.forClass(List.class);
+        verify(termsAgreementRepository).saveAll(captor.capture());
+        List<TermsAgreement> saved = captor.getValue();
+        assertThat(saved).hasSize(1);
+        assertThat(saved.get(0).isAgreed()).isTrue();
+        assertThat(saved.get(0).getTerms()).isEqualTo(marketing);
+        assertThat(saved.get(0).getUser()).isEqualTo(user);
+    }
+
+    @Test
+    void saveTermsAgreements_신규_TermsType_필수_약관_미동의시_BusinessException을_던진다() {
+        Terms privacyCollection = termsOf(4L, TermsType.PRIVACY_COLLECTION, "2.0");
+
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(testUser()));
+        when(termsRepository.findAllActiveTerms(any()))
+                .thenReturn(List.of(privacyCollection));
+        // PRIVACY_COLLECTION 은 required=true → validateRequiredAgreement 에서 바로 예외
+        // findByUserIdAndTermsId 는 호출되지 않으므로 stub 불필요
+
+        assertThatThrownBy(() -> sut.saveTermsAgreements(USER_ID, List.of(
+                new TermsAgreementCommand(4L, false)
         )))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining(ErrorCode.REQUIRED_TERMS_NOT_AGREED.getMessage());
