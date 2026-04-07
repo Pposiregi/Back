@@ -11,7 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface TermsJpaRepository extends JpaRepository<Terms, Long> {
 
-    // 현재 유효한 최신 버전 약관들 조회 (code별 effectiveDate 기준 최신)
+    // 현재 유효한 최신 버전 약관들 조회 
     @Query("SELECT t FROM Terms t " +
             "WHERE t.effectiveDate <= :now " +
             "AND t.effectiveDate = (" +
