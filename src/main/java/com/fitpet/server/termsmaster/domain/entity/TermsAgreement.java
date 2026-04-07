@@ -52,4 +52,8 @@ public class TermsAgreement {
         this.terms = terms;
         this.isAgreed = isAgreed;
     }
+
+    public void updateAgreed(boolean isAgreed) {
+        this.isAgreed = isAgreed;
+    }
 }

@@ -9,7 +9,6 @@ import com.fitpet.server.termsmaster.domain.repository.TermsAgreementRepository;
 import com.fitpet.server.termsmaster.domain.repository.TermsRepository;
 import com.fitpet.server.user.domain.entity.User;
 import com.fitpet.server.user.domain.repository.UserRepository;
-import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -31,25 +30,41 @@ public class TermsAgreementService {
 
         List<Terms> activeTerms = termsRepository.findAllActiveTerms(java.time.LocalDate.now());
 
-        List<TermsAgreement> agreementsToSave = new ArrayList<>();
-
-        for (TermsAgreementCommand command : commands) {
-            Terms terms = activeTerms.stream()
-                    .filter(t -> t.getId().equals(command.termsId()))
-                    .findFirst()
-                    .orElseThrow(() -> new BusinessException(ErrorCode.TERMS_NOT_FOUND));
-
-            if (terms.getCode().isRequired() && !command.isAgreed()) {
-                throw new BusinessException(ErrorCode.REQUIRED_TERMS_NOT_AGREED);
-            }
-
-            agreementsToSave.add(TermsAgreement.builder()
-                    .user(user)
-                    .terms(terms)
-                    .isAgreed(command.isAgreed())
-                    .build());
-        }
+        List<TermsAgreement> agreementsToSave = commands.stream()
+                .map(command -> resolveAgreement(command, user, activeTerms, userId))
+                .toList();
 
         termsAgreementRepository.saveAll(agreementsToSave);
+    }
+
+    private TermsAgreement resolveAgreement(TermsAgreementCommand command, User user,
+                                            List<Terms> activeTerms, Long userId) {
+        Terms terms = findActiveTerms(command.termsId(), activeTerms);
+        validateRequiredAgreement(terms, command.isAgreed());
+
+        return termsAgreementRepository
+                .findByUserIdAndTermsId(userId, terms.getId())
+                .map(existing -> {
+                    existing.updateAgreed(command.isAgreed());
+                    return existing;
+                })
+                .orElse(TermsAgreement.builder()
+                        .user(user)
+                        .terms(terms)
+                        .isAgreed(command.isAgreed())
+                        .build());
+    }
+
+    private Terms findActiveTerms(Long termsId, List<Terms> activeTerms) {
+        return activeTerms.stream()
+                .filter(t -> t.getId().equals(termsId))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(ErrorCode.TERMS_NOT_FOUND));
+    }
+
+    private void validateRequiredAgreement(Terms terms, boolean isAgreed) {
+        if (terms.getCode().isRequired() && !isAgreed) {
+            throw new BusinessException(ErrorCode.REQUIRED_TERMS_NOT_AGREED);
+        }
     }
 }
