@@ -27,7 +27,11 @@ public class TermsRepositoryAdapter implements TermsRepository {
 
     @Override
     public Optional<Terms> findByCodeAndVersion(TermsType code, String version) {
-        //TODO : 메소드 추가
-        return Optional.empty();
+        return jpaRepository.findByCodeAndVersion(code, version);
+    }
+
+    @Override
+    public List<Terms> findAllByVersion(String version) {
+        return jpaRepository.findAllByVersion(version);
     }
 }

@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -26,8 +27,12 @@ public class TermsController {
     private final TermsAgreementService termsAgreementService;
 
     @GetMapping
-    public ResponseEntity<List<TermsResponse>> getTerms() {
-        List<TermsDto> termsDtos = termsService.getActiveTerms();
+    public ResponseEntity<List<TermsResponse>> getTerms(
+            @RequestParam(required = false) String version
+    ) {
+        List<TermsDto> termsDtos = (version != null)
+                ? termsService.getTermsByVersion(version)
+                : termsService.getActiveTerms();
 
         List<TermsResponse> response = termsDtos.stream()
                 .map(TermsResponse::from)
