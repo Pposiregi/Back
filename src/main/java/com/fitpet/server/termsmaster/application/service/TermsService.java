@@ -35,6 +35,10 @@ public class TermsService {
                 .toList());
     }
 
+    public List<TermsDto> getTerms(String version) {
+        return (version != null) ? getTermsByVersion(version) : getActiveTerms();
+    }
+
     public List<TermsDto> getTermsByVersion(String version) {
         List<Terms> terms = termsRepository.findAllByVersion(version);
 

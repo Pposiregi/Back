@@ -1,8 +1,6 @@
 package com.fitpet.server.termsmaster.presentation;
 
 import com.fitpet.server.shared.annotation.AuthUser;
-import com.fitpet.server.termsmaster.application.dto.TermsAgreementCommand;
-import com.fitpet.server.termsmaster.application.dto.TermsDto;
 import com.fitpet.server.termsmaster.application.service.TermsAgreementService;
 import com.fitpet.server.termsmaster.application.service.TermsService;
 import com.fitpet.server.termsmaster.presentation.dto.TermsAgreementRequest;
@@ -10,6 +8,8 @@ import com.fitpet.server.termsmaster.presentation.dto.TermsResponse;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,9 +18,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Slf4j
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/terms")
-@RequiredArgsConstructor
 public class TermsController {
 
     private final TermsService termsService;
@@ -30,39 +31,24 @@ public class TermsController {
     public ResponseEntity<List<TermsResponse>> getTerms(
             @RequestParam(required = false) String version
     ) {
-        List<TermsDto> termsDtos = (version != null)
-                ? termsService.getTermsByVersion(version)
-                : termsService.getActiveTerms();
-
-        List<TermsResponse> response = termsDtos.stream()
-                .map(TermsResponse::from)
-                .toList();
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.status(HttpStatus.OK)
+                .body(termsService.getTerms(version).stream().map(TermsResponse::from).toList());
     }
 
     @PostMapping("/agreements")
-    public ResponseEntity<String> saveAgreements(
+    public ResponseEntity<Void> saveAgreements(
             @AuthUser Long userId,
-            @RequestBody @Valid List<TermsAgreementRequest> requests
+            @Valid @RequestBody List<TermsAgreementRequest> requests
     ) {
-        List<TermsAgreementCommand> commands = requests.stream()
-                .map(TermsAgreementRequest::toCommand)
-                .toList();
+        termsAgreementService.saveTermsAgreements(userId, TermsAgreementRequest.toCommands(requests));
 
-        termsAgreementService.saveTermsAgreements(userId, commands);
-
-        return ResponseEntity.ok("약관 동의 내역이 저장되었습니다.");
+        return ResponseEntity.status(HttpStatus.OK).build();
     }
 
     //TODO : 우선 MDL로 관리 후 추후 관리자만 요청할 수 있게 수정
 //    @PostMapping("/modify")
 //    public ResponseEntity<Void> createTerms(@RequestBody TermsCreateRequest request) {
-//        termsService.createTerms(
-//                request.code(),
-//                request.content(),
-//                request.version()
-//        );
-//        return ResponseEntity.ok().build();
+//        termsService.createTerms(request.code(), request.content(), request.version());
+//        return ResponseEntity.status(HttpStatus.CREATED).build();
 //    }
 }
