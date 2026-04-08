@@ -22,9 +22,8 @@ public class UserFacade {
                                      List<TermsAgreementCommand> termsCommands) {
         UserResult result = userService.inputInfo(userId, infoCommand);
 
-        if (termsCommands != null && !termsCommands.isEmpty()) {
-            termsAgreementService.saveTermsAgreements(userId, termsCommands);
-        }
+        termsAgreementService.saveTermsAgreements(userId,
+                termsCommands != null ? termsCommands : List.of());
 
         return result;
     }
