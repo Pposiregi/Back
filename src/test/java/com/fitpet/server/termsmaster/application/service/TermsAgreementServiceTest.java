@@ -9,6 +9,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import org.springframework.data.annotation.LastModifiedDate;
+
 import com.fitpet.server.shared.exception.BusinessException;
 import com.fitpet.server.shared.exception.ErrorCode;
 import com.fitpet.server.termsmaster.application.dto.TermsAgreementCommand;
@@ -291,5 +293,11 @@ class TermsAgreementServiceTest {
         )))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining(ErrorCode.REQUIRED_TERMS_NOT_AGREED.getMessage());
+    }
+
+    @Test
+    void termsAgreement_엔티티에_updatedAt_필드와_LastModifiedDate_애노테이션이_존재한다() throws Exception {
+        var field = TermsAgreement.class.getDeclaredField("updatedAt");
+        assertThat(field.isAnnotationPresent(LastModifiedDate.class)).isTrue();
     }
 }
