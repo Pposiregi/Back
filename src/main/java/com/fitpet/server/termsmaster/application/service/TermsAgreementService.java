@@ -10,6 +10,7 @@ import com.fitpet.server.termsmaster.domain.repository.TermsRepository;
 import com.fitpet.server.user.domain.entity.User;
 import com.fitpet.server.user.domain.repository.UserRepository;
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -33,6 +34,7 @@ public class TermsAgreementService {
 
         List<Terms> activeTerms = termsRepository.findAllActiveTerms(LocalDate.now());
 
+        validateNoDuplicateTermsId(commands);
         commands.forEach(cmd -> findActiveTerms(cmd.termsId(), activeTerms));
         validateAllRequiredTermsIncluded(commands, activeTerms);
 
@@ -59,6 +61,15 @@ public class TermsAgreementService {
                         .terms(terms)
                         .isAgreed(command.isAgreed())
                         .build());
+    }
+
+    private void validateNoDuplicateTermsId(List<TermsAgreementCommand> commands) {
+        Set<Long> seen = new HashSet<>();
+        commands.stream()
+                .map(TermsAgreementCommand::termsId)
+                .filter(id -> !seen.add(id))
+                .findFirst()
+                .ifPresent(id -> { throw new BusinessException(ErrorCode.INVALID_TERMS_REQUEST); });
     }
 
     private void validateAllRequiredTermsIncluded(List<TermsAgreementCommand> commands,
