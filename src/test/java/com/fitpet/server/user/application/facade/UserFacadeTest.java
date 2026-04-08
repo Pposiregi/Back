@@ -1,0 +1,72 @@
+package com.fitpet.server.user.application.facade;
+
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.fitpet.server.shared.exception.BusinessException;
+import com.fitpet.server.shared.exception.ErrorCode;
+import com.fitpet.server.termsmaster.application.service.TermsAgreementService;
+import com.fitpet.server.user.application.dto.UserInputInfoCommand;
+import com.fitpet.server.user.application.dto.UserResult;
+import com.fitpet.server.user.application.service.UserService;
+import com.fitpet.server.user.domain.entity.Gender;
+import java.util.Collections;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+@ExtendWith(MockitoExtension.class)
+class UserFacadeTest {
+
+    @Mock UserService userService;
+    @Mock TermsAgreementService termsAgreementService;
+
+    @InjectMocks UserFacade sut;
+
+    private static final Long USER_ID = 1L;
+
+    private UserInputInfoCommand dummyInfoCommand() {
+        return new UserInputInfoCommand("닉네임", 25, Gender.male, 70.0, 175.0, 65.0, 20.0, 18.0, 8000);
+    }
+
+    private UserResult dummyUserResult() {
+        return UserResult.builder().userId(USER_ID).build();
+    }
+
+    @Test
+    void completeSignUp_약관_목록이_빈_리스트면_termsAgreementService가_호출된다() {
+        when(userService.inputInfo(eq(USER_ID), any())).thenReturn(dummyUserResult());
+        org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.REQUIRED_TERMS_NOT_AGREED))
+                .when(termsAgreementService).saveTermsAgreements(eq(USER_ID), eq(Collections.emptyList()));
+
+        assertThatThrownBy(() -> sut.completeSignUp(USER_ID, dummyInfoCommand(), Collections.emptyList()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining(ErrorCode.REQUIRED_TERMS_NOT_AGREED.getMessage());
+    }
+
+    @Test
+    void completeSignUp_약관_목록이_null이면_빈_리스트로_처리되어_termsAgreementService가_호출된다() {
+        when(userService.inputInfo(eq(USER_ID), any())).thenReturn(dummyUserResult());
+        org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.REQUIRED_TERMS_NOT_AGREED))
+                .when(termsAgreementService).saveTermsAgreements(eq(USER_ID), eq(Collections.emptyList()));
+
+        assertThatThrownBy(() -> sut.completeSignUp(USER_ID, dummyInfoCommand(), null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining(ErrorCode.REQUIRED_TERMS_NOT_AGREED.getMessage());
+    }
+
+    @Test
+    void completeSignUp_약관_목록이_있으면_saveTermsAgreements가_호출된다() {
+        when(userService.inputInfo(eq(USER_ID), any())).thenReturn(dummyUserResult());
+
+        sut.completeSignUp(USER_ID, dummyInfoCommand(), List.of());
+
+        verify(termsAgreementService).saveTermsAgreements(eq(USER_ID), any());
+    }
+}
