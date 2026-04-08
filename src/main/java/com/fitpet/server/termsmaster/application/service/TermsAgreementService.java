@@ -30,6 +30,9 @@ public class TermsAgreementService {
 
         List<Terms> activeTerms = termsRepository.findAllActiveTerms(java.time.LocalDate.now());
 
+        commands.forEach(cmd -> findActiveTerms(cmd.termsId(), activeTerms));
+        validateAllRequiredTermsIncluded(commands, activeTerms);
+
         List<TermsAgreement> agreementsToSave = commands.stream()
                 .map(command -> resolveAgreement(command, user, activeTerms, userId))
                 .toList();
@@ -53,6 +56,19 @@ public class TermsAgreementService {
                         .terms(terms)
                         .isAgreed(command.isAgreed())
                         .build());
+    }
+
+    private void validateAllRequiredTermsIncluded(List<TermsAgreementCommand> commands,
+                                                  List<Terms> activeTerms) {
+        java.util.Set<Long> submittedIds = commands.stream()
+                .map(TermsAgreementCommand::termsId)
+                .collect(java.util.stream.Collectors.toSet());
+
+        activeTerms.stream()
+                .filter(t -> t.getCode().isRequired())
+                .filter(t -> !submittedIds.contains(t.getId()))
+                .findFirst()
+                .ifPresent(t -> { throw new BusinessException(ErrorCode.REQUIRED_TERMS_NOT_AGREED); });
     }
 
     private Terms findActiveTerms(Long termsId, List<Terms> activeTerms) {
