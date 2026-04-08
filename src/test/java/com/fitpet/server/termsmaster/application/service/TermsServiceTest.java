@@ -6,6 +6,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import org.springframework.data.annotation.CreatedDate;
+
 import com.fitpet.server.shared.exception.BusinessException;
 import com.fitpet.server.shared.exception.ErrorCode;
 import com.fitpet.server.termsmaster.application.dto.TermsDto;
@@ -102,6 +104,12 @@ class TermsServiceTest {
         assertThatThrownBy(() -> sut.getTermsByVersion("9.9"))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining(ErrorCode.TERMS_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    void terms_엔티티에_createdAt_필드와_CreatedDate_애노테이션이_존재한다() throws Exception {
+        var field = Terms.class.getDeclaredField("createdAt");
+        assertThat(field.isAnnotationPresent(CreatedDate.class)).isTrue();
     }
 
     @Test
