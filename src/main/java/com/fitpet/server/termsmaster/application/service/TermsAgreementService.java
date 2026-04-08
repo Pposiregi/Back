@@ -9,7 +9,10 @@ import com.fitpet.server.termsmaster.domain.repository.TermsAgreementRepository;
 import com.fitpet.server.termsmaster.domain.repository.TermsRepository;
 import com.fitpet.server.user.domain.entity.User;
 import com.fitpet.server.user.domain.repository.UserRepository;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,7 +31,7 @@ public class TermsAgreementService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        List<Terms> activeTerms = termsRepository.findAllActiveTerms(java.time.LocalDate.now());
+        List<Terms> activeTerms = termsRepository.findAllActiveTerms(LocalDate.now());
 
         commands.forEach(cmd -> findActiveTerms(cmd.termsId(), activeTerms));
         validateAllRequiredTermsIncluded(commands, activeTerms);
@@ -60,9 +63,9 @@ public class TermsAgreementService {
 
     private void validateAllRequiredTermsIncluded(List<TermsAgreementCommand> commands,
                                                   List<Terms> activeTerms) {
-        java.util.Set<Long> submittedIds = commands.stream()
+        Set<Long> submittedIds = commands.stream()
                 .map(TermsAgreementCommand::termsId)
-                .collect(java.util.stream.Collectors.toSet());
+                .collect(Collectors.toSet());
 
         activeTerms.stream()
                 .filter(t -> t.getCode().isRequired())
