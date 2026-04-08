@@ -262,6 +262,21 @@ class TermsAgreementServiceTest {
     }
 
     @Test
+    void saveTermsAgreements_동일한_termsId가_중복으로_포함되면_BusinessException을_던진다() {
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(testUser()));
+        when(termsRepository.findAllActiveTerms(any())).thenReturn(List.of(
+                termsOf(1L, TermsType.SERVICE_USE, "2.0")
+        ));
+
+        assertThatThrownBy(() -> sut.saveTermsAgreements(USER_ID, List.of(
+                new TermsAgreementCommand(1L, true),
+                new TermsAgreementCommand(1L, false)  // 중복
+        )))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining(ErrorCode.INVALID_TERMS_REQUEST.getMessage());
+    }
+
+    @Test
     void saveTermsAgreements_신규_TermsType_필수_약관_미동의시_BusinessException을_던진다() {
         Terms privacyCollection = termsOf(4L, TermsType.PRIVACY_COLLECTION, "2.0");
 
