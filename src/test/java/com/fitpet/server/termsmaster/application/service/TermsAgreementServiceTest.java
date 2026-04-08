@@ -226,6 +226,42 @@ class TermsAgreementServiceTest {
     }
 
     @Test
+    void saveTermsAgreements_필수_약관이_commands에_누락되면_BusinessException을_던진다() {
+        // given: 필수 약관 2개 활성화
+        Terms service  = termsOf(1L, TermsType.SERVICE_USE,    "2.0");  // required=true
+        Terms privacy  = termsOf(2L, TermsType.PRIVACY_POLICY, "2.0");  // required=true
+
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(testUser()));
+        when(termsRepository.findAllActiveTerms(any())).thenReturn(List.of(service, privacy));
+
+        // when: SERVICE_USE만 보내고 PRIVACY_POLICY 누락
+        assertThatThrownBy(() -> sut.saveTermsAgreements(USER_ID, List.of(
+                new TermsAgreementCommand(1L, true)
+        )))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining(ErrorCode.REQUIRED_TERMS_NOT_AGREED.getMessage());
+    }
+
+    @Test
+    void saveTermsAgreements_선택_약관만_누락되면_정상_저장된다() {
+        // given: 필수 2개 + 선택 1개 활성화
+        Terms service   = termsOf(1L, TermsType.SERVICE_USE,    "2.0");  // required=true
+        Terms privacy   = termsOf(2L, TermsType.PRIVACY_POLICY, "2.0");  // required=true
+        Terms marketing = termsOf(3L, TermsType.MARKETING,      "2.0");  // required=false
+
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(testUser()));
+        when(termsRepository.findAllActiveTerms(any())).thenReturn(List.of(service, privacy, marketing));
+        when(termsAgreementRepository.findByUserIdAndTermsId(eq(USER_ID), anyLong()))
+                .thenReturn(Optional.empty());
+
+        // when: 선택 약관(MARKETING) 누락, 필수만 포함 → 정상 저장
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> sut.saveTermsAgreements(USER_ID, List.of(
+                new TermsAgreementCommand(1L, true),
+                new TermsAgreementCommand(2L, true)
+        )));
+    }
+
+    @Test
     void saveTermsAgreements_신규_TermsType_필수_약관_미동의시_BusinessException을_던진다() {
         Terms privacyCollection = termsOf(4L, TermsType.PRIVACY_COLLECTION, "2.0");
 
