@@ -24,7 +24,11 @@ public class TermsService {
 
     private final TermsRepository termsRepository;
 
-    @Cacheable(cacheNames = "terms", key = "'active'")
+    @Cacheable(cacheNames = "terms", key = "'active'", condition = "#version == null")
+    public List<TermsDto> getTerms(String version) {
+        return (version != null) ? getTermsByVersion(version) : getActiveTerms();
+    }
+
     public List<TermsDto> getActiveTerms() {
         log.info("[TermsService] DB에서 약관을 조회합니다.");
 
@@ -33,10 +37,6 @@ public class TermsService {
         return new ArrayList<>(activeTerms.stream()
                 .map(TermsDto::from)
                 .toList());
-    }
-
-    public List<TermsDto> getTerms(String version) {
-        return (version != null) ? getTermsByVersion(version) : getActiveTerms();
     }
 
     public List<TermsDto> getTermsByVersion(String version) {
