@@ -107,6 +107,18 @@ class TermsServiceTest {
     }
 
     @Test
+    void getTerms_메서드에_Cacheable_애노테이션이_존재한다() throws Exception {
+        var method = TermsService.class.getMethod("getTerms", String.class);
+        assertThat(method.isAnnotationPresent(org.springframework.cache.annotation.Cacheable.class)).isTrue();
+    }
+
+    @Test
+    void getActiveTerms_메서드에_Cacheable_애노테이션이_없다() throws Exception {
+        var method = TermsService.class.getMethod("getActiveTerms");
+        assertThat(method.isAnnotationPresent(org.springframework.cache.annotation.Cacheable.class)).isFalse();
+    }
+
+    @Test
     void terms_엔티티에_createdAt_필드와_CreatedDate_애노테이션이_존재한다() throws Exception {
         var field = Terms.class.getDeclaredField("createdAt");
         assertThat(field.isAnnotationPresent(CreatedDate.class)).isTrue();
