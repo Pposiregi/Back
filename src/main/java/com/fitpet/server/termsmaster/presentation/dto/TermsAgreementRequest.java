@@ -2,6 +2,7 @@ package com.fitpet.server.termsmaster.presentation.dto;
 
 import com.fitpet.server.termsmaster.application.dto.TermsAgreementCommand;
 import jakarta.validation.constraints.NotNull;
+import java.util.Collections;
 import java.util.List;
 
 public record TermsAgreementRequest(
@@ -19,6 +20,7 @@ public record TermsAgreementRequest(
     }
 
     public static List<TermsAgreementCommand> toCommands(List<TermsAgreementRequest> requests) {
+        if (requests == null) return Collections.emptyList();
         return requests.stream().map(TermsAgreementRequest::toCommand).toList();
     }
 }
