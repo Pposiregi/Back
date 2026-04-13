@@ -15,9 +15,11 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -43,6 +45,7 @@ public class TermsAgreementService {
                 .toList();
 
         termsAgreementRepository.saveAll(agreementsToSave);
+        log.info("[TermsAgreementService] 약관 동의 저장 완료. userId={}, count={}", userId, commands.size());
     }
 
     private TermsAgreement resolveAgreement(TermsAgreementCommand command, User user,
