@@ -7,8 +7,6 @@ import com.fitpet.server.termsmaster.domain.entity.Terms;
 import com.fitpet.server.termsmaster.domain.entity.TermsAgreement;
 import com.fitpet.server.termsmaster.domain.repository.TermsAgreementRepository;
 import com.fitpet.server.termsmaster.domain.repository.TermsRepository;
-import com.fitpet.server.user.domain.entity.User;
-import com.fitpet.server.user.domain.repository.UserRepository;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
@@ -28,48 +26,41 @@ public class TermsAgreementService {
 
     private final TermsRepository termsRepository;
     private final TermsAgreementRepository termsAgreementRepository;
-    private final UserRepository userRepository;
 
-    /**
-     * TermsController 진입점: userId로 User를 직접 조회 후 처리
-     */
     public void saveTermsAgreements(Long userId, List<TermsAgreementCommand> commands) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        doSave(user, commands);
+        List<TermsAgreementCommand> safeCommands = commands != null ? commands : List.of();
+        doSave(userId, safeCommands);
     }
 
-    /**
-     * UserFacade 진입점: 이미 조회된 User 객체를 받아 이중 조회 방지
-     */
-    public void saveTermsAgreements(User user, List<TermsAgreementCommand> commands) {
-        doSave(user, commands);
-    }
+    private void doSave(Long userId, List<TermsAgreementCommand> commands) {
+        Map<Long, Terms> activeTermsMap = termsRepository.findAllActiveTerms(LocalDate.now())
+                .stream()
+                .collect(Collectors.toMap(Terms::getId, t -> t));
 
-    private void doSave(User user, List<TermsAgreementCommand> commands) {
-        Long userId = user.getId();
-        List<Terms> activeTerms = termsRepository.findAllActiveTerms(LocalDate.now());
-
-        validateNoDuplicateTermsId(commands);
-        commands.forEach(cmd -> findActiveTerms(cmd.termsId(), activeTerms));
-        validateAllRequiredTermsIncluded(commands, activeTerms);
+        validateCommands(commands, activeTermsMap);
 
         Map<Long, TermsAgreement> existingMap = termsAgreementRepository.findAllByUserId(userId)
                 .stream()
                 .collect(Collectors.toMap(a -> a.getTerms().getId(), a -> a));
 
         List<TermsAgreement> agreementsToSave = commands.stream()
-                .map(command -> resolveAgreement(command, user, activeTerms, existingMap))
+                .map(cmd -> resolveAgreement(cmd, userId, activeTermsMap, existingMap))
                 .toList();
 
         termsAgreementRepository.saveAll(agreementsToSave);
         log.info("[TermsAgreementService] 약관 동의 저장 완료. userId={}, count={}", userId, commands.size());
     }
 
-    private TermsAgreement resolveAgreement(TermsAgreementCommand command, User user,
-                                            List<Terms> activeTerms,
+    private void validateCommands(List<TermsAgreementCommand> commands, Map<Long, Terms> activeTermsMap) {
+        validateNoDuplicateTermsId(commands);
+        commands.forEach(cmd -> findActiveTerms(cmd.termsId(), activeTermsMap));
+        validateAllRequiredTermsIncluded(commands, activeTermsMap);
+    }
+
+    private TermsAgreement resolveAgreement(TermsAgreementCommand command, Long userId,
+                                            Map<Long, Terms> activeTermsMap,
                                             Map<Long, TermsAgreement> existingMap) {
-        Terms terms = findActiveTerms(command.termsId(), activeTerms);
+        Terms terms = findActiveTerms(command.termsId(), activeTermsMap);
         validateRequiredAgreement(terms, command.isAgreed());
 
         TermsAgreement existing = existingMap.get(terms.getId());
@@ -78,7 +69,7 @@ public class TermsAgreementService {
             return existing;
         }
         return TermsAgreement.builder()
-                .user(user)
+                .userId(userId)
                 .terms(terms)
                 .isAgreed(command.isAgreed())
                 .build();
@@ -94,23 +85,24 @@ public class TermsAgreementService {
     }
 
     private void validateAllRequiredTermsIncluded(List<TermsAgreementCommand> commands,
-                                                  List<Terms> activeTerms) {
+                                                  Map<Long, Terms> activeTermsMap) {
         Set<Long> submittedIds = commands.stream()
                 .map(TermsAgreementCommand::termsId)
                 .collect(Collectors.toSet());
 
-        activeTerms.stream()
+        activeTermsMap.values().stream()
                 .filter(t -> t.getCode().isRequired())
                 .filter(t -> !submittedIds.contains(t.getId()))
                 .findFirst()
                 .ifPresent(t -> { throw new BusinessException(ErrorCode.REQUIRED_TERMS_NOT_AGREED); });
     }
 
-    private Terms findActiveTerms(Long termsId, List<Terms> activeTerms) {
-        return activeTerms.stream()
-                .filter(t -> t.getId().equals(termsId))
-                .findFirst()
-                .orElseThrow(() -> new BusinessException(ErrorCode.TERMS_NOT_FOUND));
+    private Terms findActiveTerms(Long termsId, Map<Long, Terms> activeTermsMap) {
+        Terms terms = activeTermsMap.get(termsId);
+        if (terms == null) {
+            throw new BusinessException(ErrorCode.TERMS_NOT_FOUND);
+        }
+        return terms;
     }
 
     private void validateRequiredAgreement(Terms terms, boolean isAgreed) {

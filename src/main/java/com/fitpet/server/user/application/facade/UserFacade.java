@@ -30,7 +30,7 @@ public class UserFacade {
 
         UserResult result = userService.inputInfo(userId, infoCommand);
 
-        termsAgreementService.saveTermsAgreements(user,
+        termsAgreementService.saveTermsAgreements(userId,
                 termsCommands != null ? termsCommands : List.of());
 
         return result;

@@ -3,6 +3,7 @@ package com.fitpet.server.termsmaster.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -16,6 +17,7 @@ import com.fitpet.server.termsmaster.domain.entity.TermsType;
 import com.fitpet.server.termsmaster.domain.repository.TermsRepository;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -107,14 +109,14 @@ class TermsServiceTest {
     }
 
     @Test
-    void getTerms_메서드에_Cacheable_애노테이션이_존재한다() throws Exception {
-        var method = TermsService.class.getMethod("getTerms", String.class);
+    void getActiveTerms_메서드에_Cacheable_애노테이션이_존재한다() throws Exception {
+        var method = TermsService.class.getMethod("getActiveTerms");
         assertThat(method.isAnnotationPresent(org.springframework.cache.annotation.Cacheable.class)).isTrue();
     }
 
     @Test
-    void getActiveTerms_메서드에_Cacheable_애노테이션이_없다() throws Exception {
-        var method = TermsService.class.getMethod("getActiveTerms");
+    void getTerms_메서드에_Cacheable_애노테이션이_없다() throws Exception {
+        var method = TermsService.class.getMethod("getTerms", String.class);
         assertThat(method.isAnnotationPresent(org.springframework.cache.annotation.Cacheable.class)).isFalse();
     }
 
@@ -126,6 +128,7 @@ class TermsServiceTest {
 
     @Test
     void createTerms_호출시_Terms_엔티티가_저장된다() {
+        when(termsRepository.findByCodeAndVersion(TermsType.SERVICE_USE, "3.0")).thenReturn(Optional.empty());
         ArgumentCaptor<Terms> captor = ArgumentCaptor.forClass(Terms.class);
 
         sut.createTerms(TermsType.SERVICE_USE, "서비스 이용약관 v3.0", "3.0");
@@ -136,5 +139,19 @@ class TermsServiceTest {
         assertThat(saved.getVersion()).isEqualTo("3.0");
         assertThat(saved.getContent()).isEqualTo("서비스 이용약관 v3.0");
         assertThat(saved.getEffectiveDate()).isEqualTo(LocalDate.now());
+    }
+
+    @Test
+    void createTerms_동일한_code와_version이_이미_존재하면_BusinessException을_던진다() {
+        Terms existing = Terms.builder()
+                .code(TermsType.SERVICE_USE).content("기존 내용").version("2.0")
+                .effectiveDate(LocalDate.of(2025, 1, 1)).build();
+        when(termsRepository.findByCodeAndVersion(TermsType.SERVICE_USE, "2.0")).thenReturn(Optional.of(existing));
+
+        assertThatThrownBy(() -> sut.createTerms(TermsType.SERVICE_USE, "새 내용", "2.0"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining(ErrorCode.DUPLICATE_TERMS.getMessage());
+
+        verify(termsRepository, never()).save(any());
     }
 }

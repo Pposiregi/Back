@@ -16,10 +16,7 @@ import com.fitpet.server.termsmaster.domain.entity.TermsAgreement;
 import com.fitpet.server.termsmaster.domain.entity.TermsType;
 import com.fitpet.server.termsmaster.domain.repository.TermsAgreementRepository;
 import com.fitpet.server.termsmaster.domain.repository.TermsRepository;
-import com.fitpet.server.user.domain.entity.User;
-import com.fitpet.server.user.domain.repository.UserRepository;
 import java.time.LocalDate;
-import java.util.Optional;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,15 +30,10 @@ class TermsAgreementServiceTest {
 
     @Mock TermsRepository termsRepository;
     @Mock TermsAgreementRepository termsAgreementRepository;
-    @Mock UserRepository userRepository;
 
     @InjectMocks TermsAgreementService sut;
 
     private static final Long USER_ID = 1L;
-
-    private User testUser() {
-        return User.builder().id(USER_ID).email("test@test.com").build();
-    }
 
     private Terms termsOf(Long id, TermsType type, String version) {
         Terms t = Terms.builder()
@@ -57,26 +49,16 @@ class TermsAgreementServiceTest {
         return t;
     }
 
-    private TermsAgreement agreementOf(User user, Terms terms, boolean isAgreed) {
+    private TermsAgreement agreementOf(Long userId, Terms terms, boolean isAgreed) {
         return TermsAgreement.builder()
-                .user(user)
+                .userId(userId)
                 .terms(terms)
                 .isAgreed(isAgreed)
                 .build();
     }
 
     @Test
-    void saveTermsAgreements_Long_userId_진입점에서_존재하지_않는_userId면_BusinessException을_던진다() {
-        when(userRepository.findById(999L)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> sut.saveTermsAgreements(999L, List.of()))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining(ErrorCode.USER_NOT_FOUND.getMessage());
-    }
-
-    @Test
     void saveTermsAgreements_모든_약관에_동의하면_저장된다() {
-        User user = testUser();
         Terms service   = termsOf(1L, TermsType.SERVICE_USE,    "2.0");
         Terms privacy   = termsOf(2L, TermsType.PRIVACY_POLICY, "2.0");
         Terms marketing = termsOf(3L, TermsType.MARKETING,      "2.0");
@@ -84,7 +66,7 @@ class TermsAgreementServiceTest {
         when(termsRepository.findAllActiveTerms(any())).thenReturn(List.of(service, privacy, marketing));
         when(termsAgreementRepository.findAllByUserId(USER_ID)).thenReturn(List.of());
 
-        sut.saveTermsAgreements(user, List.of(
+        sut.saveTermsAgreements(USER_ID, List.of(
                 new TermsAgreementCommand(1L, true),
                 new TermsAgreementCommand(2L, true),
                 new TermsAgreementCommand(3L, true)
@@ -97,7 +79,6 @@ class TermsAgreementServiceTest {
 
     @Test
     void saveTermsAgreements_선택_약관_미동의해도_저장된다() {
-        User user = testUser();
         Terms service   = termsOf(1L, TermsType.SERVICE_USE,    "2.0");
         Terms privacy   = termsOf(2L, TermsType.PRIVACY_POLICY, "2.0");
         Terms marketing = termsOf(3L, TermsType.MARKETING,      "2.0");
@@ -105,7 +86,7 @@ class TermsAgreementServiceTest {
         when(termsRepository.findAllActiveTerms(any())).thenReturn(List.of(service, privacy, marketing));
         when(termsAgreementRepository.findAllByUserId(USER_ID)).thenReturn(List.of());
 
-        sut.saveTermsAgreements(user, List.of(
+        sut.saveTermsAgreements(USER_ID, List.of(
                 new TermsAgreementCommand(1L, true),
                 new TermsAgreementCommand(2L, true),
                 new TermsAgreementCommand(3L, false)  // MARKETING = 선택
@@ -115,12 +96,22 @@ class TermsAgreementServiceTest {
     }
 
     @Test
+    void saveTermsAgreements_null_commands를_전달하면_NPE_없이_처리된다() {
+        when(termsRepository.findAllActiveTerms(any())).thenReturn(List.of());
+        when(termsAgreementRepository.findAllByUserId(USER_ID)).thenReturn(List.of());
+
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(
+                () -> sut.saveTermsAgreements(USER_ID, null)
+        );
+    }
+
+    @Test
     void saveTermsAgreements_최신_버전이_아닌_termsId_요청시_BusinessException을_던진다() {
         Terms latest = termsOf(10L, TermsType.SERVICE_USE, "2.0");
 
         when(termsRepository.findAllActiveTerms(any())).thenReturn(List.of(latest));
 
-        assertThatThrownBy(() -> sut.saveTermsAgreements(testUser(), List.of(
+        assertThatThrownBy(() -> sut.saveTermsAgreements(USER_ID, List.of(
                 new TermsAgreementCommand(99L, true)  // 구버전 id
         )))
                 .isInstanceOf(BusinessException.class)
@@ -133,7 +124,7 @@ class TermsAgreementServiceTest {
 
         when(termsRepository.findAllActiveTerms(any())).thenReturn(List.of(service));
 
-        assertThatThrownBy(() -> sut.saveTermsAgreements(testUser(), List.of(
+        assertThatThrownBy(() -> sut.saveTermsAgreements(USER_ID, List.of(
                 new TermsAgreementCommand(1L, false)
         )))
                 .isInstanceOf(BusinessException.class)
@@ -142,14 +133,13 @@ class TermsAgreementServiceTest {
 
     @Test
     void saveTermsAgreements_이미_동의한_약관에_재요청시_updateAgreed가_호출된다() {
-        User user = testUser();
         Terms marketing = termsOf(3L, TermsType.MARKETING, "2.0");
-        TermsAgreement existingAgreement = agreementOf(user, marketing, true);
+        TermsAgreement existingAgreement = agreementOf(USER_ID, marketing, true);
 
         when(termsRepository.findAllActiveTerms(any())).thenReturn(List.of(marketing));
         when(termsAgreementRepository.findAllByUserId(USER_ID)).thenReturn(List.of(existingAgreement));
 
-        sut.saveTermsAgreements(user, List.of(
+        sut.saveTermsAgreements(USER_ID, List.of(
                 new TermsAgreementCommand(3L, false)
         ));
 
@@ -162,14 +152,13 @@ class TermsAgreementServiceTest {
 
     @Test
     void saveTermsAgreements_이미_동의한_약관에_재동의시_isAgreed가_true로_유지된다() {
-        User user = testUser();
         Terms marketing = termsOf(3L, TermsType.MARKETING, "2.0");
-        TermsAgreement existingAgreement = agreementOf(user, marketing, false);
+        TermsAgreement existingAgreement = agreementOf(USER_ID, marketing, false);
 
         when(termsRepository.findAllActiveTerms(any())).thenReturn(List.of(marketing));
         when(termsAgreementRepository.findAllByUserId(USER_ID)).thenReturn(List.of(existingAgreement));
 
-        sut.saveTermsAgreements(user, List.of(
+        sut.saveTermsAgreements(USER_ID, List.of(
                 new TermsAgreementCommand(3L, true)
         ));
 
@@ -182,13 +171,12 @@ class TermsAgreementServiceTest {
 
     @Test
     void saveTermsAgreements_기존_레코드_없으면_새로운_TermsAgreement를_생성한다() {
-        User user = testUser();
         Terms marketing = termsOf(3L, TermsType.MARKETING, "2.0");
 
         when(termsRepository.findAllActiveTerms(any())).thenReturn(List.of(marketing));
         when(termsAgreementRepository.findAllByUserId(USER_ID)).thenReturn(List.of());
 
-        sut.saveTermsAgreements(user, List.of(
+        sut.saveTermsAgreements(USER_ID, List.of(
                 new TermsAgreementCommand(3L, true)
         ));
 
@@ -198,7 +186,7 @@ class TermsAgreementServiceTest {
         assertThat(saved).hasSize(1);
         assertThat(saved.get(0).isAgreed()).isTrue();
         assertThat(saved.get(0).getTerms()).isEqualTo(marketing);
-        assertThat(saved.get(0).getUser()).isEqualTo(user);
+        assertThat(saved.get(0).getUserId()).isEqualTo(USER_ID);
     }
 
     @Test
@@ -208,7 +196,7 @@ class TermsAgreementServiceTest {
 
         when(termsRepository.findAllActiveTerms(any())).thenReturn(List.of(service, privacy));
 
-        assertThatThrownBy(() -> sut.saveTermsAgreements(testUser(), List.of(
+        assertThatThrownBy(() -> sut.saveTermsAgreements(USER_ID, List.of(
                 new TermsAgreementCommand(1L, true)
         )))
                 .isInstanceOf(BusinessException.class)
@@ -217,7 +205,6 @@ class TermsAgreementServiceTest {
 
     @Test
     void saveTermsAgreements_선택_약관만_누락되면_정상_저장된다() {
-        User user = testUser();
         Terms service   = termsOf(1L, TermsType.SERVICE_USE,    "2.0");
         Terms privacy   = termsOf(2L, TermsType.PRIVACY_POLICY, "2.0");
         Terms marketing = termsOf(3L, TermsType.MARKETING,      "2.0");
@@ -225,7 +212,7 @@ class TermsAgreementServiceTest {
         when(termsRepository.findAllActiveTerms(any())).thenReturn(List.of(service, privacy, marketing));
         when(termsAgreementRepository.findAllByUserId(USER_ID)).thenReturn(List.of());
 
-        org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> sut.saveTermsAgreements(user, List.of(
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> sut.saveTermsAgreements(USER_ID, List.of(
                 new TermsAgreementCommand(1L, true),
                 new TermsAgreementCommand(2L, true)
         )));
@@ -237,7 +224,7 @@ class TermsAgreementServiceTest {
                 termsOf(1L, TermsType.SERVICE_USE, "2.0")
         ));
 
-        assertThatThrownBy(() -> sut.saveTermsAgreements(testUser(), List.of(
+        assertThatThrownBy(() -> sut.saveTermsAgreements(USER_ID, List.of(
                 new TermsAgreementCommand(1L, true),
                 new TermsAgreementCommand(1L, false)
         )))
@@ -251,7 +238,7 @@ class TermsAgreementServiceTest {
 
         when(termsRepository.findAllActiveTerms(any())).thenReturn(List.of(privacyCollection));
 
-        assertThatThrownBy(() -> sut.saveTermsAgreements(testUser(), List.of(
+        assertThatThrownBy(() -> sut.saveTermsAgreements(USER_ID, List.of(
                 new TermsAgreementCommand(4L, false)
         )))
                 .isInstanceOf(BusinessException.class)

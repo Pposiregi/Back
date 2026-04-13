@@ -7,7 +7,6 @@ import com.fitpet.server.termsmaster.domain.entity.Terms;
 import com.fitpet.server.termsmaster.domain.entity.TermsType;
 import com.fitpet.server.termsmaster.domain.repository.TermsRepository;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,19 +23,17 @@ public class TermsService {
 
     private final TermsRepository termsRepository;
 
-    @Cacheable(cacheNames = "terms", key = "'active'", condition = "#version == null")
     public List<TermsDto> getTerms(String version) {
         return (version != null) ? getTermsByVersion(version) : getActiveTerms();
     }
 
+    @Cacheable(cacheNames = "terms", key = "'active'")
     public List<TermsDto> getActiveTerms() {
         log.info("[TermsService] DB에서 약관을 조회합니다.");
 
-        List<Terms> activeTerms = termsRepository.findAllActiveTerms(LocalDate.now());
-
-        return new ArrayList<>(activeTerms.stream()
+        return termsRepository.findAllActiveTerms(LocalDate.now()).stream()
                 .map(TermsDto::from)
-                .toList());
+                .toList();
     }
 
     public List<TermsDto> getTermsByVersion(String version) {
@@ -54,6 +51,8 @@ public class TermsService {
     @Transactional
     @CacheEvict(value = "terms", allEntries = true)
     public void createTerms(TermsType code, String content, String version) {
+        termsRepository.findByCodeAndVersion(code, version)
+                .ifPresent(t -> { throw new BusinessException(ErrorCode.DUPLICATE_TERMS); });
 
         Terms newTerms = Terms.builder()
                 .code(code)

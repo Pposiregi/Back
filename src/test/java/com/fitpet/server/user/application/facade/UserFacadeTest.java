@@ -58,11 +58,10 @@ class UserFacadeTest {
 
     @Test
     void completeSignUp_약관_목록이_빈_리스트면_termsAgreementService가_호출된다() {
-        User user = testUser();
-        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(testUser()));
         when(userService.inputInfo(eq(USER_ID), any())).thenReturn(dummyUserResult());
         org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.REQUIRED_TERMS_NOT_AGREED))
-                .when(termsAgreementService).saveTermsAgreements(eq(user), eq(Collections.emptyList()));
+                .when(termsAgreementService).saveTermsAgreements(eq(USER_ID), eq(Collections.emptyList()));
 
         assertThatThrownBy(() -> sut.completeSignUp(USER_ID, dummyInfoCommand(), Collections.emptyList()))
                 .isInstanceOf(BusinessException.class)
@@ -71,11 +70,10 @@ class UserFacadeTest {
 
     @Test
     void completeSignUp_약관_목록이_null이면_빈_리스트로_처리되어_termsAgreementService가_호출된다() {
-        User user = testUser();
-        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(testUser()));
         when(userService.inputInfo(eq(USER_ID), any())).thenReturn(dummyUserResult());
         org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.REQUIRED_TERMS_NOT_AGREED))
-                .when(termsAgreementService).saveTermsAgreements(eq(user), eq(Collections.emptyList()));
+                .when(termsAgreementService).saveTermsAgreements(eq(USER_ID), eq(Collections.emptyList()));
 
         assertThatThrownBy(() -> sut.completeSignUp(USER_ID, dummyInfoCommand(), null))
                 .isInstanceOf(BusinessException.class)
@@ -84,12 +82,11 @@ class UserFacadeTest {
 
     @Test
     void completeSignUp_약관_목록이_있으면_saveTermsAgreements가_호출된다() {
-        User user = testUser();
-        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(testUser()));
         when(userService.inputInfo(eq(USER_ID), any())).thenReturn(dummyUserResult());
 
         sut.completeSignUp(USER_ID, dummyInfoCommand(), List.of());
 
-        verify(termsAgreementService).saveTermsAgreements(eq(user), any());
+        verify(termsAgreementService).saveTermsAgreements(eq(USER_ID), any());
     }
 }
