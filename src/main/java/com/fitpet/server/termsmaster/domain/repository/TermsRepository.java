@@ -12,4 +12,6 @@ public interface TermsRepository {
     List<Terms> findAllActiveTerms(LocalDate date);
 
     Optional<Terms> findByCodeAndVersion(TermsType code, String version);
+
+    List<Terms> findAllByVersion(String version);
 }

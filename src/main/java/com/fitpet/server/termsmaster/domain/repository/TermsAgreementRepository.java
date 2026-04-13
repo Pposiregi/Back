@@ -7,4 +7,6 @@ public interface TermsAgreementRepository {
     TermsAgreement save(TermsAgreement termsAgreement);
 
     void saveAll(List<TermsAgreement> termsAgreements);
+
+    List<TermsAgreement> findAllByUserId(Long userId);
 }

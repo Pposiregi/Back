@@ -54,7 +54,9 @@ public enum ErrorCode {
     OAUTH_PROFILE_NOT_FOUND(HttpStatus.BAD_GATEWAY, "A006", "소셜 사용자 정보를 확인할 수 없습니다."),
 
     TERMS_NOT_FOUND(HttpStatus.NOT_FOUND, "T001", "해당 약관을 찾을 수 없습니다."),
-    REQUIRED_TERMS_NOT_AGREED(HttpStatus.BAD_REQUEST, "T002", "필수 약관에 동의해야 합니다.");
+    REQUIRED_TERMS_NOT_AGREED(HttpStatus.BAD_REQUEST, "T002", "필수 약관에 동의해야 합니다."),
+    INVALID_TERMS_REQUEST(HttpStatus.BAD_REQUEST, "T003", "약관 요청에 중복된 항목이 있습니다."),
+    DUPLICATE_TERMS(HttpStatus.CONFLICT, "T004", "이미 존재하는 버전의 약관입니다.");
 
 
     private final HttpStatus status;
