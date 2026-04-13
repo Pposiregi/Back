@@ -8,7 +8,6 @@ import com.fitpet.server.termsmaster.domain.entity.TermsAgreement;
 import com.fitpet.server.termsmaster.domain.repository.TermsAgreementRepository;
 import com.fitpet.server.termsmaster.domain.repository.TermsRepository;
 import com.fitpet.server.user.domain.entity.User;
-import com.fitpet.server.user.domain.repository.UserRepository;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
@@ -28,13 +27,9 @@ public class TermsAgreementService {
 
     private final TermsRepository termsRepository;
     private final TermsAgreementRepository termsAgreementRepository;
-    private final UserRepository userRepository;
 
-    public void saveTermsAgreements(Long userId, List<TermsAgreementCommand> commands) {
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
+    public void saveTermsAgreements(User user, List<TermsAgreementCommand> commands) {
+        Long userId = user.getId();
         List<Terms> activeTerms = termsRepository.findAllActiveTerms(LocalDate.now());
 
         validateNoDuplicateTermsId(commands);
