@@ -4,12 +4,16 @@ import com.fitpet.server.meal.domain.entity.MealTime;
 import com.fitpet.server.meal.domain.repository.MealRepository;
 import com.fitpet.server.mission.application.dto.MissionCheckCommand;
 import com.fitpet.server.mission.application.dto.MissionCheckResult;
+import com.fitpet.server.mission.application.dto.MissionCompletionResult;
+import com.fitpet.server.mission.application.dto.MissionProgressEvent;
+import com.fitpet.server.mission.application.dto.MissionProgressEventType;
 import com.fitpet.server.mission.application.dto.MissionProgressResult;
 import com.fitpet.server.mission.application.dto.MissionProgressUpdateItem;
 import com.fitpet.server.mission.application.mapper.MissionCheckMapper;
 import com.fitpet.server.mission.domain.entity.Mission;
 import com.fitpet.server.mission.domain.entity.MissionCategory;
 import com.fitpet.server.mission.domain.entity.MissionCheck;
+import com.fitpet.server.mission.domain.entity.MealMissionPolicy;
 import com.fitpet.server.mission.domain.entity.MissionType;
 import com.fitpet.server.mission.domain.exception.MissionCheckAccessDeniedException;
 import com.fitpet.server.mission.domain.exception.MissionCheckNotFoundException;
@@ -28,6 +32,7 @@ import java.time.LocalTime;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -46,6 +51,7 @@ public class MissionCheckServiceImpl implements MissionCheckService {
     private final UserRepository userRepository;
     private final PetExpressionService petExpressionService;
     private final MissionCompletionService missionCompletionService;
+    private final MissionProgressEventPublisher missionProgressEventPublisher;
 
     @Override
     public MissionCheckResult upsertMissionCheck(Long missionId, Long userId, MissionCheckCommand request) {
@@ -58,6 +64,9 @@ public class MissionCheckServiceImpl implements MissionCheckService {
 
         UpdateResult result = upsertMissionCheck(mission, user, period, request.progressValue());
         MissionCheck saved = missionCheckRepository.save(result.missionCheck());
+        if (result.changed()) {
+            publishMissionProgressEvent(saved, MissionProgressEventType.UPSERT);
+        }
 
         log.info("[MissionCheckService] 수행 여부 저장: missionCheckId={}, missionId={}, userId={}",
                 saved.getId(), missionId, userId);
@@ -88,10 +97,12 @@ public class MissionCheckServiceImpl implements MissionCheckService {
 
     @Override
     public MissionCheckResult completeMissionCheck(Long userId, Long missionCheckId) {
-        MissionCheck completed = missionCompletionService.completeMission(userId, missionCheckId);
+        MissionCompletionResult completionResult = missionCompletionService.completeMission(userId, missionCheckId);
+        MissionCheck completed = completionResult.missionCheck();
+        publishMissionProgressEvent(completed, MissionProgressEventType.COMPLETED);
         petExpressionService.updateExpression(userId, PetExpression.HAPPY);
         log.info("[MissionCheckService] 수행 완료 처리: missionCheckId={}, userId={}", missionCheckId, userId);
-        return missionCheckMapper.toDto(completed);
+        return missionCheckMapper.toDto(completed, completionResult.clearCount());
     }
 
     @Override
@@ -226,8 +237,11 @@ public class MissionCheckServiceImpl implements MissionCheckService {
 
         if (existing.isPresent()) {
             MissionCheck current = existing.get();
+            BigDecimal beforeProgress = current.getProgressValue();
+            boolean beforeCompleted = current.isCompleted();
             applyProgressIfActive(current, progressValue);
-            return new UpdateResult(current, List.of());
+            boolean changed = hasMissionStateChanged(beforeProgress, beforeCompleted, current);
+            return new UpdateResult(current, List.of(), changed);
         }
 
         BigDecimal progress = defaultProgress(progressValue);
@@ -242,7 +256,7 @@ public class MissionCheckServiceImpl implements MissionCheckService {
                 .completedAt(null)
                 .build();
 
-        return new UpdateResult(created, List.of());
+        return new UpdateResult(created, List.of(), true);
     }
 
     private void applyProgressIfActive(MissionCheck current, BigDecimal delta) {
@@ -264,10 +278,11 @@ public class MissionCheckServiceImpl implements MissionCheckService {
             BigDecimal newProgress = current.add(delta);
             check.updateProgress(newProgress, false, null);
             missionCheckRepository.save(check);
+            publishMissionProgressEvent(check, MissionProgressEventType.STEP_PROGRESS);
             updated.add(toUpdateItem(check));
         }
 
-        return new UpdateResult(null, updated);
+        return new UpdateResult(null, updated, !updated.isEmpty());
     }
 
     private UpdateResult applyMealProgress(
@@ -289,10 +304,49 @@ public class MissionCheckServiceImpl implements MissionCheckService {
             BigDecimal newProgress = current.add(BigDecimal.ONE);
             check.updateProgress(newProgress, false, null);
             missionCheckRepository.save(check);
+            publishMissionProgressEvent(check, MissionProgressEventType.MEAL_PROGRESS);
             updated.add(toUpdateItem(check));
         }
 
-        return new UpdateResult(null, updated);
+        return new UpdateResult(null, updated, !updated.isEmpty());
+    }
+
+    private void publishMissionProgressEvent(MissionCheck check, MissionProgressEventType eventType) {
+        Mission mission = check.getMission();
+        MissionProgressEvent event = new MissionProgressEvent(
+                UUID.randomUUID().toString(),
+                eventType,
+                check.getUser().getId(),
+                check.getId(),
+                mission.getId(),
+                mission.getCategory(),
+                check.getPeriodType(),
+                mission.getGoal(),
+                check.getProgressValue(),
+                check.isCompleted(),
+                check.getCompletedAt(),
+                LocalDateTime.now()
+        );
+        missionProgressEventPublisher.publishAfterCommit(event);
+    }
+
+    private static boolean hasMissionStateChanged(
+            BigDecimal beforeProgress,
+            boolean beforeCompleted,
+            MissionCheck current
+    ) {
+        boolean progressChanged = !isEqualProgress(beforeProgress, current.getProgressValue());
+        return progressChanged || beforeCompleted != current.isCompleted();
+    }
+
+    private static boolean isEqualProgress(BigDecimal left, BigDecimal right) {
+        if (left == null && right == null) {
+            return true;
+        }
+        if (left == null || right == null) {
+            return false;
+        }
+        return left.compareTo(right) == 0;
     }
 
     private List<MissionCheck> findActiveChecks(Long userId, MissionCategory category, LocalDate date) {
@@ -308,63 +362,21 @@ public class MissionCheckServiceImpl implements MissionCheckService {
             MealTime mealTime,
             boolean firstMealOfTime
     ) {
-        if (mealTime == null || !firstMealOfTime) {
+        MealMissionPolicy mealPolicy = resolveMealMissionPolicy(mission);
+        if (mealPolicy == null) {
             return false;
         }
-        String title = mission.getTitle();
-        switch (mealTime) {
-            case BREAKFAST -> {
-                if (matchesBreakfastTitle(title)) {
-                    return true;
-                }
-            }
-            case LUNCH -> {
-                if (matchesLunchTitle(title)) {
-                    return true;
-                }
-            }
-            case DINNER -> {
-                if (matchesDinnerTitle(title)) {
-                    return true;
-                }
-            }
+        return mealPolicy.matches(mealTime, firstMealOfTime);
+    }
+
+    private static MealMissionPolicy resolveMealMissionPolicy(Mission mission) {
+        if (mission.getCategory() != MissionCategory.MEAL) {
+            return null;
         }
-        return isThreeMealTitle(title);
-    }
-
-    private static boolean matchesBreakfastTitle(String title) {
-        return containsAny(title, "아침", "첫 끼", "첫끼");
-    }
-
-    private static boolean matchesLunchTitle(String title) {
-        return containsAny(title, "점심", "균형");
-    }
-
-    private static boolean matchesDinnerTitle(String title) {
-        return containsAny(title, "저녁", "마무리", "마지막");
-    }
-
-    private static boolean containsAny(String title, String... keywords) {
-        if (title == null || title.isBlank()) {
-            return false;
+        if (mission.getMealPolicy() != null) {
+            return mission.getMealPolicy();
         }
-        String lower = title.toLowerCase();
-        for (String keyword : keywords) {
-            if (lower.contains(keyword)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean isThreeMealTitle(String title) {
-        if (title == null) {
-            return false;
-        }
-        return title.contains("세 끼")
-                || title.contains("세끼")
-                || title.contains("3끼")
-                || title.contains("3 끼");
+        return MealMissionPolicy.infer(mission.getTitle());
     }
 
     private MissionProgressResult toProgressResult(MissionCheck check) {
@@ -405,7 +417,8 @@ public class MissionCheckServiceImpl implements MissionCheckService {
 
     private record UpdateResult(
             MissionCheck missionCheck,
-            List<MissionProgressUpdateItem> updatedItems
+            List<MissionProgressUpdateItem> updatedItems,
+            boolean changed
     ) {
     }
 

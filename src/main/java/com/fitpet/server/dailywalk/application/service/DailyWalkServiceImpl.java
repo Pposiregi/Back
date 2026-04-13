@@ -17,8 +17,6 @@ import com.fitpet.server.shared.exception.ErrorCode;
 import com.fitpet.server.user.domain.entity.User;
 import com.fitpet.server.user.domain.exception.UserNotFoundException;
 import com.fitpet.server.user.domain.repository.UserRepository;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.PastOrPresent;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -56,7 +54,7 @@ public class DailyWalkServiceImpl implements DailyWalkService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<DailyWalkResult> getAllByUserId(@NotNull Long userId) {
+    public List<DailyWalkResult> getAllByUserId(Long userId) {
         log.debug("[DailyWalkService] 전체 조회 요청: userId={}", userId);
         List<DailyWalk> result = dailyWalkRepository.findAllByUser_Id(userId);
         log.info("[DailyWalkService] 전체 조회 완료: userId={}, count={}", userId, result.size());
@@ -65,8 +63,7 @@ public class DailyWalkServiceImpl implements DailyWalkService {
 
     @Override
     @Transactional(readOnly = true)
-    public DailyWalkResult getDailyWalkByUserIdAndDate(@NotNull Long userId,
-                                                       @NotNull @PastOrPresent LocalDate date) {
+    public DailyWalkResult getDailyWalkByUserIdAndDate(Long userId, LocalDate date) {
         log.debug("[DailyWalkService] 사용자의 해당 날짜 조회 요청 : userId={}, date={} ", userId, date);
 
         if (date.equals(LocalDate.now())) {
@@ -88,7 +85,7 @@ public class DailyWalkServiceImpl implements DailyWalkService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<DailyStepSummaryResult> getWeeklySteps(@NotNull Long userId) {
+    public List<DailyStepSummaryResult> getWeeklySteps(Long userId) {
         LocalDate today = LocalDate.now();
         LocalDate startDate = today.minusDays(6);
         LocalDateTime start = startDate.atStartOfDay();
@@ -124,7 +121,7 @@ public class DailyWalkServiceImpl implements DailyWalkService {
     }
 
     @Override
-    public DailyWalkResult createDailyWalk(@NotNull Long userId, DailyWalkCreateCommand cmd) {
+    public DailyWalkResult createDailyWalk(Long userId, DailyWalkCreateCommand cmd) {
         log.debug("[DailyWalkService] 생성 요청: userId={}, step={}, distanceKm={}, burnCalories={}, date={}",
                 userId, cmd.step(), cmd.distanceKm(), cmd.burnCalories(), cmd.date());
 
@@ -173,7 +170,7 @@ public class DailyWalkServiceImpl implements DailyWalkService {
     }
 
     @Override
-    public void updateDailyWalkStep(@NotNull Long userId, DailyWalkStepUpdateCommand cmd) {
+    public void updateDailyWalkStep(Long userId, DailyWalkStepUpdateCommand cmd) {
         log.debug("[DailyWalkService] 걸음수 수정 요청 userId={}, cmd={}", userId, cmd);
 
         String dateStr = cmd.date().toString();
@@ -205,7 +202,7 @@ public class DailyWalkServiceImpl implements DailyWalkService {
     }
 
     @Override
-    public void deleteDailyWalk(@NotNull Long userId, @NotNull Long dailyWalkId) {
+    public void deleteDailyWalk(Long userId, Long dailyWalkId) {
         log.debug("[DailyWalkService] 삭제 요청: userId={}, dailyWalkId={}", userId, dailyWalkId);
 
         DailyWalk dailyWalk = dailyWalkRepository.findById(dailyWalkId)

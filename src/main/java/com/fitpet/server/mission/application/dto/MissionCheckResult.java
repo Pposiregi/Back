@@ -16,6 +16,7 @@ public record MissionCheckResult(
     LocalDate periodEnd,
     LocalDateTime completedAt,
     LocalDateTime createdAt,
-    LocalDateTime updatedAt
+    LocalDateTime updatedAt,
+    Integer clearCount
 ) {
 }
