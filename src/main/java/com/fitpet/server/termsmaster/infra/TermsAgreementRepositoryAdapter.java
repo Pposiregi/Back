@@ -26,4 +26,9 @@ public class TermsAgreementRepositoryAdapter implements TermsAgreementRepository
     public Optional<TermsAgreement> findByUserIdAndTermsId(Long userId, Long termsId) {
         return jpaRepository.findByUserIdAndTermsId(userId, termsId);
     }
+
+    @Override
+    public List<TermsAgreement> findAllByUserId(Long userId) {
+        return jpaRepository.findAllByUserId(userId);
+    }
 }

@@ -10,4 +10,6 @@ public interface TermsAgreementRepository {
     void saveAll(List<TermsAgreement> termsAgreements);
 
     Optional<TermsAgreement> findByUserIdAndTermsId(Long userId, Long termsId);
+
+    List<TermsAgreement> findAllByUserId(Long userId);
 }
