@@ -17,7 +17,9 @@ import com.fitpet.server.termsmaster.domain.entity.TermsType;
 import com.fitpet.server.termsmaster.domain.repository.TermsAgreementRepository;
 import com.fitpet.server.termsmaster.domain.repository.TermsRepository;
 import com.fitpet.server.user.domain.entity.User;
+import com.fitpet.server.user.domain.repository.UserRepository;
 import java.time.LocalDate;
+import java.util.Optional;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +33,7 @@ class TermsAgreementServiceTest {
 
     @Mock TermsRepository termsRepository;
     @Mock TermsAgreementRepository termsAgreementRepository;
+    @Mock UserRepository userRepository;
 
     @InjectMocks TermsAgreementService sut;
 
@@ -60,6 +63,15 @@ class TermsAgreementServiceTest {
                 .terms(terms)
                 .isAgreed(isAgreed)
                 .build();
+    }
+
+    @Test
+    void saveTermsAgreements_Long_userId_진입점에서_존재하지_않는_userId면_BusinessException을_던진다() {
+        when(userRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sut.saveTermsAgreements(999L, List.of()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining(ErrorCode.USER_NOT_FOUND.getMessage());
     }
 
     @Test

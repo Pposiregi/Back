@@ -8,6 +8,7 @@ import com.fitpet.server.termsmaster.domain.entity.TermsAgreement;
 import com.fitpet.server.termsmaster.domain.repository.TermsAgreementRepository;
 import com.fitpet.server.termsmaster.domain.repository.TermsRepository;
 import com.fitpet.server.user.domain.entity.User;
+import com.fitpet.server.user.domain.repository.UserRepository;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
@@ -27,8 +28,25 @@ public class TermsAgreementService {
 
     private final TermsRepository termsRepository;
     private final TermsAgreementRepository termsAgreementRepository;
+    private final UserRepository userRepository;
 
+    /**
+     * TermsController 진입점: userId로 User를 직접 조회 후 처리
+     */
+    public void saveTermsAgreements(Long userId, List<TermsAgreementCommand> commands) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        doSave(user, commands);
+    }
+
+    /**
+     * UserFacade 진입점: 이미 조회된 User 객체를 받아 이중 조회 방지
+     */
     public void saveTermsAgreements(User user, List<TermsAgreementCommand> commands) {
+        doSave(user, commands);
+    }
+
+    private void doSave(User user, List<TermsAgreementCommand> commands) {
         Long userId = user.getId();
         List<Terms> activeTerms = termsRepository.findAllActiveTerms(LocalDate.now());
 
