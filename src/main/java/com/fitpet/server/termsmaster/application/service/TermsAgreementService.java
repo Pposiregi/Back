@@ -12,6 +12,7 @@ import com.fitpet.server.user.domain.repository.UserRepository;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -40,8 +41,12 @@ public class TermsAgreementService {
         commands.forEach(cmd -> findActiveTerms(cmd.termsId(), activeTerms));
         validateAllRequiredTermsIncluded(commands, activeTerms);
 
+        Map<Long, TermsAgreement> existingMap = termsAgreementRepository.findAllByUserId(userId)
+                .stream()
+                .collect(Collectors.toMap(a -> a.getTerms().getId(), a -> a));
+
         List<TermsAgreement> agreementsToSave = commands.stream()
-                .map(command -> resolveAgreement(command, user, activeTerms, userId))
+                .map(command -> resolveAgreement(command, user, activeTerms, existingMap))
                 .toList();
 
         termsAgreementRepository.saveAll(agreementsToSave);
@@ -49,21 +54,21 @@ public class TermsAgreementService {
     }
 
     private TermsAgreement resolveAgreement(TermsAgreementCommand command, User user,
-                                            List<Terms> activeTerms, Long userId) {
+                                            List<Terms> activeTerms,
+                                            Map<Long, TermsAgreement> existingMap) {
         Terms terms = findActiveTerms(command.termsId(), activeTerms);
         validateRequiredAgreement(terms, command.isAgreed());
 
-        return termsAgreementRepository
-                .findByUserIdAndTermsId(userId, terms.getId())
-                .map(existing -> {
-                    existing.updateAgreed(command.isAgreed());
-                    return existing;
-                })
-                .orElse(TermsAgreement.builder()
-                        .user(user)
-                        .terms(terms)
-                        .isAgreed(command.isAgreed())
-                        .build());
+        TermsAgreement existing = existingMap.get(terms.getId());
+        if (existing != null) {
+            existing.updateAgreed(command.isAgreed());
+            return existing;
+        }
+        return TermsAgreement.builder()
+                .user(user)
+                .terms(terms)
+                .isAgreed(command.isAgreed())
+                .build();
     }
 
     private void validateNoDuplicateTermsId(List<TermsAgreementCommand> commands) {
