@@ -39,6 +39,7 @@ public class UserServiceImpl implements UserService {
     private final StringRedisTemplate redisTemplate;
 
     private static final String USER_IMAGE_KEY = "user:images";
+    private static final String USER_PROFILE_KEY = "user:profiles";
 
     @Override
     @Transactional
@@ -100,6 +101,11 @@ public class UserServiceImpl implements UserService {
             command.targetPbf(),
             command.targetStepCount()
         );
+
+        if (StringUtils.hasText(command.nickname())) {
+            redisTemplate.opsForHash().put(USER_PROFILE_KEY, String.valueOf(userId), command.nickname());
+        }
+
         return userMapper.toResult(user);
     }
 
@@ -166,7 +172,9 @@ public class UserServiceImpl implements UserService {
             command.targetStepCount()
         );
 
-        return userMapper.toResult(userRepository.save(user));
+        User saved = userRepository.save(user);
+        redisTemplate.opsForHash().put(USER_PROFILE_KEY, String.valueOf(userId), saved.getNickname());
+        return userMapper.toResult(saved);
     }
 
     @Override
