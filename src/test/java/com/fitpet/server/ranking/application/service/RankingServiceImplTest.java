@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fitpet.server.dailywalk.domain.repository.DailyWalkRepository;
@@ -125,6 +127,42 @@ class RankingServiceImplTest {
         // then
         assertThat(result.getNickname()).isEqualTo(updatedNickname);
         assertThat(result.getNickname()).doesNotContain("@"); // 이메일 prefix가 아님을 확인
+    }
+
+    @Test
+    @DisplayName("getMyRank — 캐시 미스 시 userRepository.findAllById()를 호출해 DB에서 조회한다 (모니터링 대상)")
+    void getMyRank_캐시_미스_시_DB_조회가_발생한다() {
+        // given
+        User user = User.builder().id(USER_ID).nickname("닉네임").profileImageUrl(null).build();
+
+        when(zSetOperations.reverseRank(eq(RANKING_KEY), eq(String.valueOf(USER_ID)))).thenReturn(0L);
+        when(zSetOperations.score(eq(RANKING_KEY), eq(String.valueOf(USER_ID)))).thenReturn(5000.0);
+        when(hashOperations.multiGet(eq(USER_PROFILE_KEY), anyList())).thenReturn(singleNull());
+        when(hashOperations.multiGet(eq(USER_IMAGE_KEY), anyList())).thenReturn(singleNull());
+        when(userRepository.findAllById(List.of(USER_ID))).thenReturn(List.of(user));
+
+        // when
+        sut.getMyRank(USER_ID, RankingFilter.ALL);
+
+        // then — 캐시 미스이므로 DB 조회가 발생해야 한다
+        verify(userRepository).findAllById(List.of(USER_ID));
+    }
+
+    @Test
+    @DisplayName("getMyRank — 캐시 히트 시 userRepository.findAllById()를 호출하지 않는다")
+    void getMyRank_캐시_히트_시_DB_조회가_발생하지_않는다() {
+        // given
+        when(zSetOperations.reverseRank(eq(RANKING_KEY), eq(String.valueOf(USER_ID)))).thenReturn(0L);
+        when(zSetOperations.score(eq(RANKING_KEY), eq(String.valueOf(USER_ID)))).thenReturn(5000.0);
+        when(hashOperations.multiGet(eq(USER_PROFILE_KEY), anyList())).thenReturn(List.of("캐시닉네임"));
+        when(hashOperations.multiGet(eq(USER_IMAGE_KEY), anyList())).thenReturn(List.of("profile/1.jpg"));
+        when(s3Service.generatePresignedGetUrl(any())).thenReturn("https://s3.example.com/1.jpg");
+
+        // when
+        sut.getMyRank(USER_ID, RankingFilter.ALL);
+
+        // then — 캐시 히트이므로 DB 조회가 발생하지 않아야 한다
+        verify(userRepository, never()).findAllById(anyList());
     }
 
     /** List.of()는 null 원소를 허용하지 않으므로 별도 헬퍼 사용 */
