@@ -16,10 +16,12 @@ import com.fitpet.server.user.domain.exception.DuplicateEmailException;
 import com.fitpet.server.user.domain.exception.DuplicateNicknameException;
 import com.fitpet.server.user.domain.exception.UserNotFoundException;
 import com.fitpet.server.user.domain.repository.UserRepository;
-import java.time.Duration;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -38,10 +40,12 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final S3Service s3Service;
     private final StringRedisTemplate redisTemplate;
+    @Qualifier("hsetWithExpireScript")
+    private final RedisScript<Long> hsetWithExpireScript;
 
     private static final String USER_IMAGE_KEY = "user:images";
     private static final String USER_PROFILE_KEY = "user:profiles";
-    private static final long USER_PROFILE_TTL_SECONDS = 259200L; // 3일
+    private static final String USER_PROFILE_TTL_SECONDS = "259200"; // 3일
 
     @Override
     @Transactional
@@ -105,8 +109,7 @@ public class UserServiceImpl implements UserService {
         );
 
         if (StringUtils.hasText(command.nickname())) {
-            redisTemplate.opsForHash().put(USER_PROFILE_KEY, String.valueOf(userId), command.nickname());
-            redisTemplate.expire(USER_PROFILE_KEY, Duration.ofSeconds(USER_PROFILE_TTL_SECONDS));
+            putUserProfileCache(userId, command.nickname());
         }
 
         return userMapper.toResult(user);
@@ -176,8 +179,7 @@ public class UserServiceImpl implements UserService {
         );
 
         User saved = userRepository.save(user);
-        redisTemplate.opsForHash().put(USER_PROFILE_KEY, String.valueOf(userId), saved.getNickname());
-        redisTemplate.expire(USER_PROFILE_KEY, Duration.ofSeconds(USER_PROFILE_TTL_SECONDS));
+        putUserProfileCache(userId, saved.getNickname());
         return userMapper.toResult(saved);
     }
 
@@ -211,5 +213,15 @@ public class UserServiceImpl implements UserService {
             userRepository.existsByNicknameAndIdNot(command.nickname(), userId)) {
             throw new DuplicateNicknameException();
         }
+    }
+
+    private void putUserProfileCache(Long userId, String nickname) {
+        redisTemplate.execute(
+                hsetWithExpireScript,
+                List.of(USER_PROFILE_KEY),
+                String.valueOf(userId),
+                nickname,
+                USER_PROFILE_TTL_SECONDS
+        );
     }
 }
