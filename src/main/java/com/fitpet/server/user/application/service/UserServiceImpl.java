@@ -16,6 +16,7 @@ import com.fitpet.server.user.domain.exception.DuplicateEmailException;
 import com.fitpet.server.user.domain.exception.DuplicateNicknameException;
 import com.fitpet.server.user.domain.exception.UserNotFoundException;
 import com.fitpet.server.user.domain.repository.UserRepository;
+import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -40,6 +41,7 @@ public class UserServiceImpl implements UserService {
 
     private static final String USER_IMAGE_KEY = "user:images";
     private static final String USER_PROFILE_KEY = "user:profiles";
+    private static final long USER_PROFILE_TTL_SECONDS = 259200L; // 3일
 
     @Override
     @Transactional
@@ -104,6 +106,7 @@ public class UserServiceImpl implements UserService {
 
         if (StringUtils.hasText(command.nickname())) {
             redisTemplate.opsForHash().put(USER_PROFILE_KEY, String.valueOf(userId), command.nickname());
+            redisTemplate.expire(USER_PROFILE_KEY, Duration.ofSeconds(USER_PROFILE_TTL_SECONDS));
         }
 
         return userMapper.toResult(user);
@@ -174,6 +177,7 @@ public class UserServiceImpl implements UserService {
 
         User saved = userRepository.save(user);
         redisTemplate.opsForHash().put(USER_PROFILE_KEY, String.valueOf(userId), saved.getNickname());
+        redisTemplate.expire(USER_PROFILE_KEY, Duration.ofSeconds(USER_PROFILE_TTL_SECONDS));
         return userMapper.toResult(saved);
     }
 
