@@ -13,13 +13,13 @@ import com.fitpet.server.user.application.dto.UserUpdateCommand;
 import com.fitpet.server.user.application.mapper.UserMapper;
 import com.fitpet.server.user.domain.entity.RegistrationStatus;
 import com.fitpet.server.user.domain.entity.User;
-import com.fitpet.server.user.domain.entity.UserProfileImageHistory;
+import com.fitpet.server.user.domain.entity.UserProfileImage;
 import com.fitpet.server.user.domain.exception.DuplicateEmailException;
 import com.fitpet.server.user.domain.exception.DuplicateNicknameException;
 import com.fitpet.server.user.domain.exception.ProfileImageAccessDeniedException;
 import com.fitpet.server.user.domain.exception.ProfileImageNotFoundException;
 import com.fitpet.server.user.domain.exception.UserNotFoundException;
-import com.fitpet.server.user.domain.repository.UserProfileImageHistoryRepository;
+import com.fitpet.server.user.domain.repository.UserProfileImageRepository;
 import com.fitpet.server.user.domain.repository.UserRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -47,7 +47,7 @@ public class UserServiceImpl implements UserService {
     private final StringRedisTemplate redisTemplate;
     @Qualifier("hsetWithExpireScript")
     private final RedisScript<Long> hsetWithExpireScript;
-    private final UserProfileImageHistoryRepository profileImageHistoryRepository;
+    private final UserProfileImageRepository profileImageRepository;
 
     private static final String USER_IMAGE_KEY = "user:images";
     private static final String USER_PROFILE_KEY = "user:profiles";
@@ -120,6 +120,7 @@ public class UserServiceImpl implements UserService {
         }
 
         if (StringUtils.hasText(command.profileImageKey())) {
+            switchCurrentProfileImage(userId, command.profileImageKey());
             user.updateProfileImageUrl(command.profileImageKey());
             redisTemplate.opsForHash().put(USER_IMAGE_KEY, String.valueOf(userId), command.profileImageKey());
         }
@@ -132,14 +133,13 @@ public class UserServiceImpl implements UserService {
     public ProfileImageUpdateResult updateProfileImage(Long userId) {
         User user = findUserById(userId);
 
-        if (StringUtils.hasText(user.getProfileImageUrl())) {
-            evictOldestHistoryIfFull(userId);
-            profileImageHistoryRepository.save(
-                    UserProfileImageHistory.of(userId, user.getProfileImageUrl())
-            );
-        }
+        profileImageRepository.findCurrentByUserId(userId).ifPresent(current -> {
+            evictOldestIfFull(userId);
+            current.deactivate();
+        });
 
         String newImageKey = s3Service.createImageKey(userId, ImageType.PROFILE);
+        profileImageRepository.save(UserProfileImage.createCurrent(userId, newImageKey));
         user.updateProfileImageUrl(newImageKey);
 
         redisTemplate.opsForHash().put(USER_IMAGE_KEY, String.valueOf(userId), newImageKey);
@@ -161,6 +161,7 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public void applyHistoryImage(Long userId, String imageKey) {
         User user = findUserById(userId);
+        switchCurrentProfileImage(userId, imageKey);
         user.updateProfileImageUrl(imageKey);
         redisTemplate.opsForHash().put(USER_IMAGE_KEY, String.valueOf(userId), imageKey);
     }
@@ -168,11 +169,12 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public List<ProfileImageHistoryResult> getProfileImageHistory(Long userId) {
-        return profileImageHistoryRepository.findTop10ByUserIdOrderByCreatedAtDesc(userId)
+        return profileImageRepository.findTop10ByUserIdOrderByCreatedAtDesc(userId)
                 .stream()
-                .map(h -> new ProfileImageHistoryResult(
-                        h.getImageKey(),
-                        s3Service.generatePresignedGetUrl(h.getImageKey())
+                .map(img -> new ProfileImageHistoryResult(
+                        img.getImageKey(),
+                        s3Service.generatePresignedGetUrl(img.getImageKey()),
+                        img.isCurrent()
                 ))
                 .toList();
     }
@@ -182,13 +184,13 @@ public class UserServiceImpl implements UserService {
     public void deleteProfileImage(Long userId) {
         User user = findUserById(userId);
 
-        if (user.getProfileImageUrl() != null && !user.getProfileImageUrl().isBlank()) {
-            String keyToDelete = user.getProfileImageUrl();
-            s3Service.deleteObject(keyToDelete);
-            profileImageHistoryRepository.deleteByUserIdAndImageKey(userId, keyToDelete);
-            user.updateProfileImageUrl(null);
-            redisTemplate.opsForHash().delete(USER_IMAGE_KEY, String.valueOf(userId));
-        }
+        profileImageRepository.findCurrentByUserId(userId).ifPresent(current -> {
+            s3Service.deleteObject(current.getImageKey());
+            profileImageRepository.delete(current);
+        });
+
+        user.updateProfileImageUrl(null);
+        redisTemplate.opsForHash().delete(USER_IMAGE_KEY, String.valueOf(userId));
     }
 
     @Override
@@ -260,11 +262,26 @@ public class UserServiceImpl implements UserService {
         }
     }
 
-    private void evictOldestHistoryIfFull(Long userId) {
-        if (profileImageHistoryRepository.countByUserId(userId) >= MAX_PROFILE_IMAGE_HISTORY) {
-            profileImageHistoryRepository.findOldestByUserId(userId).ifPresent(oldest -> {
+    /**
+     * 지정 imageKey를 is_current=true로 전환하고 기존 current를 deactivate한다.
+     * imageKey 레코드가 없으면 새로 생성한다.
+     */
+    private void switchCurrentProfileImage(Long userId, String imageKey) {
+        profileImageRepository.findCurrentByUserId(userId)
+                .ifPresent(UserProfileImage::deactivate);
+
+        profileImageRepository.findByUserIdAndImageKey(userId, imageKey)
+                .ifPresentOrElse(
+                        UserProfileImage::activate,
+                        () -> profileImageRepository.save(UserProfileImage.createCurrent(userId, imageKey))
+                );
+    }
+
+    private void evictOldestIfFull(Long userId) {
+        if (profileImageRepository.countByUserId(userId) >= MAX_PROFILE_IMAGE_HISTORY) {
+            profileImageRepository.findOldestByUserId(userId).ifPresent(oldest -> {
                 s3Service.deleteObject(oldest.getImageKey());
-                profileImageHistoryRepository.delete(oldest);
+                profileImageRepository.delete(oldest);
             });
         }
     }

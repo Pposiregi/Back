@@ -21,18 +21,18 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @Entity
 @DynamicUpdate
 @EntityListeners(AuditingEntityListener.class)
-@Table(name = "user_profile_image_histories",
-        indexes = @Index(name = "idx_user_profile_image_user_id_created_at",
+@Table(name = "user_profile_images",
+        indexes = @Index(name = "idx_user_profile_images_user_id_created_at",
                 columnList = "user_id, created_at DESC"))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
-public class UserProfileImageHistory {
+public class UserProfileImage {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "history_id")
+    @Column(name = "image_id")
     private Long id;
 
     @Column(name = "user_id", nullable = false)
@@ -41,15 +41,35 @@ public class UserProfileImageHistory {
     @Column(name = "image_key", nullable = false, length = 255)
     private String imageKey;
 
+    @Column(name = "is_current", nullable = false)
+    private boolean current;
+
     @CreatedDate
     @Column(name = "created_at", updatable = false,
             columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP")
     private LocalDateTime createdAt;
 
-    public static UserProfileImageHistory of(Long userId, String imageKey) {
-        return UserProfileImageHistory.builder()
+    public static UserProfileImage createCurrent(Long userId, String imageKey) {
+        return UserProfileImage.builder()
                 .userId(userId)
                 .imageKey(imageKey)
+                .current(true)
                 .build();
+    }
+
+    public static UserProfileImage createHistory(Long userId, String imageKey) {
+        return UserProfileImage.builder()
+                .userId(userId)
+                .imageKey(imageKey)
+                .current(false)
+                .build();
+    }
+
+    public void deactivate() {
+        this.current = false;
+    }
+
+    public void activate() {
+        this.current = true;
     }
 }

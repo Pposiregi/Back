@@ -39,7 +39,7 @@ class UserServiceImplTest {
     @Mock S3Service s3Service;
     @Mock StringRedisTemplate redisTemplate;
     @Mock RedisScript<Long> hsetWithExpireScript;
-    @Mock com.fitpet.server.user.domain.repository.UserProfileImageHistoryRepository profileImageHistoryRepository;
+    @Mock com.fitpet.server.user.domain.repository.UserProfileImageRepository profileImageRepository;
 
     @InjectMocks UserServiceImpl sut;
 
