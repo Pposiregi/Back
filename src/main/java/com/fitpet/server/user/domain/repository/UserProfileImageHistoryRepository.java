@@ -10,4 +10,5 @@ public interface UserProfileImageHistoryRepository {
     long countByUserId(Long userId);
     Optional<UserProfileImageHistory> findOldestByUserId(Long userId);
     void delete(UserProfileImageHistory history);
+    void deleteByUserIdAndImageKey(Long userId, String imageKey);
 }

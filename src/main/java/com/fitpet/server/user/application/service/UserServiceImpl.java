@@ -120,7 +120,8 @@ public class UserServiceImpl implements UserService {
         }
 
         if (StringUtils.hasText(command.profileImageKey())) {
-            applyHistoryImage(userId, command.profileImageKey());
+            user.updateProfileImageUrl(command.profileImageKey());
+            redisTemplate.opsForHash().put(USER_IMAGE_KEY, String.valueOf(userId), command.profileImageKey());
         }
 
         return userMapper.toResult(user);
@@ -149,14 +150,16 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @Transactional
-    public void applyHistoryImage(Long userId, String imageKey) {
+    public void checkHistoryImageAccess(Long userId, String imageKey) {
         validateImageOwnership(userId, imageKey);
-
         if (!s3Service.doesObjectExist(imageKey)) {
             throw new ProfileImageNotFoundException();
         }
+    }
 
+    @Override
+    @Transactional
+    public void applyHistoryImage(Long userId, String imageKey) {
         User user = findUserById(userId);
         user.updateProfileImageUrl(imageKey);
         redisTemplate.opsForHash().put(USER_IMAGE_KEY, String.valueOf(userId), imageKey);
@@ -180,7 +183,9 @@ public class UserServiceImpl implements UserService {
         User user = findUserById(userId);
 
         if (user.getProfileImageUrl() != null && !user.getProfileImageUrl().isBlank()) {
-            s3Service.deleteObject(user.getProfileImageUrl());
+            String keyToDelete = user.getProfileImageUrl();
+            s3Service.deleteObject(keyToDelete);
+            profileImageHistoryRepository.deleteByUserIdAndImageKey(userId, keyToDelete);
             user.updateProfileImageUrl(null);
             redisTemplate.opsForHash().delete(USER_IMAGE_KEY, String.valueOf(userId));
         }

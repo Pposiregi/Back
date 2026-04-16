@@ -11,6 +11,7 @@ import com.fitpet.server.user.presentation.dto.response.ProfileImageHistoryRespo
 import com.fitpet.server.user.presentation.dto.response.ProfileImageUpdateResponse;
 import jakarta.validation.Valid;
 import java.util.List;
+import org.springframework.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -46,6 +47,10 @@ public class UserController {
     @PatchMapping
     public ResponseEntity<UserDto> update(@AuthUser Long userId,
             @Valid @RequestBody UserUpdateRequest userUpdateRequest) {
+        // S3 검증은 트랜잭션 밖에서 먼저 수행
+        if (StringUtils.hasText(userUpdateRequest.profileImageKey())) {
+            userService.checkHistoryImageAccess(userId, userUpdateRequest.profileImageKey());
+        }
         return ResponseEntity.status(HttpStatus.OK)
                 .body(UserDto.from(userService.updateUser(userId, userUpdateRequest.toCommand())));
     }

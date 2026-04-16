@@ -38,4 +38,9 @@ public class UserProfileImageHistoryRepositoryAdapter implements UserProfileImag
     public void delete(UserProfileImageHistory history) {
         jpaRepository.delete(history);
     }
+
+    @Override
+    public void deleteByUserIdAndImageKey(Long userId, String imageKey) {
+        jpaRepository.deleteByUserIdAndImageKey(userId, imageKey);
+    }
 }

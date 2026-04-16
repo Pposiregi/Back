@@ -17,6 +17,10 @@ public interface UserService {
 
     ProfileImageUpdateResult updateProfileImage(Long userId);
 
+    // S3 존재 확인 + 소유권 검증 (트랜잭션 밖에서 호출)
+    void checkHistoryImageAccess(Long userId, String imageKey);
+
+    // DB 업데이트만 담당 (트랜잭션)
     void applyHistoryImage(Long userId, String imageKey);
 
     List<ProfileImageHistoryResult> getProfileImageHistory(Long userId);

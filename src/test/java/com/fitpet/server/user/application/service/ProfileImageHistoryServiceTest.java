@@ -121,17 +121,43 @@ class ProfileImageHistoryServiceTest {
     }
 
     // ──────────────────────────────────────────────
-    // applyHistoryImage()
+    // checkHistoryImageAccess() — S3 검증 (non-TX)
     // ──────────────────────────────────────────────
 
     @Test
-    @DisplayName("applyHistoryImage 호출 시 정상 케이스 — user.profileImageUrl 업데이트")
+    @DisplayName("checkHistoryImageAccess 호출 시 S3에 없는 키이면 ProfileImageNotFoundException 발생")
+    void checkHistoryImageAccess_S3에_없는_키_예외() {
+        // given
+        String imageKey = "user/1/profile/not-exist.jpg";
+        when(s3Service.doesObjectExist(imageKey)).thenReturn(false);
+
+        // when & then
+        assertThatThrownBy(() -> sut.checkHistoryImageAccess(USER_ID, imageKey))
+                .isInstanceOf(ProfileImageNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("checkHistoryImageAccess 호출 시 다른 유저의 이미지 키이면 ProfileImageAccessDeniedException 발생")
+    void checkHistoryImageAccess_타인_이미지_키_예외() {
+        // given
+        String otherUserImageKey = "user/99/profile/other.jpg";
+
+        // when & then
+        assertThatThrownBy(() -> sut.checkHistoryImageAccess(USER_ID, otherUserImageKey))
+                .isInstanceOf(ProfileImageAccessDeniedException.class);
+    }
+
+    // ──────────────────────────────────────────────
+    // applyHistoryImage() — DB 업데이트 (TX)
+    // ──────────────────────────────────────────────
+
+    @Test
+    @DisplayName("applyHistoryImage 호출 시 user.profileImageUrl 업데이트 및 Redis 캐시 갱신")
     void applyHistoryImage_정상_케이스() {
         // given
         String imageKey = "user/1/profile/some-image.jpg";
         User user = User.builder().id(USER_ID).profileImageUrl(EXISTING_IMAGE_KEY).build();
 
-        when(s3Service.doesObjectExist(imageKey)).thenReturn(true);
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
         when(redisTemplate.opsForHash()).thenReturn(hashOperations);
 
@@ -141,29 +167,6 @@ class ProfileImageHistoryServiceTest {
         // then
         assertThat(user.getProfileImageUrl()).isEqualTo(imageKey);
         verify(hashOperations).put("user:images", String.valueOf(USER_ID), imageKey);
-    }
-
-    @Test
-    @DisplayName("applyHistoryImage 호출 시 S3에 없는 키이면 ProfileImageNotFoundException 발생")
-    void applyHistoryImage_S3에_없는_키_예외() {
-        // given
-        String imageKey = "user/1/profile/not-exist.jpg";
-        when(s3Service.doesObjectExist(imageKey)).thenReturn(false);
-
-        // when & then
-        assertThatThrownBy(() -> sut.applyHistoryImage(USER_ID, imageKey))
-                .isInstanceOf(ProfileImageNotFoundException.class);
-    }
-
-    @Test
-    @DisplayName("applyHistoryImage 호출 시 다른 유저의 이미지 키이면 ProfileImageAccessDeniedException 발생")
-    void applyHistoryImage_타인_이미지_키_예외() {
-        // given
-        String otherUserImageKey = "user/99/profile/other.jpg"; // userId=99
-
-        // when & then
-        assertThatThrownBy(() -> sut.applyHistoryImage(USER_ID, otherUserImageKey))
-                .isInstanceOf(ProfileImageAccessDeniedException.class);
     }
 
     // ──────────────────────────────────────────────

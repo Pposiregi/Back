@@ -9,4 +9,5 @@ public interface UserProfileImageHistoryJpaRepository extends JpaRepository<User
     List<UserProfileImageHistory> findTop10ByUserIdOrderByCreatedAtDesc(Long userId);
     long countByUserId(Long userId);
     Optional<UserProfileImageHistory> findFirstByUserIdOrderByCreatedAtAsc(Long userId);
+    void deleteByUserIdAndImageKey(Long userId, String imageKey);
 }
