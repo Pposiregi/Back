@@ -13,6 +13,7 @@ public record UserUpdateCommand(
     Double heightCm,
     Double pbf,
     Double targetPbf,
-    Integer targetStepCount
+    Integer targetStepCount,
+    String profileImageKey
 ) {
 }

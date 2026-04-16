@@ -7,8 +7,10 @@ import com.fitpet.server.user.presentation.dto.UserDto;
 import com.fitpet.server.user.presentation.dto.request.UserCreateRequest;
 import com.fitpet.server.user.presentation.dto.request.UserInputInfoRequest;
 import com.fitpet.server.user.presentation.dto.request.UserUpdateRequest;
+import com.fitpet.server.user.presentation.dto.response.ProfileImageHistoryResponse;
 import com.fitpet.server.user.presentation.dto.response.ProfileImageUpdateResponse;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -58,6 +60,15 @@ public class UserController {
             @Valid @RequestBody UserInputInfoRequest request) {
         return ResponseEntity.status(HttpStatus.OK)
                 .body(UserDto.from(userFacade.completeSignUp(userId, request.toCommand(), request.toTermsCommands())));
+    }
+
+    @GetMapping("/profile-image/history")
+    public ResponseEntity<List<ProfileImageHistoryResponse>> getProfileImageHistory(@AuthUser Long userId) {
+        List<ProfileImageHistoryResponse> history = userService.getProfileImageHistory(userId)
+                .stream()
+                .map(ProfileImageHistoryResponse::from)
+                .toList();
+        return ResponseEntity.ok(history);
     }
 
     @DeleteMapping("/profile-image")
