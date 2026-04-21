@@ -16,9 +16,12 @@ import com.fitpet.server.user.domain.exception.DuplicateEmailException;
 import com.fitpet.server.user.domain.exception.DuplicateNicknameException;
 import com.fitpet.server.user.domain.exception.UserNotFoundException;
 import com.fitpet.server.user.domain.repository.UserRepository;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -37,8 +40,12 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final S3Service s3Service;
     private final StringRedisTemplate redisTemplate;
+    @Qualifier("hsetWithExpireScript")
+    private final RedisScript<Long> hsetWithExpireScript;
 
     private static final String USER_IMAGE_KEY = "user:images";
+    private static final String USER_PROFILE_KEY = "user:profiles";
+    private static final String USER_PROFILE_TTL_SECONDS = "259200"; // 3일
 
     @Override
     @Transactional
@@ -100,6 +107,11 @@ public class UserServiceImpl implements UserService {
             command.targetPbf(),
             command.targetStepCount()
         );
+
+        if (StringUtils.hasText(command.nickname())) {
+            putUserProfileCache(userId, command.nickname());
+        }
+
         return userMapper.toResult(user);
     }
 
@@ -166,7 +178,9 @@ public class UserServiceImpl implements UserService {
             command.targetStepCount()
         );
 
-        return userMapper.toResult(userRepository.save(user));
+        User saved = userRepository.save(user);
+        putUserProfileCache(userId, saved.getNickname());
+        return userMapper.toResult(saved);
     }
 
     @Override
@@ -199,5 +213,15 @@ public class UserServiceImpl implements UserService {
             userRepository.existsByNicknameAndIdNot(command.nickname(), userId)) {
             throw new DuplicateNicknameException();
         }
+    }
+
+    private void putUserProfileCache(Long userId, String nickname) {
+        redisTemplate.execute(
+                hsetWithExpireScript,
+                List.of(USER_PROFILE_KEY),
+                String.valueOf(userId),
+                nickname,
+                USER_PROFILE_TTL_SECONDS
+        );
     }
 }

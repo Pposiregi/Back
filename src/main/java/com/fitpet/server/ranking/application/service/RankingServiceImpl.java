@@ -193,6 +193,7 @@ public class RankingServiceImpl implements RankingService {
         }
 
         if (!missIds.isEmpty()) {
+            log.warn("[RankingService] user:profiles 캐시 미스 — DB 동기 조회 발생: userIds={}", missIds);
             List<User> missingUsers = userRepository.findAllById(missIds);
             for (User u : missingUsers) {
                 String dbImgKey = u.getProfileImageUrl();
