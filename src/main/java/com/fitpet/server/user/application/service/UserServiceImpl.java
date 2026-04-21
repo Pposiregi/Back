@@ -195,12 +195,15 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public void cleanupUserImages(Long userId) {
+        profileImageRepository.findAllByUserId(userId)
+                .forEach(img -> s3Service.deleteObject(img.getImageKey()));
+    }
+
+    @Override
     @Transactional
     public void withdrawUser(Long userId) {
         User user = findUserById(userId);
-
-        List<UserProfileImage> images = profileImageRepository.findAllByUserId(userId);
-        images.forEach(img -> s3Service.deleteObject(img.getImageKey()));
         profileImageRepository.deleteAllByUserId(userId);
 
         redisTemplate.opsForHash().delete(USER_IMAGE_KEY, String.valueOf(userId));

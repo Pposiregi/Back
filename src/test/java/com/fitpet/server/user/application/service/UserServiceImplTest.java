@@ -176,7 +176,6 @@ class UserServiceImplTest {
     void withdrawUser_User_익명화_및_deletedAt_설정() {
         User user = User.builder().id(USER_ID).email("test@test.com").nickname("테스트").build();
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-        when(profileImageRepository.findAllByUserId(USER_ID)).thenReturn(List.of());
         when(passwordEncoder.encode(anyString())).thenReturn("encoded_dummy");
         HashOperations<String, Object, Object> hashOps = mock(HashOperations.class);
         when(redisTemplate.opsForHash()).thenReturn(hashOps);
@@ -190,22 +189,31 @@ class UserServiceImplTest {
     }
 
     @Test
-    @DisplayName("withdrawUser 호출 시 프로필 이미지 S3 삭제 + DB 전체 삭제")
-    void withdrawUser_프로필_이미지_S3_및_DB_삭제() {
+    @DisplayName("withdrawUser 호출 시 이미지 DB 전체 삭제 (S3 삭제는 cleanupUserImages 담당)")
+    void withdrawUser_이미지_DB_삭제() {
         User user = User.builder().id(USER_ID).email("test@test.com").build();
-        UserProfileImage img1 = UserProfileImage.createCurrent(USER_ID, "key1");
-        UserProfileImage img2 = UserProfileImage.createCurrent(USER_ID, "key2");
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-        when(profileImageRepository.findAllByUserId(USER_ID)).thenReturn(List.of(img1, img2));
         when(passwordEncoder.encode(anyString())).thenReturn("encoded_dummy");
         HashOperations<String, Object, Object> hashOps = mock(HashOperations.class);
         when(redisTemplate.opsForHash()).thenReturn(hashOps);
 
         sut.withdrawUser(USER_ID);
 
+        verify(profileImageRepository).deleteAllByUserId(USER_ID);
+        verify(s3Service, never()).deleteObject(anyString());
+    }
+
+    @Test
+    @DisplayName("cleanupUserImages 호출 시 모든 프로필 이미지 S3 삭제")
+    void cleanupUserImages_S3_삭제() {
+        UserProfileImage img1 = UserProfileImage.createCurrent(USER_ID, "key1");
+        UserProfileImage img2 = UserProfileImage.createCurrent(USER_ID, "key2");
+        when(profileImageRepository.findAllByUserId(USER_ID)).thenReturn(List.of(img1, img2));
+
+        sut.cleanupUserImages(USER_ID);
+
         verify(s3Service).deleteObject("key1");
         verify(s3Service).deleteObject("key2");
-        verify(profileImageRepository).deleteAllByUserId(USER_ID);
     }
 
     @Test
@@ -213,7 +221,6 @@ class UserServiceImplTest {
     void withdrawUser_Redis_캐시_삭제() {
         User user = User.builder().id(USER_ID).email("test@test.com").build();
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-        when(profileImageRepository.findAllByUserId(USER_ID)).thenReturn(List.of());
         when(passwordEncoder.encode(anyString())).thenReturn("encoded_dummy");
         HashOperations<String, Object, Object> hashOps = mock(HashOperations.class);
         when(redisTemplate.opsForHash()).thenReturn(hashOps);

@@ -97,10 +97,12 @@ class UserFacadeTest {
     // ──────────────────────────────────────────────
 
     @Test
-    void withdraw_호출_시_userService_withdrawUser_와_authService_revokeTokens_모두_호출() {
+    void withdraw_호출_시_S3정리_후_DB처리_후_토큰_취소_순서대로_호출() {
         sut.withdraw(USER_ID);
 
-        verify(userService).withdrawUser(USER_ID);
-        verify(authService).revokeTokens(USER_ID);
+        org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(userService, authService);
+        inOrder.verify(userService).cleanupUserImages(USER_ID);
+        inOrder.verify(userService).withdrawUser(USER_ID);
+        inOrder.verify(authService).revokeTokens(USER_ID);
     }
 }
