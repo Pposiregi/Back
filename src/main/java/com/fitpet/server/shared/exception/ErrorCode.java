@@ -10,6 +10,8 @@ public enum ErrorCode {
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U001", "사용자를 찾을 수 없습니다."),
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "U002", "이미 존재하는 이메일입니다."),
     DUPLICATE_NICKNAME(HttpStatus.CONFLICT, "U003", "이미 존재하는 닉네임입니다."),
+    PROFILE_IMAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "U004", "해당 프로필 이미지를 찾을 수 없습니다."),
+    PROFILE_IMAGE_ACCESS_DENIED(HttpStatus.FORBIDDEN, "U005", "해당 프로필 이미지에 대한 권한이 없습니다."),
 
     DAILY_WALK_NOT_FOUND(HttpStatus.NOT_FOUND, "D001", "해당 걸음 기록을 찾을 수 없습니다."),
     DAILY_WALK_ALREADY_EXISTS(HttpStatus.CONFLICT, "D002", "해당 날짜의 걸음 기록이 이미 존재합니다."),

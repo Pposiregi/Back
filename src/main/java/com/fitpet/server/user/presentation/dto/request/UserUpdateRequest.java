@@ -24,7 +24,8 @@ public record UserUpdateRequest(
         Double heightCm,
         Double pbf,
         Double targetPbf,
-        Integer targetStepCount
+        Integer targetStepCount,
+        String profileImageKey
 ) {
     public UserUpdateCommand toCommand() {
         return new UserUpdateCommand(
@@ -38,7 +39,8 @@ public record UserUpdateRequest(
             heightCm,
             pbf,
             targetPbf,
-            targetStepCount
+            targetStepCount,
+            profileImageKey
         );
     }
 }

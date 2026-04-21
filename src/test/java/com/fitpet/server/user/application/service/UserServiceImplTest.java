@@ -39,6 +39,7 @@ class UserServiceImplTest {
     @Mock S3Service s3Service;
     @Mock StringRedisTemplate redisTemplate;
     @Mock RedisScript<Long> hsetWithExpireScript;
+    @Mock com.fitpet.server.user.domain.repository.UserProfileImageRepository profileImageRepository;
 
     @InjectMocks UserServiceImpl sut;
 
@@ -109,7 +110,7 @@ class UserServiceImplTest {
         when(userMapper.toResult(any(User.class))).thenReturn(UserResult.builder().userId(USER_ID).build());
 
         UserUpdateCommand command = new UserUpdateCommand(
-                null, null, newNickname, null, null, null, null, null, null, null, null
+                null, null, newNickname, null, null, null, null, null, null, null, null, null
         );
 
         // when
@@ -139,7 +140,7 @@ class UserServiceImplTest {
         when(userMapper.toResult(any(User.class))).thenReturn(UserResult.builder().userId(USER_ID).build());
 
         UserUpdateCommand command = new UserUpdateCommand(
-                null, null, null, null, null, null, null, null, null, null, null
+                null, null, null, null, null, null, null, null, null, null, null, null
         );
 
         // when
@@ -163,7 +164,7 @@ class UserServiceImplTest {
         when(userMapper.toResult(any(User.class))).thenReturn(UserResult.builder().userId(USER_ID).build());
 
         UserUpdateCommand command = new UserUpdateCommand(
-                null, null, "", null, null, null, null, null, null, null, null
+                null, null, "", null, null, null, null, null, null, null, null, null
         );
 
         // when
