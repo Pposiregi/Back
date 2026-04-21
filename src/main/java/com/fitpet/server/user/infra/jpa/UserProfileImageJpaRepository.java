@@ -30,4 +30,10 @@ public interface UserProfileImageJpaRepository extends JpaRepository<UserProfile
     @Modifying
     @Transactional
     void deleteByUserIdAndImageKey(Long userId, String imageKey);
+
+    List<UserProfileImage> findAllByUserId(Long userId);
+
+    @Modifying
+    @Transactional
+    void deleteAllByUserId(Long userId);
 }

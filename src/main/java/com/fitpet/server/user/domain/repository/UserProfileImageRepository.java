@@ -13,4 +13,6 @@ public interface UserProfileImageRepository {
     Optional<UserProfileImage> findByUserIdAndImageKey(Long userId, String imageKey);
     void delete(UserProfileImage image);
     void deleteByUserIdAndImageKey(Long userId, String imageKey);
+    List<UserProfileImage> findAllByUserId(Long userId);
+    void deleteAllByUserId(Long userId);
 }

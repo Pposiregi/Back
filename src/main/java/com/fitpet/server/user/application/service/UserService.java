@@ -25,7 +25,7 @@ public interface UserService {
 
     List<ProfileImageHistoryResult> getProfileImageHistory(Long userId);
 
-    void deleteUser(Long userId);
+    void withdrawUser(Long userId);
 
     UserResult inputInfo(Long userId, UserInputInfoCommand command);
 

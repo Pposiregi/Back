@@ -22,6 +22,7 @@ import com.fitpet.server.user.domain.exception.UserNotFoundException;
 import com.fitpet.server.user.domain.repository.UserProfileImageRepository;
 import com.fitpet.server.user.domain.repository.UserRepository;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -195,9 +196,23 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public void deleteUser(Long userId) {
+    public void withdrawUser(Long userId) {
         User user = findUserById(userId);
-        userRepository.delete(user);
+
+        List<UserProfileImage> images = profileImageRepository.findAllByUserId(userId);
+        images.forEach(img -> s3Service.deleteObject(img.getImageKey()));
+        profileImageRepository.deleteAllByUserId(userId);
+
+        redisTemplate.opsForHash().delete(USER_IMAGE_KEY, String.valueOf(userId));
+        redisTemplate.opsForHash().delete(USER_PROFILE_KEY, String.valueOf(userId));
+
+        String token = UUID.randomUUID().toString();
+        user.withdraw(
+            "deleted_" + userId + "_" + token + "@deleted.local",
+            "deleted_" + userId + "_" + token,
+            passwordEncoder.encode(token)
+        );
+        userRepository.save(user);
     }
 
     @Override

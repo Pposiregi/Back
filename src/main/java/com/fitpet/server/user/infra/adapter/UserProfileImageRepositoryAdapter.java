@@ -53,4 +53,14 @@ public class UserProfileImageRepositoryAdapter implements UserProfileImageReposi
     public void deleteByUserIdAndImageKey(Long userId, String imageKey) {
         jpaRepository.deleteByUserIdAndImageKey(userId, imageKey);
     }
+
+    @Override
+    public List<UserProfileImage> findAllByUserId(Long userId) {
+        return jpaRepository.findAllByUserId(userId);
+    }
+
+    @Override
+    public void deleteAllByUserId(Long userId) {
+        jpaRepository.deleteAllByUserId(userId);
+    }
 }

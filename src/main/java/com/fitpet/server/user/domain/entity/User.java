@@ -18,6 +18,7 @@ import lombok.Builder.Default;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.DynamicUpdate;
+import org.hibernate.annotations.SQLRestriction;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -25,6 +26,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @Entity
 @EntityListeners(AuditingEntityListener.class)
 @DynamicUpdate
+@SQLRestriction("deleted_at IS NULL")
 @Table(name = "users",
         uniqueConstraints = {
                 @UniqueConstraint(name = "uk_users_email", columnNames = "email"),
@@ -119,6 +121,9 @@ public class User {
 
     @Column(name = "last_accessed_at")
     private LocalDateTime lastAccessedAt;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     public void changePassword(String encodedPassword) {
         this.password = encodedPassword;
@@ -231,5 +236,17 @@ public class User {
 
     public void updateProfileImageUrl(String profileImageUrl) {
         this.profileImageUrl = profileImageUrl;
+    }
+
+    public void withdraw(String anonymousEmail, String anonymousNickname, String encodedDummyPassword) {
+        this.email = anonymousEmail;
+        this.nickname = anonymousNickname;
+        this.password = encodedDummyPassword;
+        this.provider = null;
+        this.providerUid = null;
+        this.profileImageUrl = null;
+        this.deviceToken = null;
+        this.refreshToken = null;
+        this.deletedAt = LocalDateTime.now();
     }
 }

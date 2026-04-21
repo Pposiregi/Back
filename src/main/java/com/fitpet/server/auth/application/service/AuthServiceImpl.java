@@ -140,6 +140,11 @@ public class AuthServiceImpl implements AuthService {
         return TokenResponse.success(resolveRegistrationStatus(user), access, refresh);
     }
 
+    @Override
+    public void revokeTokens(Long userId) {
+        redisTokenRepository.delete(userId);
+    }
+
     private RegistrationStatus resolveRegistrationStatus(User user) {
         RegistrationStatus status = user.getRegistrationStatus();
         return status != null ? status : RegistrationStatus.INCOMPLETE;
