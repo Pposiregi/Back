@@ -1,13 +1,18 @@
 package com.fitpet.server.user.application.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fitpet.server.pet.domain.repository.PetRepository;
+import com.fitpet.server.shared.exception.BusinessException;
 import com.fitpet.server.shared.s3.S3Service;
 import com.fitpet.server.user.application.dto.UserInputInfoCommand;
 import com.fitpet.server.user.application.dto.UserResult;
@@ -16,6 +21,8 @@ import com.fitpet.server.user.application.mapper.UserMapper;
 import com.fitpet.server.user.domain.entity.Gender;
 import com.fitpet.server.user.domain.entity.RegistrationStatus;
 import com.fitpet.server.user.domain.entity.User;
+import com.fitpet.server.user.domain.entity.UserProfileImage;
+import com.fitpet.server.user.domain.exception.UserNotFoundException;
 import com.fitpet.server.user.domain.repository.UserRepository;
 import java.util.List;
 import java.util.Optional;
@@ -25,6 +32,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -148,6 +156,72 @@ class UserServiceImplTest {
 
         // then
         verify(redisTemplate, never()).execute(any(RedisScript.class), anyList(), any());
+    }
+
+    // ──────────────────────────────────────────────
+    // withdrawUser()
+    // ──────────────────────────────────────────────
+
+    @Test
+    @DisplayName("withdrawUser 호출 시 존재하지 않는 userId면 UserNotFoundException")
+    void withdrawUser_존재하지_않는_userId면_예외() {
+        when(userRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sut.withdrawUser(999L))
+                .isInstanceOf(UserNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("withdrawUser 호출 시 User 익명화 + deletedAt 설정 + save 호출")
+    void withdrawUser_User_익명화_및_deletedAt_설정() {
+        User user = User.builder().id(USER_ID).email("test@test.com").nickname("테스트").build();
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(profileImageRepository.findAllByUserId(USER_ID)).thenReturn(List.of());
+        when(passwordEncoder.encode(anyString())).thenReturn("encoded_dummy");
+        HashOperations<String, Object, Object> hashOps = mock(HashOperations.class);
+        when(redisTemplate.opsForHash()).thenReturn(hashOps);
+
+        sut.withdrawUser(USER_ID);
+
+        assertThat(user.getDeletedAt()).isNotNull();
+        assertThat(user.getEmail()).startsWith("deleted_");
+        assertThat(user.getNickname()).startsWith("deleted_");
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    @DisplayName("withdrawUser 호출 시 프로필 이미지 S3 삭제 + DB 전체 삭제")
+    void withdrawUser_프로필_이미지_S3_및_DB_삭제() {
+        User user = User.builder().id(USER_ID).email("test@test.com").build();
+        UserProfileImage img1 = UserProfileImage.createCurrent(USER_ID, "key1");
+        UserProfileImage img2 = UserProfileImage.createCurrent(USER_ID, "key2");
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(profileImageRepository.findAllByUserId(USER_ID)).thenReturn(List.of(img1, img2));
+        when(passwordEncoder.encode(anyString())).thenReturn("encoded_dummy");
+        HashOperations<String, Object, Object> hashOps = mock(HashOperations.class);
+        when(redisTemplate.opsForHash()).thenReturn(hashOps);
+
+        sut.withdrawUser(USER_ID);
+
+        verify(s3Service).deleteObject("key1");
+        verify(s3Service).deleteObject("key2");
+        verify(profileImageRepository).deleteAllByUserId(USER_ID);
+    }
+
+    @Test
+    @DisplayName("withdrawUser 호출 시 Redis user:profiles, user:images 캐시 삭제")
+    void withdrawUser_Redis_캐시_삭제() {
+        User user = User.builder().id(USER_ID).email("test@test.com").build();
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(profileImageRepository.findAllByUserId(USER_ID)).thenReturn(List.of());
+        when(passwordEncoder.encode(anyString())).thenReturn("encoded_dummy");
+        HashOperations<String, Object, Object> hashOps = mock(HashOperations.class);
+        when(redisTemplate.opsForHash()).thenReturn(hashOps);
+
+        sut.withdrawUser(USER_ID);
+
+        verify(hashOps).delete("user:profiles", String.valueOf(USER_ID));
+        verify(hashOps).delete("user:images", String.valueOf(USER_ID));
     }
 
     @Test

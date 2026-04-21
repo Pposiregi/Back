@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fitpet.server.auth.application.service.AuthService;
 import com.fitpet.server.shared.exception.BusinessException;
 import com.fitpet.server.shared.exception.ErrorCode;
 import com.fitpet.server.termsmaster.application.service.TermsAgreementService;
@@ -30,6 +31,7 @@ class UserFacadeTest {
     @Mock UserService userService;
     @Mock TermsAgreementService termsAgreementService;
     @Mock UserRepository userRepository;
+    @Mock AuthService authService;
 
     @InjectMocks UserFacade sut;
 
@@ -88,5 +90,17 @@ class UserFacadeTest {
         sut.completeSignUp(USER_ID, dummyInfoCommand(), List.of());
 
         verify(termsAgreementService).saveTermsAgreements(eq(USER_ID), any());
+    }
+
+    // ──────────────────────────────────────────────
+    // withdraw()
+    // ──────────────────────────────────────────────
+
+    @Test
+    void withdraw_호출_시_userService_withdrawUser_와_authService_revokeTokens_모두_호출() {
+        sut.withdraw(USER_ID);
+
+        verify(userService).withdrawUser(USER_ID);
+        verify(authService).revokeTokens(USER_ID);
     }
 }
