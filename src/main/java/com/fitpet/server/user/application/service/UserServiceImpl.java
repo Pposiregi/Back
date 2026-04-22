@@ -22,7 +22,6 @@ import com.fitpet.server.user.domain.exception.UserNotFoundException;
 import com.fitpet.server.user.domain.repository.UserProfileImageRepository;
 import com.fitpet.server.user.domain.repository.UserRepository;
 import java.util.List;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -58,9 +57,20 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public UserResult createUser(UserCreateCommand command) {
-        validateUserCreateRequest(command);
-        User user = userMapper.toEntity(command);
-        user.changePassword(passwordEncoder.encode(command.password()));
+        return userRepository.findByEmailIncludeDeleted(command.email())
+                .filter(u -> u.getDeletedAt() != null)
+                .map(u -> reactivateUser(u, command.password()))
+                .orElseGet(() -> {
+                    validateUserCreateRequest(command);
+                    User user = userMapper.toEntity(command);
+                    user.changePassword(passwordEncoder.encode(command.password()));
+                    return userMapper.toResult(userRepository.save(user));
+                });
+    }
+
+    private UserResult reactivateUser(User user, String newPassword) {
+        user.changePassword(passwordEncoder.encode(newPassword));
+        user.reactivate();
         return userMapper.toResult(userRepository.save(user));
     }
 
@@ -209,12 +219,7 @@ public class UserServiceImpl implements UserService {
         redisTemplate.opsForHash().delete(USER_IMAGE_KEY, String.valueOf(userId));
         redisTemplate.opsForHash().delete(USER_PROFILE_KEY, String.valueOf(userId));
 
-        String token = UUID.randomUUID().toString();
-        user.withdraw(
-            "deleted_" + userId + "_" + token + "@deleted.local",
-            "deleted_" + userId + "_" + token,
-            passwordEncoder.encode(token)
-        );
+        user.withdraw();
         userRepository.save(user);
     }
 

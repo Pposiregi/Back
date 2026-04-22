@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 import com.fitpet.server.pet.domain.repository.PetRepository;
 import com.fitpet.server.shared.exception.BusinessException;
 import com.fitpet.server.shared.s3.S3Service;
+import com.fitpet.server.user.application.dto.UserCreateCommand;
 import com.fitpet.server.user.application.dto.UserInputInfoCommand;
 import com.fitpet.server.user.application.dto.UserResult;
 import com.fitpet.server.user.application.dto.UserUpdateCommand;
@@ -172,19 +173,18 @@ class UserServiceImplTest {
     }
 
     @Test
-    @DisplayName("withdrawUser 호출 시 User 익명화 + deletedAt 설정 + save 호출")
-    void withdrawUser_User_익명화_및_deletedAt_설정() {
+    @DisplayName("withdrawUser 호출 시 deletedAt만 설정되고 email/nickname은 변경되지 않는다")
+    void withdrawUser_deletedAt만_설정() {
         User user = User.builder().id(USER_ID).email("test@test.com").nickname("테스트").build();
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-        when(passwordEncoder.encode(anyString())).thenReturn("encoded_dummy");
         HashOperations<String, Object, Object> hashOps = mock(HashOperations.class);
         when(redisTemplate.opsForHash()).thenReturn(hashOps);
 
         sut.withdrawUser(USER_ID);
 
         assertThat(user.getDeletedAt()).isNotNull();
-        assertThat(user.getEmail()).startsWith("deleted_");
-        assertThat(user.getNickname()).startsWith("deleted_");
+        assertThat(user.getEmail()).isEqualTo("test@test.com");
+        assertThat(user.getNickname()).isEqualTo("테스트");
         verify(userRepository).save(user);
     }
 
@@ -193,7 +193,6 @@ class UserServiceImplTest {
     void withdrawUser_이미지_DB_삭제() {
         User user = User.builder().id(USER_ID).email("test@test.com").build();
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-        when(passwordEncoder.encode(anyString())).thenReturn("encoded_dummy");
         HashOperations<String, Object, Object> hashOps = mock(HashOperations.class);
         when(redisTemplate.opsForHash()).thenReturn(hashOps);
 
@@ -201,6 +200,48 @@ class UserServiceImplTest {
 
         verify(profileImageRepository).deleteAllByUserId(USER_ID);
         verify(s3Service, never()).deleteObject(anyString());
+    }
+
+    // ──────────────────────────────────────────────
+    // createUser() — 재가입 재활성화
+    // ──────────────────────────────────────────────
+
+    @Test
+    @DisplayName("createUser 호출 시 탈퇴한 이메일이면 기존 계정을 재활성화한다")
+    void createUser_탈퇴_이메일_재활성화() {
+        User deleted = User.builder()
+                .id(USER_ID).email("test@test.com").nickname("기존닉네임")
+                .build();
+        deleted.withdraw();
+
+        when(userRepository.findByEmailIncludeDeleted("test@test.com")).thenReturn(Optional.of(deleted));
+        when(passwordEncoder.encode(anyString())).thenReturn("encoded");
+        when(userRepository.save(any())).thenReturn(deleted);
+        when(userMapper.toResult(any())).thenReturn(UserResult.builder().userId(USER_ID).build());
+
+        UserCreateCommand command = new UserCreateCommand("test@test.com", "pass", "닉네임", null, null, null, null, null, null, null, null);
+        sut.createUser(command);
+
+        assertThat(deleted.getDeletedAt()).isNull();
+        verify(userRepository).save(deleted);
+    }
+
+    @Test
+    @DisplayName("createUser 호출 시 탈퇴 이력 없는 이메일이면 신규 가입한다")
+    void createUser_탈퇴_이력_없으면_신규_가입() {
+        when(userRepository.findByEmailIncludeDeleted("new@test.com")).thenReturn(Optional.empty());
+        when(userRepository.existsByEmail("new@test.com")).thenReturn(false);
+        when(userRepository.existsByNickname("새닉네임")).thenReturn(false);
+        when(passwordEncoder.encode(anyString())).thenReturn("encoded");
+        User newUser = User.builder().id(2L).email("new@test.com").build();
+        when(userMapper.toEntity(any())).thenReturn(newUser);
+        when(userRepository.save(any())).thenReturn(newUser);
+        when(userMapper.toResult(any())).thenReturn(UserResult.builder().userId(2L).build());
+
+        UserCreateCommand command = new UserCreateCommand("new@test.com", "pass", "새닉네임", null, null, null, null, null, null, null, null);
+        sut.createUser(command);
+
+        verify(userRepository).save(newUser);
     }
 
     @Test
@@ -221,7 +262,6 @@ class UserServiceImplTest {
     void withdrawUser_Redis_캐시_삭제() {
         User user = User.builder().id(USER_ID).email("test@test.com").build();
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-        when(passwordEncoder.encode(anyString())).thenReturn("encoded_dummy");
         HashOperations<String, Object, Object> hashOps = mock(HashOperations.class);
         when(redisTemplate.opsForHash()).thenReturn(hashOps);
 

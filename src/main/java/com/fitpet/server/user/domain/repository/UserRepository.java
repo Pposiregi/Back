@@ -31,6 +31,10 @@ public interface UserRepository {
 
     Optional<User> findByProviderAndProviderUid(String provider, String providerUid);
 
+    Optional<User> findByEmailIncludeDeleted(String email);
+
+    Optional<User> findByProviderAndProviderUidIncludeDeleted(String provider, String providerUid);
+
     List<User> findAll();
 
     Slice<User> findAll(Pageable pageable);

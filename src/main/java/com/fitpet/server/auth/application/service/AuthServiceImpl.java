@@ -100,20 +100,27 @@ public class AuthServiceImpl implements AuthService {
         return issueTokens(user);
     }
 
-    // 구글, 카카오 로그인으로 한 사용자가 없으면 새로 만들어 저장 , 있으면 그대로 사용(업데이트x)
     private User upsertOAuthUser(String email, String provider, String providerUid) {
-        // 1) provider+uid로 1차 조회
-        Optional<User> byProvider = userRepository.findByProviderAndProviderUid(provider, providerUid);
+        // 1) provider+uid로 조회 (탈퇴 계정 포함)
+        Optional<User> byProvider = userRepository.findByProviderAndProviderUidIncludeDeleted(provider, providerUid);
         if (byProvider.isPresent()) {
-            return byProvider.get();
+            User u = byProvider.get();
+            if (u.getDeletedAt() != null) {
+                u.reactivate();
+                return userRepository.save(u);
+            }
+            return u;
         }
 
-        // 2) 이메일로 기존 계정이 있으면 연결(정책상 허용 시)
+        // 2) 이메일로 기존 계정이 있으면 연결 (탈퇴 계정 포함)
         if (email != null && !email.isBlank()) {
-            Optional<User> byEmail = userRepository.findByEmail(email);
+            Optional<User> byEmail = userRepository.findByEmailIncludeDeleted(email);
             if (byEmail.isPresent()) {
-                var u = byEmail.get();
+                User u = byEmail.get();
                 u.linkSocial(provider, providerUid);
+                if (u.getDeletedAt() != null) {
+                    u.reactivate();
+                }
                 return userRepository.save(u);
             }
         }
@@ -127,7 +134,6 @@ public class AuthServiceImpl implements AuthService {
                 : (provider.toLowerCase() + "_" + providerUid))
             .provider(provider)
             .providerUid(providerUid)
-            // 정보 입력 받은 후 COMPLETE로 변경
             .registrationStatus(RegistrationStatus.INCOMPLETE)
             .build();
         return userRepository.save(u);

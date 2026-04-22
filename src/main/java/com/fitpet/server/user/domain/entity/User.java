@@ -238,15 +238,13 @@ public class User {
         this.profileImageUrl = profileImageUrl;
     }
 
-    public void withdraw(String anonymousEmail, String anonymousNickname, String encodedDummyPassword) {
-        this.email = anonymousEmail;
-        this.nickname = anonymousNickname;
-        this.password = encodedDummyPassword;
-        this.provider = null;
-        this.providerUid = null;
+    public void withdraw() {
         this.profileImageUrl = null;
         this.deviceToken = null;
-        this.refreshToken = null;
         this.deletedAt = LocalDateTime.now();
+    }
+
+    public void reactivate() {
+        this.deletedAt = null;
     }
 }
