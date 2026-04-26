@@ -3,6 +3,8 @@ package com.fitpet.server.user.application.facade;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -19,6 +21,7 @@ import com.fitpet.server.user.domain.repository.UserRepository;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -92,10 +95,6 @@ class UserFacadeTest {
         verify(termsAgreementService).saveTermsAgreements(eq(USER_ID), any());
     }
 
-    // ──────────────────────────────────────────────
-    // withdraw()
-    // ──────────────────────────────────────────────
-
     @Test
     void withdraw_호출_시_S3정리_후_DB처리_후_토큰_취소_순서대로_호출() {
         sut.withdraw(USER_ID);
@@ -104,5 +103,17 @@ class UserFacadeTest {
         inOrder.verify(userService).cleanupUserImages(USER_ID);
         inOrder.verify(userService).withdrawUser(USER_ID);
         inOrder.verify(authService).revokeTokens(USER_ID);
+    }
+
+    @Test
+    @DisplayName("withdraw 중 S3 삭제 예외 발생 시 DB 처리가 호출되지 않는다")
+    void withdraw_S3_예외_시_DB_호출_안_됨() {
+        doThrow(new RuntimeException("S3 error")).when(userService).cleanupUserImages(USER_ID);
+
+        assertThatThrownBy(() -> sut.withdraw(USER_ID))
+                .isInstanceOf(RuntimeException.class);
+
+        verify(userService, never()).withdrawUser(USER_ID);
+        verify(authService, never()).revokeTokens(USER_ID);
     }
 }

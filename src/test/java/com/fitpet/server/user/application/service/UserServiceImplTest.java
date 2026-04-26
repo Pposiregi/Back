@@ -57,9 +57,7 @@ class UserServiceImplTest {
     private static final String USER_PROFILE_KEY = "user:profiles";
     private static final String TTL = "259200";
 
-    // ──────────────────────────────────────────────
     // inputInfo()
-    // ──────────────────────────────────────────────
 
     @Test
     @DisplayName("inputInfo 호출 시 Lua 스크립트로 user:profiles 캐시가 닉네임+TTL 포함해 원자적으로 갱신된다")
@@ -100,9 +98,7 @@ class UserServiceImplTest {
         );
     }
 
-    // ──────────────────────────────────────────────
     // updateUser()
-    // ──────────────────────────────────────────────
 
     @Test
     @DisplayName("updateUser 호출 시 닉네임이 있으면 Lua 스크립트로 user:profiles 캐시가 갱신된다")
@@ -160,9 +156,7 @@ class UserServiceImplTest {
         verify(redisTemplate, never()).execute(any(RedisScript.class), anyList(), any());
     }
 
-    // ──────────────────────────────────────────────
     // withdrawUser()
-    // ──────────────────────────────────────────────
 
     @Test
     @DisplayName("withdrawUser 호출 시 존재하지 않는 userId면 UserNotFoundException")
@@ -203,9 +197,7 @@ class UserServiceImplTest {
         verify(s3Service, never()).deleteObject(anyString());
     }
 
-    // ──────────────────────────────────────────────
     // createUser() — 재가입 재활성화
-    // ──────────────────────────────────────────────
 
     @Test
     @DisplayName("createUser 호출 시 탈퇴한 이메일이면 기존 계정을 재활성화한다")
@@ -256,6 +248,35 @@ class UserServiceImplTest {
 
         verify(s3Service).deleteObject("key1");
         verify(s3Service).deleteObject("key2");
+    }
+
+    @Test
+    @DisplayName("cleanupUserImages 호출 시 이미지가 없으면 S3 삭제를 호출하지 않는다")
+    void cleanupUserImages_이미지_없으면_S3_호출_안_한다() {
+        when(profileImageRepository.findAllByUserId(USER_ID)).thenReturn(List.of());
+
+        sut.cleanupUserImages(USER_ID);
+
+        verify(s3Service, never()).deleteObject(anyString());
+    }
+
+    @Test
+    @DisplayName("withdrawUser 호출 시 profileImageUrl과 deviceToken이 null이 된다")
+    void withdrawUser_profileImageUrl_deviceToken_null화() {
+        User user = User.builder()
+                .id(USER_ID)
+                .email("test@test.com")
+                .profileImageUrl("s3://bucket/profile.jpg")
+                .deviceToken("fcm-token")
+                .build();
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        HashOperations<String, Object, Object> hashOps = mock(HashOperations.class);
+        when(redisTemplate.opsForHash()).thenReturn(hashOps);
+
+        sut.withdrawUser(USER_ID);
+
+        assertThat(user.getProfileImageUrl()).isNull();
+        assertThat(user.getDeviceToken()).isNull();
     }
 
     @Test
