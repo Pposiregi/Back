@@ -43,7 +43,6 @@ public class UserFacade {
     public void withdraw(Long userId) {
         log.info("[UserFacade] 회원 탈퇴 시작: userId={}", userId);
         try {
-            userService.cleanupUserImages(userId);
             userService.withdrawUser(userId);
             authService.revokeTokens(userId);
             log.info("[UserFacade] 회원 탈퇴 완료: userId={}", userId);

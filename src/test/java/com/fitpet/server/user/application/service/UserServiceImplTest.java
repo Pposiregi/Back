@@ -12,7 +12,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fitpet.server.pet.domain.repository.PetRepository;
-import com.fitpet.server.shared.exception.BusinessException;
 import com.fitpet.server.shared.s3.S3Service;
 import com.fitpet.server.user.application.dto.UserCreateCommand;
 import com.fitpet.server.user.application.dto.UserInputInfoCommand;
@@ -22,7 +21,6 @@ import com.fitpet.server.user.application.mapper.UserMapper;
 import com.fitpet.server.user.domain.entity.Gender;
 import com.fitpet.server.user.domain.entity.RegistrationStatus;
 import com.fitpet.server.user.domain.entity.User;
-import com.fitpet.server.user.domain.entity.UserProfileImage;
 import com.fitpet.server.user.domain.exception.DuplicateEmailException;
 import com.fitpet.server.user.domain.exception.UserNotFoundException;
 import com.fitpet.server.user.domain.repository.UserRepository;
@@ -235,29 +233,6 @@ class UserServiceImplTest {
         sut.createUser(command);
 
         verify(userRepository).save(newUser);
-    }
-
-    @Test
-    @DisplayName("cleanupUserImages 호출 시 모든 프로필 이미지 S3 삭제")
-    void cleanupUserImages_S3_삭제() {
-        UserProfileImage img1 = UserProfileImage.createCurrent(USER_ID, "key1");
-        UserProfileImage img2 = UserProfileImage.createCurrent(USER_ID, "key2");
-        when(profileImageRepository.findAllByUserId(USER_ID)).thenReturn(List.of(img1, img2));
-
-        sut.cleanupUserImages(USER_ID);
-
-        verify(s3Service).deleteObject("key1");
-        verify(s3Service).deleteObject("key2");
-    }
-
-    @Test
-    @DisplayName("cleanupUserImages 호출 시 이미지가 없으면 S3 삭제를 호출하지 않는다")
-    void cleanupUserImages_이미지_없으면_S3_호출_안_한다() {
-        when(profileImageRepository.findAllByUserId(USER_ID)).thenReturn(List.of());
-
-        sut.cleanupUserImages(USER_ID);
-
-        verify(s3Service, never()).deleteObject(anyString());
     }
 
     @Test
