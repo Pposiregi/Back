@@ -104,30 +104,30 @@ public class AuthServiceImpl implements AuthService {
         // 1) provider+uid로 조회 (탈퇴 계정 포함)
         Optional<User> byProvider = userRepository.findByOAuthIncludeDeleted(provider, providerUid);
         if (byProvider.isPresent()) {
-            User u = byProvider.get();
-            if (u.getDeletedAt() != null) {
-                u.reactivate();
-                return userRepository.save(u);
+            User user = byProvider.get();
+            if (user.getDeletedAt() != null) {
+                user.reactivate();
+                return userRepository.save(user);
             }
-            return u;
+            return user;
         }
 
         // 2) 이메일로 기존 계정이 있으면 연결 (탈퇴 계정 포함)
         if (email != null && !email.isBlank()) {
             Optional<User> byEmail = userRepository.findByEmailIncludeDeleted(email);
             if (byEmail.isPresent()) {
-                User u = byEmail.get();
-                u.linkSocial(provider, providerUid);
-                if (u.getDeletedAt() != null) {
-                    u.reactivate();
+                User user = byEmail.get();
+                user.linkSocial(provider, providerUid);
+                if (user.getDeletedAt() != null) {
+                    user.reactivate();
                 }
-                return userRepository.save(u);
+                return userRepository.save(user);
             }
         }
 
         // 3) 신규 생성
         String dummyPw = passwordEncoder.encode(UUID.randomUUID().toString());
-        User u = User.builder()
+        User user = User.builder()
             .email(email != null ? email : ("anon+" + provider + "-" + providerUid + "@local"))
             .password(dummyPw)
             .nickname((email != null && email.contains("@")) ? email.substring(0, email.indexOf('@'))
@@ -136,7 +136,7 @@ public class AuthServiceImpl implements AuthService {
             .providerUid(providerUid)
             .registrationStatus(RegistrationStatus.INCOMPLETE)
             .build();
-        return userRepository.save(u);
+        return userRepository.save(user);
     }
 
     private TokenResponse issueTokens(User user) {
