@@ -23,6 +23,7 @@ import com.fitpet.server.user.domain.entity.Gender;
 import com.fitpet.server.user.domain.entity.RegistrationStatus;
 import com.fitpet.server.user.domain.entity.User;
 import com.fitpet.server.user.domain.entity.UserProfileImage;
+import com.fitpet.server.user.domain.exception.DuplicateEmailException;
 import com.fitpet.server.user.domain.exception.UserNotFoundException;
 import com.fitpet.server.user.domain.repository.UserRepository;
 import java.util.List;
@@ -269,6 +270,33 @@ class UserServiceImplTest {
 
         verify(hashOps).delete("user:profiles", String.valueOf(USER_ID));
         verify(hashOps).delete("user:images", String.valueOf(USER_ID));
+    }
+
+    @Test
+    @DisplayName("createUser 호출 시 활성 계정(deletedAt==null)과 이메일 중복이면 DuplicateEmailException")
+    void createUser_활성_계정_이메일_중복이면_예외() {
+        User activeUser = User.builder().id(USER_ID).email("exist@test.com").build();
+        // deletedAt == null → filter 통과 못함 → orElseGet → validateUserCreateRequest
+        when(userRepository.findByEmailIncludeDeleted("exist@test.com")).thenReturn(Optional.of(activeUser));
+        when(userRepository.existsByEmail("exist@test.com")).thenReturn(true);
+
+        UserCreateCommand command = new UserCreateCommand("exist@test.com", "pass", "닉네임", null, null, null, null, null, null, null, null);
+
+        assertThatThrownBy(() -> sut.createUser(command))
+                .isInstanceOf(DuplicateEmailException.class);
+    }
+
+    @Test
+    @DisplayName("withdrawUser 호출 시 user.withdraw()가 호출되어 deletedAt이 설정된다")
+    void withdrawUser_호출_시_deletedAt_설정() {
+        User user = User.builder().id(USER_ID).email("test@test.com").build();
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        HashOperations<String, Object, Object> hashOps = mock(HashOperations.class);
+        when(redisTemplate.opsForHash()).thenReturn(hashOps);
+
+        sut.withdrawUser(USER_ID);
+
+        assertThat(user.getDeletedAt()).isNotNull();
     }
 
     @Test
