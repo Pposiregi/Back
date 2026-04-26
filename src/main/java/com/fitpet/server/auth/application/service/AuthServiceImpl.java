@@ -102,7 +102,7 @@ public class AuthServiceImpl implements AuthService {
 
     private User upsertOAuthUser(String email, String provider, String providerUid) {
         // 1) provider+uid로 조회 (탈퇴 계정 포함)
-        Optional<User> byProvider = userRepository.findByProviderAndProviderUidIncludeDeleted(provider, providerUid);
+        Optional<User> byProvider = userRepository.findByOAuthIncludeDeleted(provider, providerUid);
         if (byProvider.isPresent()) {
             User u = byProvider.get();
             if (u.getDeletedAt() != null) {

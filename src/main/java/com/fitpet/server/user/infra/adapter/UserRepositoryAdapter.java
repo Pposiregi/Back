@@ -79,8 +79,8 @@ public class UserRepositoryAdapter implements UserRepository {
     }
 
     @Override
-    public Optional<User> findByProviderAndProviderUidIncludeDeleted(String provider, String providerUid) {
-        return jpa.findByProviderAndProviderUidIncludeDeleted(provider, providerUid);
+    public Optional<User> findByOAuthIncludeDeleted(String provider, String providerUid) {
+        return jpa.findByOAuthIncludeDeleted(provider, providerUid);
     }
 
     @Override

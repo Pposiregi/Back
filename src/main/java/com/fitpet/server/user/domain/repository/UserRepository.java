@@ -33,7 +33,7 @@ public interface UserRepository {
 
     Optional<User> findByEmailIncludeDeleted(String email);
 
-    Optional<User> findByProviderAndProviderUidIncludeDeleted(String provider, String providerUid);
+    Optional<User> findByOAuthIncludeDeleted(String provider, String providerUid);
 
     List<User> findAll();
 

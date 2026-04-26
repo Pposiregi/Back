@@ -32,7 +32,7 @@ public interface UserJpaRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmailIncludeDeleted(@Param("email") String email);
 
     @Query(value = "SELECT * FROM users WHERE provider = :provider AND provider_uid = :providerUid LIMIT 1", nativeQuery = true)
-    Optional<User> findByProviderAndProviderUidIncludeDeleted(@Param("provider") String provider, @Param("providerUid") String providerUid);
+    Optional<User> findByOAuthIncludeDeleted(@Param("provider") String provider, @Param("providerUid") String providerUid);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update User user set user.dailyStepCount = 0")
