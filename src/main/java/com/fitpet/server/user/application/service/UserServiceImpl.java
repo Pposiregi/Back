@@ -51,6 +51,7 @@ public class UserServiceImpl implements UserService {
 
     private static final String USER_IMAGE_KEY = "user:images";
     private static final String USER_PROFILE_KEY = "user:profiles";
+    private static final String USER_GENDER_KEY = "user:genders";
     private static final String USER_PROFILE_TTL_SECONDS = "259200"; // 3일
     private static final int MAX_PROFILE_IMAGE_HISTORY = 10;
 
@@ -212,6 +213,7 @@ public class UserServiceImpl implements UserService {
 
         redisTemplate.opsForHash().delete(USER_IMAGE_KEY, String.valueOf(userId));
         redisTemplate.opsForHash().delete(USER_PROFILE_KEY, String.valueOf(userId));
+        redisTemplate.opsForHash().delete(USER_GENDER_KEY, String.valueOf(userId));
 
         user.withdraw();
         userRepository.save(user);

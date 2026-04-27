@@ -255,7 +255,7 @@ class UserServiceImplTest {
     }
 
     @Test
-    @DisplayName("withdrawUser 호출 시 Redis user:profiles, user:images 캐시 삭제")
+    @DisplayName("withdrawUser 호출 시 Redis user:profiles, user:images, user:genders 캐시 삭제")
     void withdrawUser_Redis_캐시_삭제() {
         User user = User.builder().id(USER_ID).email("test@test.com").build();
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
@@ -266,6 +266,7 @@ class UserServiceImplTest {
 
         verify(hashOps).delete("user:profiles", String.valueOf(USER_ID));
         verify(hashOps).delete("user:images", String.valueOf(USER_ID));
+        verify(hashOps).delete("user:genders", String.valueOf(USER_ID));
     }
 
     @Test
