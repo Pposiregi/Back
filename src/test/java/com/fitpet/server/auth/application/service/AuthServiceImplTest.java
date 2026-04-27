@@ -1,12 +1,14 @@
 package com.fitpet.server.auth.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fitpet.server.auth.domain.exception.OAuthProviderMismatchException;
 import com.fitpet.server.auth.infra.GoogleTokenVerifier;
 import com.fitpet.server.auth.infra.KakaoClient;
 import com.fitpet.server.auth.infra.KakaoClient.KakaoProfile;
@@ -121,8 +123,8 @@ class AuthServiceImplTest {
     }
 
     @Test
-    @DisplayName("구글 로그인 시 이메일 매칭 계정에 이미 다른 provider가 있으면 linkSocial을 호출하지 않는다")
-    void loginWithGoogle_이메일_매칭_계정에_다른_provider_있으면_덮어쓰지_않음() {
+    @DisplayName("구글 로그인 시 이메일 매칭 계정에 이미 다른 provider가 있으면 OAuthProviderMismatchException")
+    void loginWithGoogle_이메일_매칭_계정에_다른_provider_있으면_예외() {
         User kakaoUser = User.builder()
                 .id(5L).email("shared@test.com")
                 .provider("KAKAO").providerUid("kakao-uid-777")
@@ -135,13 +137,30 @@ class AuthServiceImplTest {
                 .thenReturn(Optional.empty());
         when(userRepository.findByEmailIncludeDeleted("shared@test.com"))
                 .thenReturn(Optional.of(kakaoUser));
-        when(userRepository.save(kakaoUser)).thenReturn(kakaoUser);
-        stubTokenIssue(kakaoUser);
 
-        sut.loginWithGoogle("id-token");
+        assertThatThrownBy(() -> sut.loginWithGoogle("id-token"))
+                .isInstanceOf(OAuthProviderMismatchException.class);
+    }
 
-        assertThat(kakaoUser.getProvider()).isEqualTo("KAKAO");
-        assertThat(kakaoUser.getProviderUid()).isEqualTo("kakao-uid-777");
+    @Test
+    @DisplayName("구글 로그인 시 탈퇴한 계정에 다른 provider가 있으면 OAuthProviderMismatchException")
+    void loginWithGoogle_탈퇴_계정에_다른_provider_있으면_예외() {
+        User deletedKakaoUser = User.builder()
+                .id(6L).email("deleted@test.com")
+                .provider("KAKAO").providerUid("kakao-uid-888")
+                .registrationStatus(RegistrationStatus.COMPLETE)
+                .build();
+        deletedKakaoUser.withdraw();
+
+        when(googleTokenVerifier.verifyIdToken("id-token"))
+                .thenReturn(new GoogleProfile("google-sub-000", "deleted@test.com", true));
+        when(userRepository.findByOAuthIncludeDeleted("GOOGLE", "google-sub-000"))
+                .thenReturn(Optional.empty());
+        when(userRepository.findByEmailIncludeDeleted("deleted@test.com"))
+                .thenReturn(Optional.of(deletedKakaoUser));
+
+        assertThatThrownBy(() -> sut.loginWithGoogle("id-token"))
+                .isInstanceOf(OAuthProviderMismatchException.class);
     }
 
     @Test

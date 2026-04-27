@@ -3,6 +3,7 @@ package com.fitpet.server.auth.application.service;
 import com.fitpet.server.auth.domain.exception.InvalidAccessTokenException;
 import com.fitpet.server.auth.domain.exception.InvalidLoginException;
 import com.fitpet.server.auth.domain.exception.InvalidRefreshTokenException;
+import com.fitpet.server.auth.domain.exception.OAuthProviderMismatchException;
 import com.fitpet.server.auth.infra.GoogleTokenVerifier;
 import com.fitpet.server.auth.infra.KakaoClient;
 import com.fitpet.server.auth.infra.KakaoClient.KakaoProfile;
@@ -117,7 +118,13 @@ public class AuthServiceImpl implements AuthService {
             Optional<User> byEmail = userRepository.findByEmailIncludeDeleted(email);
             if (byEmail.isPresent()) {
                 User user = byEmail.get();
-                if (user.getProvider() == null || user.getProvider().isBlank()) {
+                boolean noProvider = user.getProvider() == null || user.getProvider().isBlank();
+                boolean sameProvider = provider.equals(user.getProvider());
+
+                if (!noProvider && !sameProvider) {
+                    throw new OAuthProviderMismatchException();
+                }
+                if (noProvider) {
                     user.linkSocial(provider, providerUid);
                 }
                 if (user.getDeletedAt() != null) {
