@@ -39,9 +39,7 @@ class AuthServiceImplTest {
 
     @InjectMocks AuthServiceImpl sut;
 
-    // ──────────────────────────────────────────────
     // loginWithGoogle — 탈퇴 계정 재활성화
-    // ──────────────────────────────────────────────
 
     @Test
     @DisplayName("구글 로그인 시 provider+uid로 탈퇴 계정이 조회되면 reactivate 후 토큰 발급")
@@ -123,6 +121,30 @@ class AuthServiceImplTest {
     }
 
     @Test
+    @DisplayName("구글 로그인 시 이메일 매칭 계정에 이미 다른 provider가 있으면 linkSocial을 호출하지 않는다")
+    void loginWithGoogle_이메일_매칭_계정에_다른_provider_있으면_덮어쓰지_않음() {
+        User kakaoUser = User.builder()
+                .id(5L).email("shared@test.com")
+                .provider("KAKAO").providerUid("kakao-uid-777")
+                .registrationStatus(RegistrationStatus.COMPLETE)
+                .build();
+
+        when(googleTokenVerifier.verifyIdToken("id-token"))
+                .thenReturn(new GoogleProfile("google-sub-999", "shared@test.com", true));
+        when(userRepository.findByOAuthIncludeDeleted("GOOGLE", "google-sub-999"))
+                .thenReturn(Optional.empty());
+        when(userRepository.findByEmailIncludeDeleted("shared@test.com"))
+                .thenReturn(Optional.of(kakaoUser));
+        when(userRepository.save(kakaoUser)).thenReturn(kakaoUser);
+        stubTokenIssue(kakaoUser);
+
+        sut.loginWithGoogle("id-token");
+
+        assertThat(kakaoUser.getProvider()).isEqualTo("KAKAO");
+        assertThat(kakaoUser.getProviderUid()).isEqualTo("kakao-uid-777");
+    }
+
+    @Test
     @DisplayName("구글 로그인 시 일치하는 계정이 없으면 신규 생성")
     void loginWithGoogle_일치_계정_없으면_신규_생성() {
         // given
@@ -151,9 +173,7 @@ class AuthServiceImplTest {
         assertThat(saved.getRegistrationStatus()).isEqualTo(RegistrationStatus.INCOMPLETE);
     }
 
-    // ──────────────────────────────────────────────
     // loginWithKakao — 탈퇴 계정 재활성화
-    // ──────────────────────────────────────────────
 
     @Test
     @DisplayName("카카오 로그인 시 provider+uid로 탈퇴 계정이 조회되면 reactivate 후 토큰 발급")
@@ -207,9 +227,7 @@ class AuthServiceImplTest {
         assertThat(captor.getValue().getEmail()).endsWith("@anon.kakao.local");
     }
 
-    // ──────────────────────────────────────────────
     // helpers
-    // ──────────────────────────────────────────────
 
     private void stubTokenIssue(User user) {
         when(jwtTokenProvider.generateAccessToken(any(), anyString(), any())).thenReturn("access");

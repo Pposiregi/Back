@@ -117,7 +117,9 @@ public class AuthServiceImpl implements AuthService {
             Optional<User> byEmail = userRepository.findByEmailIncludeDeleted(email);
             if (byEmail.isPresent()) {
                 User user = byEmail.get();
-                user.linkSocial(provider, providerUid);
+                if (user.getProvider() == null || user.getProvider().isBlank()) {
+                    user.linkSocial(provider, providerUid);
+                }
                 if (user.getDeletedAt() != null) {
                     user.reactivate();
                 }
