@@ -13,4 +13,6 @@ public interface AuthService {
     TokenResponse loginWithGoogle(String idToken);
 
     TokenResponse loginWithKakao(String kakaoAccessToken);
+
+    void revokeTokens(Long userId);
 }

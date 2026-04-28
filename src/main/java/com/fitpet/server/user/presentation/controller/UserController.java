@@ -84,7 +84,7 @@ public class UserController {
 
     @DeleteMapping
     public ResponseEntity<Void> delete(@AuthUser Long userId) {
-        userService.deleteUser(userId);
+        userFacade.withdraw(userId);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 }

@@ -54,6 +54,7 @@ public enum ErrorCode {
     OAUTH_INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "A004", "유효하지 않은 소셜 토큰입니다."),
     OAUTH_VERIFICATION_FAILED(HttpStatus.BAD_GATEWAY, "A005", "소셜 토큰 검증에 실패했습니다."),
     OAUTH_PROFILE_NOT_FOUND(HttpStatus.BAD_GATEWAY, "A006", "소셜 사용자 정보를 확인할 수 없습니다."),
+    OAUTH_PROVIDER_MISMATCH(HttpStatus.CONFLICT, "A007", "해당 이메일은 다른 소셜 계정으로 연결되어 있습니다."),
 
     TERMS_NOT_FOUND(HttpStatus.NOT_FOUND, "T001", "해당 약관을 찾을 수 없습니다."),
     REQUIRED_TERMS_NOT_AGREED(HttpStatus.BAD_REQUEST, "T002", "필수 약관에 동의해야 합니다."),

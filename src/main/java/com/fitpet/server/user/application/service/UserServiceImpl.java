@@ -51,15 +51,27 @@ public class UserServiceImpl implements UserService {
 
     private static final String USER_IMAGE_KEY = "user:images";
     private static final String USER_PROFILE_KEY = "user:profiles";
+    private static final String USER_GENDER_KEY = "user:genders";
     private static final String USER_PROFILE_TTL_SECONDS = "259200"; // 3일
     private static final int MAX_PROFILE_IMAGE_HISTORY = 10;
 
     @Override
     @Transactional
     public UserResult createUser(UserCreateCommand command) {
-        validateUserCreateRequest(command);
-        User user = userMapper.toEntity(command);
-        user.changePassword(passwordEncoder.encode(command.password()));
+        return userRepository.findByEmailIncludeDeleted(command.email())
+                .filter(u -> u.getDeletedAt() != null)
+                .map(u -> reactivateUser(u, command.password()))
+                .orElseGet(() -> {
+                    validateUserCreateRequest(command);
+                    User user = userMapper.toEntity(command);
+                    user.changePassword(passwordEncoder.encode(command.password()));
+                    return userMapper.toResult(userRepository.save(user));
+                });
+    }
+
+    private UserResult reactivateUser(User user, String newPassword) {
+        user.changePassword(passwordEncoder.encode(newPassword));
+        user.reactivate();
         return userMapper.toResult(userRepository.save(user));
     }
 
@@ -195,9 +207,16 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public void deleteUser(Long userId) {
+    public void withdrawUser(Long userId) {
         User user = findUserById(userId);
-        userRepository.delete(user);
+        profileImageRepository.deleteAllByUserId(userId);
+
+        redisTemplate.opsForHash().delete(USER_IMAGE_KEY, String.valueOf(userId));
+        redisTemplate.opsForHash().delete(USER_PROFILE_KEY, String.valueOf(userId));
+        redisTemplate.opsForHash().delete(USER_GENDER_KEY, String.valueOf(userId));
+
+        user.withdraw();
+        userRepository.save(user);
     }
 
     @Override

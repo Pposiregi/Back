@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fitpet.server.auth.application.service.AuthService;
 import com.fitpet.server.shared.exception.BusinessException;
 import com.fitpet.server.shared.exception.ErrorCode;
 import com.fitpet.server.termsmaster.application.service.TermsAgreementService;
@@ -18,6 +19,7 @@ import com.fitpet.server.user.domain.repository.UserRepository;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -30,6 +32,7 @@ class UserFacadeTest {
     @Mock UserService userService;
     @Mock TermsAgreementService termsAgreementService;
     @Mock UserRepository userRepository;
+    @Mock AuthService authService;
 
     @InjectMocks UserFacade sut;
 
@@ -88,5 +91,14 @@ class UserFacadeTest {
         sut.completeSignUp(USER_ID, dummyInfoCommand(), List.of());
 
         verify(termsAgreementService).saveTermsAgreements(eq(USER_ID), any());
+    }
+
+    @Test
+    void withdraw_호출_시_DB처리_후_토큰_취소_순서대로_호출() {
+        sut.withdraw(USER_ID);
+
+        org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(userService, authService);
+        inOrder.verify(userService).withdrawUser(USER_ID);
+        inOrder.verify(authService).revokeTokens(USER_ID);
     }
 }

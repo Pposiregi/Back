@@ -1,5 +1,6 @@
 package com.fitpet.server.user.application.facade;
 
+import com.fitpet.server.auth.application.service.AuthService;
 import com.fitpet.server.shared.exception.BusinessException;
 import com.fitpet.server.shared.exception.ErrorCode;
 import com.fitpet.server.termsmaster.application.dto.TermsAgreementCommand;
@@ -11,9 +12,11 @@ import com.fitpet.server.user.domain.entity.User;
 import com.fitpet.server.user.domain.repository.UserRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class UserFacade {
@@ -21,6 +24,7 @@ public class UserFacade {
     private final UserService userService;
     private final TermsAgreementService termsAgreementService;
     private final UserRepository userRepository;
+    private final AuthService authService;
 
     @Transactional
     public UserResult completeSignUp(Long userId, UserInputInfoCommand infoCommand,
@@ -34,5 +38,17 @@ public class UserFacade {
                 termsCommands != null ? termsCommands : List.of());
 
         return result;
+    }
+
+    public void withdraw(Long userId) {
+        log.info("[UserFacade] 회원 탈퇴 시작: userId={}", userId);
+        try {
+            userService.withdrawUser(userId);
+            authService.revokeTokens(userId);
+            log.info("[UserFacade] 회원 탈퇴 완료: userId={}", userId);
+        } catch (Exception e) {
+            log.error("[UserFacade] 회원 탈퇴 실패: userId={}", userId, e);
+            throw e;
+        }
     }
 }
