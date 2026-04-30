@@ -7,6 +7,7 @@ import com.fitpet.server.shared.config.RabbitMQConfig;
 import com.fitpet.server.user.domain.entity.User;
 import com.fitpet.server.user.domain.repository.UserDeviceRepository;
 import com.fitpet.server.user.domain.repository.UserRepository;
+import java.time.Duration;
 import java.util.List;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
@@ -15,6 +16,7 @@ import com.google.firebase.messaging.Notification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,11 +46,14 @@ import org.springframework.transaction.annotation.Transactional;
 public class RankingOvertakeConsumer {
 
     private static final String NOTIFICATION_TITLE = "랭킹 변동 알림 🏃";
+    private static final String FCM_IDEM_KEY_PREFIX = "fcm:idem:";
+    private static final Duration FCM_IDEM_TTL = Duration.ofHours(1);
 
     private final UserRepository userRepository;
     private final UserDeviceRepository userDeviceRepository;
     private final FirebaseMessaging firebaseMessaging;
     private final AlramRepository alramRepository;
+    private final StringRedisTemplate stringRedisTemplate;
 
     @RabbitListener(queues = RabbitMQConfig.QUEUE, containerFactory = "rankingOvertakeListenerFactory")
     @Transactional
@@ -83,6 +88,15 @@ public class RankingOvertakeConsumer {
     }
 
     private void sendFcm(String deviceToken, String body, OvertakeMessage message) {
+        // 멱등성 키: 재시도 시 이미 성공한 토큰에 중복 발송되는 것을 방지한다.
+        // FCM 실패 시 키를 삭제해 다음 재시도에서 재발송 가능하게 복원한다.
+        String idemKey = FCM_IDEM_KEY_PREFIX + message.getOutboxId() + ":" + deviceToken;
+        Boolean isNew = stringRedisTemplate.opsForValue().setIfAbsent(idemKey, "1", FCM_IDEM_TTL);
+        if (!Boolean.TRUE.equals(isNew)) {
+            log.info("[OvertakeConsumer] 이미 발송된 토큰 – 중복 발송 건너뜀: outboxId={}", message.getOutboxId());
+            return;
+        }
+
         Message fcmMessage = Message.builder()
                 .setToken(deviceToken)
                 .setNotification(Notification.builder()
@@ -99,7 +113,8 @@ public class RankingOvertakeConsumer {
             log.info("[OvertakeConsumer] FCM 발송 성공: messageId={}, overtakenUserId={}",
                     fcmId, message.getOvertakenUserId());
         } catch (FirebaseMessagingException e) {
-            // 예외를 던져야 Spring AMQP 가 재시도 → 최종적으로 DLQ 로 이동한다.
+            // FCM 실패 시 멱등성 키 삭제 → 재시도에서 이 토큰을 다시 시도할 수 있다.
+            stringRedisTemplate.delete(idemKey);
             log.error("[OvertakeConsumer] FCM 발송 실패: overtakenUserId={}", message.getOvertakenUserId(), e);
             throw new RuntimeException("FCM 발송 실패 – 재시도 예정", e);
         }
