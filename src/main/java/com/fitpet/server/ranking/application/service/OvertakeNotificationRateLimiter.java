@@ -38,4 +38,16 @@ public class OvertakeNotificationRateLimiter {
         Boolean acquired = redisTemplate.opsForValue().setIfAbsent(key, "1", TTL);
         return Boolean.TRUE.equals(acquired);
     }
+
+    /**
+     * 획득한 슬롯을 반환한다 (보상 트랜잭션용).
+     *
+     * <p>아웃박스 저장 실패 시 rate-limit 키를 삭제해 다음 이벤트가
+     * 차단되지 않도록 복원한다.</p>
+     *
+     * @param overtakenUserId 알림을 받을 사용자
+     */
+    public void release(Long overtakenUserId) {
+        redisTemplate.delete(KEY_PREFIX + overtakenUserId);
+    }
 }

@@ -108,14 +108,21 @@ public class RankingOvertakeDetectorServiceImpl implements RankingOvertakeDetect
                 continue;
             }
 
-            outboxRepository.save(
-                    RankingOvertakeOutbox.builder()
-                            .overtakenUserId(overtakenUserId)
-                            .overtakingUserId(event.getUserId())
-                            .dateKey(event.getDate().toString())
-                            .overtakerCount(1) // 단일 이벤트당 1명 추월 (향후 집계 확장 가능)
-                            .build()
-            );
+            try {
+                outboxRepository.save(
+                        RankingOvertakeOutbox.builder()
+                                .overtakenUserId(overtakenUserId)
+                                .overtakingUserId(event.getUserId())
+                                .dateKey(event.getDate().toString())
+                                .overtakerCount(1) // 단일 이벤트당 1명 추월 (향후 집계 확장 가능)
+                                .build()
+                );
+            } catch (Exception e) {
+                // 아웃박스 저장 실패 시 rate-limit 키를 반환해 다음 이벤트에서 재시도 가능하게 복원
+                rateLimiter.release(overtakenUserId);
+                log.error("[OvertakeDetector] 아웃박스 저장 실패, rate-limit 키 반환: userId={}", overtakenUserId, e);
+                continue;
+            }
             savedCount++;
         }
 
