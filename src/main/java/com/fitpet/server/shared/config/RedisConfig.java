@@ -7,6 +7,7 @@ import com.fitpet.server.mission.infra.redis.MissionProgressRedisChannels;
 import com.fitpet.server.mission.infra.redis.MissionProgressRedisSubscriber;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
@@ -63,10 +64,11 @@ public class RedisConfig {
     }
 
     @Bean
-    public RedisScript<Long> updateStepAndRankingScript() {
-        DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+    @SuppressWarnings("rawtypes")
+    public RedisScript<List> updateStepAndRankingScript() {
+        DefaultRedisScript<List> script = new DefaultRedisScript<>();
         script.setLocation(new ClassPathResource("redis/lua/update_step_and_ranking.lua"));
-        script.setResultType(Long.class);
+        script.setResultType(List.class);
         return script;
     }
 

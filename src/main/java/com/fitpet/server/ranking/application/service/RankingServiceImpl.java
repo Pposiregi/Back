@@ -39,7 +39,8 @@ public class RankingServiceImpl implements RankingService {
     private final S3Service s3Service;
     private final StringRedisTemplate redisTemplate;
     private final RedisScript<Long> updateRankingScript;
-    private final RedisScript<Long> updateStepAndRankingScript;
+    @SuppressWarnings("rawtypes")
+    private final RedisScript<List> updateStepAndRankingScript;
     private final ApplicationEventPublisher eventPublisher;
 
     private static final String DAILYWALK_STEPS_KEY = "dailywalk:steps:";
@@ -103,10 +104,6 @@ public class RankingServiceImpl implements RankingService {
 
         String allRankingKey = getRankingKey(date, RankingFilter.ALL);
 
-        // ── 추월 감지를 위해 Lua 실행 전 현재 순위를 스냅샷 ──────────────────
-        // ZREVRANK: 0-indexed (0 = 1위). 처음 진입하면 null 반환.
-        Long previousRank = redisTemplate.opsForZSet().reverseRank(allRankingKey, userIdStr);
-
         List<String> keys = (gender != RankingFilter.ALL)
                 ? List.of(DAILYWALK_STEPS_KEY + dateStr, DAILYWALK_DISTANCE_KEY + dateStr,
                           DAILYWALK_CALORIES_KEY + dateStr, DAILYWALK_DIRTY_KEY + dateStr,
@@ -115,7 +112,11 @@ public class RankingServiceImpl implements RankingService {
                           DAILYWALK_CALORIES_KEY + dateStr, DAILYWALK_DIRTY_KEY + dateStr,
                           allRankingKey);
 
-        Long result = redisTemplate.execute(updateStepAndRankingScript,
+        // ── ZREVRANK + ZADD 를 같은 Lua 스크립트 안에서 원자적으로 처리 ────
+        // result[0]: 업데이트 전 순위(0-indexed). 처음 진입이면 -1(sentinel).
+        // result[1]: totalSteps
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        List<Long> result = (List<Long>) redisTemplate.execute(updateStepAndRankingScript,
                 keys,
                 userIdStr,
                 String.valueOf(totalSteps),
@@ -125,6 +126,12 @@ public class RankingServiceImpl implements RankingService {
                 TTL_SECONDS
         );
 
+        // -1 은 "처음 진입(추월 없음)" 센티넬 → null 로 변환해 이벤트에 전달
+        Long rawPrevRank = (result != null && !result.isEmpty()) ? result.get(0) : null;
+        Long previousRank = (rawPrevRank == null || rawPrevRank == -1L) ? null : rawPrevRank;
+        long resultSteps = (result != null && result.size() > 1 && result.get(1) != null)
+                ? result.get(1) : totalSteps;
+
         log.info("[RankingService] 걸음수 Hash + 랭킹 ZSet SET 업데이트: userId={}, totalSteps={}", userId, totalSteps);
 
         // ── 추월 감지 이벤트 발행 (비동기 처리) ─────────────────────────────
@@ -132,7 +139,7 @@ public class RankingServiceImpl implements RankingService {
         // 별도 스레드에서 아웃박스 이벤트를 저장한다.
         eventPublisher.publishEvent(new RankingScoreUpdatedEvent(userId, previousRank, date));
 
-        return result != null ? result : totalSteps;
+        return resultSteps;
     }
 
     @Override
