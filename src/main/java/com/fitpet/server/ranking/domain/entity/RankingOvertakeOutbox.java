@@ -77,6 +77,14 @@ public class RankingOvertakeOutbox {
     @Column(name = "published_at")
     private LocalDateTime publishedAt;
 
+    public void markClaimed() {
+        this.status = OutboxStatus.CLAIMED;
+    }
+
+    public void markPending() {
+        this.status = OutboxStatus.PENDING;
+    }
+
     public void markPublished() {
         this.status = OutboxStatus.PUBLISHED;
         this.publishedAt = LocalDateTime.now();
