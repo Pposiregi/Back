@@ -1,11 +1,9 @@
 package com.fitpet.server.ranking.infra.jpa;
 
-import com.fitpet.server.ranking.domain.entity.OutboxStatus;
 import com.fitpet.server.ranking.domain.entity.RankingOvertakeOutbox;
 import com.fitpet.server.ranking.domain.repository.RankingOvertakeOutboxRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -21,9 +19,6 @@ public class RankingOvertakeOutboxRepositoryAdapter implements RankingOvertakeOu
 
     @Override
     public List<RankingOvertakeOutbox> findPendingBatch(int limit) {
-        return jpaRepository.findByStatusOrderByCreatedAtAsc(
-                OutboxStatus.PENDING,
-                PageRequest.of(0, limit)
-        );
+        return jpaRepository.lockPendingBatch(limit);
     }
 }
