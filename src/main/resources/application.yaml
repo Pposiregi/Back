@@ -26,6 +26,13 @@ spring:
       host: ${VALKEY_HOST}
       port: ${VALKEY_PORT}
       password: "${VALKEY_PASSWORD}"
+
+  # RabbitMQ – 랭킹 추월 알림 비동기 처리
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:fitpet}
+    password: ${RABBITMQ_PASS:fitpet}
   security:
     user:
       name: ${SECURITY_USER}

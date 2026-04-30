@@ -93,6 +93,9 @@ dependencies {
     implementation 'com.google.firebase:firebase-admin:9.3.0'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
 
+    // RabbitMQ (랭킹 추월 알림 비동기 처리)
+    implementation 'org.springframework.boot:spring-boot-starter-amqp'
+
     // GCP
     implementation "com.google.cloud.sql:mysql-socket-factory-connector-j-8:1.27.1"
 }
