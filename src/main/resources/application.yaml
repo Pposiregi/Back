@@ -29,10 +29,10 @@ spring:
 
   # RabbitMQ – 랭킹 추월 알림 비동기 처리
   rabbitmq:
-    host: ${RABBITMQ_HOST:localhost}
-    port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USER:fitpet}
-    password: ${RABBITMQ_PASS:fitpet}
+    host: ${RABBITMQ_HOST}
+    port: ${RABBITMQ_PORT}
+    username: ${RABBITMQ_USER}
+    password: ${RABBITMQ_PASS}
     publisher-confirm-type: CORRELATED   # outboxId 기반 브로커 ACK/NACK 추적
     publisher-returns: true               # 라우팅 실패(unroutable) 메시지 반환 활성화
   security:
