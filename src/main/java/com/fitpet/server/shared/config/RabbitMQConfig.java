@@ -1,5 +1,6 @@
 package com.fitpet.server.shared.config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
@@ -40,6 +41,7 @@ import org.springframework.retry.interceptor.RetryOperationsInterceptor;
  *   <li>최대 재시도: 3회 후 DLQ로 이동</li>
  * </ul>
  */
+@Slf4j
 @Configuration
 public class RabbitMQConfig {
 
@@ -117,6 +119,13 @@ public class RabbitMQConfig {
                                   MessageConverter jsonMessageConverter) {
         RabbitTemplate template = new RabbitTemplate(connectionFactory);
         template.setMessageConverter(jsonMessageConverter);
+        // mandatory=true: 라우팅 불가 메시지를 ReturnsCallback으로 반환 (publisher-returns와 함께 동작)
+        template.setMandatory(true);
+        // 라우팅 실패 콜백: exchange에 바인딩된 큐가 없을 때 호출
+        template.setReturnsCallback(returned ->
+                log.error("[RabbitMQ] 메시지 라우팅 실패 – 큐 바인딩 확인 필요: exchange={}, routingKey={}, replyText={}",
+                        returned.getExchange(), returned.getRoutingKey(), returned.getReplyText())
+        );
         return template;
     }
 

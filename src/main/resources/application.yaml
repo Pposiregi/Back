@@ -33,6 +33,8 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:fitpet}
     password: ${RABBITMQ_PASS:fitpet}
+    publisher-confirm-type: CORRELATED   # outboxId 기반 브로커 ACK/NACK 추적
+    publisher-returns: true               # 라우팅 실패(unroutable) 메시지 반환 활성화
   security:
     user:
       name: ${SECURITY_USER}
