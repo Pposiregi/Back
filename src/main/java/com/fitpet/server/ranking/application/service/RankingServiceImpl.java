@@ -3,6 +3,7 @@ package com.fitpet.server.ranking.application.service;
 import com.fitpet.server.dailywalk.domain.entity.DailyWalk;
 import com.fitpet.server.dailywalk.domain.repository.DailyWalkRepository;
 import com.fitpet.server.ranking.application.dto.RankingDto;
+import com.fitpet.server.ranking.application.event.RankingScoreUpdatedEvent;
 import com.fitpet.server.ranking.domain.type.RankingFilter;
 import com.fitpet.server.shared.s3.S3Service;
 import com.fitpet.server.user.domain.entity.User;
@@ -102,6 +103,10 @@ public class RankingServiceImpl implements RankingService {
 
         String allRankingKey = getRankingKey(date, RankingFilter.ALL);
 
+        // ── 추월 감지를 위해 Lua 실행 전 현재 순위를 스냅샷 ──────────────────
+        // ZREVRANK: 0-indexed (0 = 1위). 처음 진입하면 null 반환.
+        Long previousRank = redisTemplate.opsForZSet().reverseRank(allRankingKey, userIdStr);
+
         List<String> keys = (gender != RankingFilter.ALL)
                 ? List.of(DAILYWALK_STEPS_KEY + dateStr, DAILYWALK_DISTANCE_KEY + dateStr,
                           DAILYWALK_CALORIES_KEY + dateStr, DAILYWALK_DIRTY_KEY + dateStr,
@@ -121,6 +126,12 @@ public class RankingServiceImpl implements RankingService {
         );
 
         log.info("[RankingService] 걸음수 Hash + 랭킹 ZSet SET 업데이트: userId={}, totalSteps={}", userId, totalSteps);
+
+        // ── 추월 감지 이벤트 발행 (비동기 처리) ─────────────────────────────
+        // RankingOvertakeDetectorService 가 @Async @EventListener 로 수신하여
+        // 별도 스레드에서 아웃박스 이벤트를 저장한다.
+        eventPublisher.publishEvent(new RankingScoreUpdatedEvent(userId, previousRank, date));
+
         return result != null ? result : totalSteps;
     }
 
