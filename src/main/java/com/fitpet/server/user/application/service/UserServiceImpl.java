@@ -226,6 +226,9 @@ public class UserServiceImpl implements UserService {
         try {
             s3Service.existsObject(profileImageKey);
         } catch (S3Exception e) {
+            if (e.statusCode() != 403 && e.statusCode() != 404) {
+                throw e;
+            }
             throw new BusinessException(ErrorCode.USER_PROFILE_IMAGE_ACCESS_DENIED);
         }
     }
