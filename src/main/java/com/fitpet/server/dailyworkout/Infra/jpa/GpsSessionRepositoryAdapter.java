@@ -34,4 +34,9 @@ public class GpsSessionRepositoryAdapter implements GpsSessionRepository {
     public Optional<GpsSession> findById(Long id) {
         return gpsSessionJpaRepository.findById(id);
     }
+
+    @Override
+    public Optional<GpsSession> findActiveById(Long id) {
+        return gpsSessionJpaRepository.findByIdAndDeletedFalse(id);
+    }
 }

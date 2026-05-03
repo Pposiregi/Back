@@ -65,6 +65,13 @@ public class GpsSession {
     private LocalDateTime createdAt;
 
     @Builder.Default
+    @Column(name = "is_deleted", nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
+    private boolean deleted = false;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    @Builder.Default
     @OneToMany(mappedBy = "gpsSession", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<GpsLog> gpsLogs = new ArrayList<>();
     
@@ -79,6 +86,11 @@ public class GpsSession {
             return false;
         }
         return this.user.getId().equals(userId);
+    }
+
+    public void delete() {
+        this.deleted = true;
+        this.deletedAt = LocalDateTime.now();
     }
 
     // 거리 누적 로직

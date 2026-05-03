@@ -71,7 +71,7 @@ public class GpsSessionServiceImpl implements GpsSessionService {
     @Override
     public GpsLogResponse logGps(Long userId, GpsLogRequest request) {
 
-        GpsSession session = gpsSessionRepository.findById(request.getSessionId())
+        GpsSession session = gpsSessionRepository.findActiveById(request.getSessionId())
                 .orElseThrow(() -> {
                     log.warn("세션을 찾을 수 없음: sessionId={}", request.getSessionId());
                     return new BusinessException(ErrorCode.SESSION_NOT_FOUND);
@@ -134,7 +134,7 @@ public class GpsSessionServiceImpl implements GpsSessionService {
     public SessionEndResponse endSession(Long userId, SessionEndRequest request) {
         log.info("GPS 세션 종료 요청: sessionId={}", request.getSessionId());
 
-        GpsSession session = gpsSessionRepository.findById(request.getSessionId())
+        GpsSession session = gpsSessionRepository.findActiveById(request.getSessionId())
                 .orElseThrow(() -> {
                     log.warn("세션을 찾을 수 없음: sessionId={}", request.getSessionId());
                     return new BusinessException(ErrorCode.SESSION_NOT_FOUND);
@@ -191,7 +191,7 @@ public class GpsSessionServiceImpl implements GpsSessionService {
     @Override
     @Transactional(readOnly = true)
     public GpsSessionDetailResponse getSessionDetail(Long userId, Long sessionId) {
-        GpsSession session = gpsSessionRepository.findById(sessionId)
+        GpsSession session = gpsSessionRepository.findActiveById(sessionId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.SESSION_NOT_FOUND));
 
         if (!session.isOwnedBy(userId)) {
@@ -215,5 +215,20 @@ public class GpsSessionServiceImpl implements GpsSessionService {
                 session.getBurnCalories(),
                 routeLogs
         );
+    }
+
+    @Override
+    public void deleteSession(Long userId, Long sessionId) {
+        GpsSession session = gpsSessionRepository.findActiveById(sessionId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.SESSION_NOT_FOUND));
+
+        if (!session.isOwnedBy(userId)) {
+            log.warn("세션 삭제 권한 없음: userId={}, ownerId={}, sessionId={}",
+                    userId, session.getUser().getId(), session.getId());
+            throw new BusinessException(ErrorCode.SESSION_ACCESS_DENIED);
+        }
+
+        session.delete();
+        log.info("GPS 세션 삭제 완료: userId={}, sessionId={}", userId, sessionId);
     }
 }

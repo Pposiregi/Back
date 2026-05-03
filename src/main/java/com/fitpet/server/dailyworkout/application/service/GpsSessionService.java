@@ -21,4 +21,6 @@ public interface GpsSessionService {
     List<GpsSessionSummaryResponse> getMonthlySessions(Long userId, int year, int month);
 
     GpsSessionDetailResponse getSessionDetail(Long userId, Long sessionId);
+
+    void deleteSession(Long userId, Long sessionId);
 }
