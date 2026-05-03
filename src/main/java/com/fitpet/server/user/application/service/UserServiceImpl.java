@@ -1,6 +1,8 @@
 package com.fitpet.server.user.application.service;
 
 import com.fitpet.server.pet.domain.repository.PetRepository;
+import com.fitpet.server.shared.exception.BusinessException;
+import com.fitpet.server.shared.exception.ErrorCode;
 import com.fitpet.server.shared.s3.S3Service;
 import com.fitpet.server.shared.s3.type.ImageType;
 import com.fitpet.server.user.application.dto.PetSummaryResult;
@@ -25,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 @Service
 @RequiredArgsConstructor
@@ -39,6 +42,7 @@ public class UserServiceImpl implements UserService {
     private final StringRedisTemplate redisTemplate;
 
     private static final String USER_IMAGE_KEY = "user:images";
+    private static final String PROFILE_PRESET_PREFIX = "profile-presets/";
 
     @Override
     @Transactional
@@ -100,7 +104,12 @@ public class UserServiceImpl implements UserService {
             command.targetPbf(),
             command.targetStepCount()
         );
-        return userMapper.toResult(user);
+
+        if (StringUtils.hasText(command.profileImageKey())) {
+            updateProfileImageKey(userId, user, command.profileImageKey());
+        }
+
+        return enrichWithPresignedUrl(userMapper.toResult(user), user.getProfileImageUrl());
     }
 
     @Override
@@ -108,9 +117,7 @@ public class UserServiceImpl implements UserService {
     public ProfileImageUpdateResult updateProfileImage(Long userId) {
         User user = findUserById(userId);
 
-        if (user.getProfileImageUrl() != null && !user.getProfileImageUrl().isBlank()) {
-            s3Service.deleteObject(user.getProfileImageUrl());
-        }
+        deleteOwnedProfileImageIfPresent(userId, user.getProfileImageUrl());
 
         String newImageKey = s3Service.createImageKey(userId, ImageType.PROFILE);
         user.updateProfileImageUrl(newImageKey);
@@ -128,7 +135,7 @@ public class UserServiceImpl implements UserService {
         User user = findUserById(userId);
 
         if (user.getProfileImageUrl() != null && !user.getProfileImageUrl().isBlank()) {
-            s3Service.deleteObject(user.getProfileImageUrl());
+            deleteOwnedProfileImageIfPresent(userId, user.getProfileImageUrl());
             user.updateProfileImageUrl(null);
             redisTemplate.opsForHash().delete(USER_IMAGE_KEY, String.valueOf(userId));
         }
@@ -199,5 +206,40 @@ public class UserServiceImpl implements UserService {
             userRepository.existsByNicknameAndIdNot(command.nickname(), userId)) {
             throw new DuplicateNicknameException();
         }
+    }
+
+    private void updateProfileImageKey(Long userId, User user, String profileImageKey) {
+        validateProfileImageKey(userId, profileImageKey);
+        user.updateProfileImageUrl(profileImageKey);
+        redisTemplate.opsForHash().put(USER_IMAGE_KEY, String.valueOf(userId), profileImageKey);
+    }
+
+    private void validateProfileImageKey(Long userId, String profileImageKey) {
+        if (!isPresetProfileImage(profileImageKey) && !isOwnedProfileImage(userId, profileImageKey)) {
+            throw new BusinessException(ErrorCode.USER_PROFILE_IMAGE_ACCESS_DENIED);
+        }
+
+        try {
+            s3Service.existsObject(profileImageKey);
+        } catch (S3Exception e) {
+            throw new BusinessException(ErrorCode.USER_PROFILE_IMAGE_ACCESS_DENIED);
+        }
+    }
+
+    private void deleteOwnedProfileImageIfPresent(Long userId, String profileImageKey) {
+        if (isOwnedProfileImage(userId, profileImageKey)) {
+            s3Service.deleteObject(profileImageKey);
+        }
+    }
+
+    private boolean isPresetProfileImage(String profileImageKey) {
+        return StringUtils.hasText(profileImageKey) && profileImageKey.startsWith(PROFILE_PRESET_PREFIX);
+    }
+
+    private boolean isOwnedProfileImage(Long userId, String profileImageKey) {
+        if (!StringUtils.hasText(profileImageKey)) {
+            return false;
+        }
+        return profileImageKey.startsWith("user/" + userId + "/" + ImageType.PROFILE.getPath() + "/");
     }
 }
