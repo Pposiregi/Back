@@ -210,8 +210,12 @@ public class UserServiceImpl implements UserService {
 
     private void updateProfileImageKey(Long userId, User user, String profileImageKey) {
         validateProfileImageKey(userId, profileImageKey);
+        String previousProfileImageKey = user.getProfileImageUrl();
         user.updateProfileImageUrl(profileImageKey);
         redisTemplate.opsForHash().put(USER_IMAGE_KEY, String.valueOf(userId), profileImageKey);
+        if (!profileImageKey.equals(previousProfileImageKey)) {
+            deleteOwnedProfileImageIfPresent(userId, previousProfileImageKey);
+        }
     }
 
     private void validateProfileImageKey(Long userId, String profileImageKey) {
