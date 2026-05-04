@@ -39,32 +39,48 @@ public class RankingOvertakeDetectorServiceImpl implements RankingOvertakeDetect
         log.info("[OvertakeDetector] 이벤트 수신: userId={}, previousRank={}, date={}",
                 event.getUserId(), event.getPreviousRank(), event.getDate());
 
-        Long previousRank = event.getPreviousRank();
-
-        if (previousRank == null) {
-            log.info("[OvertakeDetector] previousRank null → 조기 종료 (처음 진입)");
+        Long newRank = resolveNewRank(event);
+        if (newRank == null) {
             return;
         }
 
-        String allRankingKey = RANKING_KEY_PREFIX + event.getDate();
-        String userIdStr = String.valueOf(event.getUserId());
-
-        Long newRank = redisTemplate.opsForZSet().reverseRank(allRankingKey, userIdStr);
-
-        if (newRank == null || newRank >= previousRank) {
-            return;
-        }
-
-        Set<String> overtakenUserIds = redisTemplate.opsForZSet()
-                .reverseRange(allRankingKey, newRank + 1, previousRank);
-
+        Set<String> overtakenUserIds = getOvertakenUserIds(event, newRank);
         if (overtakenUserIds == null || overtakenUserIds.isEmpty()) {
             return;
         }
 
         log.info("[OvertakeDetector] 추월 감지: overtakingUserId={}, newRank={}, previousRank={}, overtakenCount={}",
-                event.getUserId(), newRank + 1, previousRank + 1, overtakenUserIds.size());
+                event.getUserId(), newRank + 1, event.getPreviousRank() + 1, overtakenUserIds.size());
 
+        int savedCount = saveOutboxForEligibleUsers(overtakenUserIds, event);
+        if (savedCount > 0) {
+            log.info("[OvertakeDetector] 아웃박스 저장 완료: {} 건", savedCount);
+        }
+    }
+
+    private Long resolveNewRank(RankingScoreUpdatedEvent event) {
+        Long previousRank = event.getPreviousRank();
+        if (previousRank == null) {
+            log.info("[OvertakeDetector] previousRank null → 조기 종료 (처음 진입)");
+            return null;
+        }
+
+        String allRankingKey = RANKING_KEY_PREFIX + event.getDate();
+        Long newRank = redisTemplate.opsForZSet().reverseRank(allRankingKey, String.valueOf(event.getUserId()));
+
+        if (newRank == null || newRank >= previousRank) {
+            return null;
+        }
+        return newRank;
+    }
+
+    private Set<String> getOvertakenUserIds(RankingScoreUpdatedEvent event, Long newRank) {
+        String allRankingKey = RANKING_KEY_PREFIX + event.getDate();
+        return redisTemplate.opsForZSet()
+                .reverseRange(allRankingKey, newRank + 1, event.getPreviousRank());
+    }
+
+    private int saveOutboxForEligibleUsers(Set<String> overtakenUserIds, RankingScoreUpdatedEvent event) {
         int savedCount = 0;
         for (String overtakenIdStr : overtakenUserIds) {
             Long overtakenUserId = Long.parseLong(overtakenIdStr);
@@ -78,25 +94,28 @@ public class RankingOvertakeDetectorServiceImpl implements RankingOvertakeDetect
                 continue;
             }
 
-            try {
-                outboxRepository.save(
-                        RankingOvertakeOutbox.builder()
-                                .overtakenUserId(overtakenUserId)
-                                .overtakingUserId(event.getUserId())
-                                .dateKey(event.getDate().toString())
-                                .overtakerCount(1)
-                                .build()
-                );
-            } catch (Exception e) {
-                rateLimiter.release(overtakenUserId);
-                log.error("[OvertakeDetector] 아웃박스 저장 실패, rate-limit 키 반환: userId={}", overtakenUserId, e);
-                continue;
+            if (saveOutbox(overtakenUserId, event)) {
+                savedCount++;
             }
-            savedCount++;
         }
+        return savedCount;
+    }
 
-        if (savedCount > 0) {
-            log.info("[OvertakeDetector] 아웃박스 저장 완료: {} 건", savedCount);
+    private boolean saveOutbox(Long overtakenUserId, RankingScoreUpdatedEvent event) {
+        try {
+            outboxRepository.save(
+                    RankingOvertakeOutbox.builder()
+                            .overtakenUserId(overtakenUserId)
+                            .overtakingUserId(event.getUserId())
+                            .dateKey(event.getDate().toString())
+                            .overtakerCount(1)
+                            .build()
+            );
+            return true;
+        } catch (Exception e) {
+            rateLimiter.release(overtakenUserId);
+            log.error("[OvertakeDetector] 아웃박스 저장 실패, rate-limit 키 반환: userId={}", overtakenUserId, e);
+            return false;
         }
     }
 }
