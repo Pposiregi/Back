@@ -20,26 +20,6 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * 랭킹 추월 알림 MQ 소비자.
- *
- * <h2>처리 흐름</h2>
- * <ol>
- *   <li>수신된 메시지에서 피추월자 정보를 조회한다.</li>
- *   <li>알림 수신 동의 및 디바이스 토큰을 확인한다.</li>
- *   <li>FCM 푸시 알림을 발송한다.</li>
- *   <li>알림 발송 이력을 DB에 저장한다.</li>
- * </ol>
- *
- * <h2>실패 처리</h2>
- * <p>FCM 예외 발생 시 {@link RuntimeException} 으로 재포장하면 Spring AMQP 가
- * {@link RabbitMQConfig#rankingOvertakeRetryInterceptor()} 정책에 따라 재시도한다.
- * 3회 초과 시 Dead Letter Queue 로 이동한다.</p>
- *
- * <h2>멱등성</h2>
- * <p>Rate Limiter(Redis)가 아웃박스 저장 시점에 이미 중복 발송을 차단하므로
- * 소비자 레벨에서는 추가 멱등성 처리 없이 단순하게 유지한다.</p>
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -64,19 +44,18 @@ public class RankingOvertakeConsumer {
         User overtakenUser = userRepository.findById(message.getOvertakenUserId()).orElse(null);
         if (overtakenUser == null) {
             log.warn("[OvertakeConsumer] 사용자 없음 – 메시지 폐기: userId={}", message.getOvertakenUserId());
-            return; // ack (폐기)
+            return;
         }
 
-        // 알림 수신 동의 확인
         if (!Boolean.TRUE.equals(overtakenUser.getAllowActivityNotification())) {
             log.info("[OvertakeConsumer] 알림 수신 거부 – 건너뜀: userId={}", message.getOvertakenUserId());
-            return; // ack (폐기)
+            return;
         }
 
         List<String> deviceTokens = userDeviceRepository.findAllTokensByUserId(message.getOvertakenUserId());
         if (deviceTokens.isEmpty()) {
             log.warn("[OvertakeConsumer] 디바이스 토큰 없음 – 건너뜀: userId={}", message.getOvertakenUserId());
-            return; // ack (폐기)
+            return;
         }
 
         String body = message.getOvertakerCount() + "명에게 순위를 추월당했어요! 달려볼까요? 🏃";
@@ -88,8 +67,6 @@ public class RankingOvertakeConsumer {
     }
 
     private void sendFcm(String deviceToken, String body, OvertakeMessage message) {
-        // 멱등성 키: 재시도 시 이미 성공한 토큰에 중복 발송되는 것을 방지한다.
-        // FCM 실패 시 키를 삭제해 다음 재시도에서 재발송 가능하게 복원한다.
         String idemKey = FCM_IDEM_KEY_PREFIX + message.getOutboxId() + ":" + deviceToken;
         Boolean isNew = stringRedisTemplate.opsForValue().setIfAbsent(idemKey, "1", FCM_IDEM_TTL);
         if (!Boolean.TRUE.equals(isNew)) {
@@ -113,7 +90,6 @@ public class RankingOvertakeConsumer {
             log.info("[OvertakeConsumer] FCM 발송 성공: messageId={}, overtakenUserId={}",
                     fcmId, message.getOvertakenUserId());
         } catch (FirebaseMessagingException e) {
-            // FCM 실패 시 멱등성 키 삭제 → 재시도에서 이 토큰을 다시 시도할 수 있다.
             stringRedisTemplate.delete(idemKey);
             log.error("[OvertakeConsumer] FCM 발송 실패: overtakenUserId={}", message.getOvertakenUserId(), e);
             throw new RuntimeException("FCM 발송 실패 – 재시도 예정", e);

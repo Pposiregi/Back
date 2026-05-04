@@ -112,9 +112,6 @@ public class RankingServiceImpl implements RankingService {
                           DAILYWALK_CALORIES_KEY + dateStr, DAILYWALK_DIRTY_KEY + dateStr,
                           allRankingKey);
 
-        // ── ZREVRANK + ZADD 를 같은 Lua 스크립트 안에서 원자적으로 처리 ────
-        // result[0]: 업데이트 전 순위(0-indexed). 처음 진입이면 -1(sentinel).
-        // result[1]: totalSteps
         @SuppressWarnings({"rawtypes", "unchecked"})
         List<Long> result = (List<Long>) redisTemplate.execute(updateStepAndRankingScript,
                 keys,
@@ -126,7 +123,6 @@ public class RankingServiceImpl implements RankingService {
                 TTL_SECONDS
         );
 
-        // -1 은 "처음 진입(추월 없음)" 센티넬 → null 로 변환해 이벤트에 전달
         Long rawPrevRank = (result != null && !result.isEmpty()) ? result.get(0) : null;
         Long previousRank = (rawPrevRank == null || rawPrevRank == -1L) ? null : rawPrevRank;
         long resultSteps = (result != null && result.size() > 1 && result.get(1) != null)
@@ -134,9 +130,6 @@ public class RankingServiceImpl implements RankingService {
 
         log.info("[RankingService] 걸음수 Hash + 랭킹 ZSet SET 업데이트: userId={}, totalSteps={}", userId, totalSteps);
 
-        // ── 추월 감지 이벤트 발행 (비동기 처리) ─────────────────────────────
-        // RankingOvertakeDetectorService 가 @Async @EventListener 로 수신하여
-        // 별도 스레드에서 아웃박스 이벤트를 저장한다.
         eventPublisher.publishEvent(new RankingScoreUpdatedEvent(userId, previousRank, date));
 
         return resultSteps;
