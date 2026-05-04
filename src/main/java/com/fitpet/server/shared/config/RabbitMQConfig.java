@@ -15,47 +15,21 @@ import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.retry.backoff.ExponentialRandomBackOffPolicy;
 import org.springframework.retry.interceptor.RetryOperationsInterceptor;
 
-/**
- * RabbitMQ 인프라 설정.
- *
- * <h2>토폴로지</h2>
- * <pre>
- * Producer
- *   → [ranking.overtake.exchange] (Direct)
- *       --routing-key: ranking.overtake--> [ranking.overtake.queue]
- *                                                    ↓ (소비)
- *                                             Consumer (FCM 발송)
- *                                                    ↓ (실패 3회)
- *                                      [ranking.overtake.dlx] (Dead Letter Exchange)
- *                                                    ↓
- *                                          [ranking.overtake.dlq]  (수동 확인/알림)
- * </pre>
- *
- * <h2>백오프(Backoff)</h2>
- * <ul>
- *   <li>초기 대기: 1s</li>
- *   <li>배수: 2.0 (1s → 2s → 4s)</li>
- *   <li>최대 대기: 10s</li>
- *   <li>최대 재시도: 3회 후 DLQ로 이동</li>
- * </ul>
- */
 @Slf4j
 @Configuration
 public class RabbitMQConfig {
 
-    // ── 메인 큐 ──────────────────────────────────────────────
-    public static final String EXCHANGE    = "ranking.overtake.exchange";
-    public static final String QUEUE       = "ranking.overtake.queue";
+    public static final String EXCHANGE = "ranking.overtake.exchange";
+    public static final String QUEUE = "ranking.overtake.queue";
     public static final String ROUTING_KEY = "ranking.overtake";
 
-    // ── Dead Letter ───────────────────────────────────────────
-    public static final String DLX             = "ranking.overtake.dlx";
-    public static final String DLQ             = "ranking.overtake.dlq";
+    public static final String DLX = "ranking.overtake.dlx";
+    public static final String DLQ = "ranking.overtake.dlq";
     public static final String DLQ_ROUTING_KEY = "ranking.overtake.dead";
 
-    // ── Exchange ──────────────────────────────────────────────
 
     @Bean
     DirectExchange rankingOvertakeExchange() {
@@ -67,14 +41,6 @@ public class RabbitMQConfig {
         return new DirectExchange(DLX, true, false);
     }
 
-    // ── Queue ─────────────────────────────────────────────────
-
-    /**
-     * 메인 큐: 처리 실패 시 DLX 로 라우팅.
-     *
-     * <p>{@code x-dead-letter-exchange} 와 {@code x-dead-letter-routing-key} 를 설정하면
-     * consumer 가 NACK(requeue=false) 를 전달하거나 TTL 이 만료될 때 DLQ 로 이동한다.</p>
-     */
     @Bean
     Queue rankingOvertakeQueue() {
         return QueueBuilder.durable(QUEUE)
@@ -83,13 +49,10 @@ public class RabbitMQConfig {
                 .build();
     }
 
-    /** Dead Letter Queue: 수동 검토 / 재처리 대상 */
     @Bean
     Queue rankingOvertakeDlq() {
         return QueueBuilder.durable(DLQ).build();
     }
-
-    // ── Binding ───────────────────────────────────────────────
 
     @Bean
     Binding rankingOvertakeBinding(Queue rankingOvertakeQueue,
@@ -107,7 +70,6 @@ public class RabbitMQConfig {
                 .with(DLQ_ROUTING_KEY);
     }
 
-    // ── Converter & Template ──────────────────────────────────
 
     @Bean
     MessageConverter jsonMessageConverter() {
@@ -129,19 +91,16 @@ public class RabbitMQConfig {
         return template;
     }
 
-    // ── Listener Container ────────────────────────────────────
-
-    /**
-     * 재시도 인터셉터: 지수 백오프(1s→2s→4s), 3회 초과 시 DLQ.
-     *
-     * <p>{@link RejectAndDontRequeueRecoverer} 는 최종 실패 시 NACK + requeue=false 를
-     * 전송한다. 메인 큐에 {@code x-dead-letter-exchange} 가 설정되어 있으면 DLQ로 이동한다.</p>
-     */
     @Bean
     RetryOperationsInterceptor rankingOvertakeRetryInterceptor() {
+        ExponentialRandomBackOffPolicy backOff = new ExponentialRandomBackOffPolicy();
+        backOff.setInitialInterval(1_000);
+        backOff.setMultiplier(2.0);
+        backOff.setMaxInterval(10_000);
+
         return RetryInterceptorBuilder.stateless()
                 .maxAttempts(3)
-                .backOffOptions(1_000, 2.0, 10_000) // initial, multiplier, max (ms)
+                .backOffPolicy(backOff)
                 .recoverer(new RejectAndDontRequeueRecoverer())
                 .build();
     }
