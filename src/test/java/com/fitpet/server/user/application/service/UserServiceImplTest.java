@@ -17,6 +17,7 @@ import com.fitpet.server.user.application.dto.UserCreateCommand;
 import com.fitpet.server.user.application.dto.UserInputInfoCommand;
 import com.fitpet.server.user.application.dto.UserResult;
 import com.fitpet.server.user.application.dto.UserUpdateCommand;
+import com.fitpet.server.user.domain.event.SignupCompletedEvent;
 import com.fitpet.server.user.application.mapper.UserMapper;
 import com.fitpet.server.user.domain.entity.Gender;
 import com.fitpet.server.user.domain.entity.RegistrationStatus;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
@@ -48,6 +50,7 @@ class UserServiceImplTest {
     @Mock StringRedisTemplate redisTemplate;
     @Mock RedisScript<Long> hsetWithExpireScript;
     @Mock com.fitpet.server.user.domain.repository.UserProfileImageRepository profileImageRepository;
+    @Mock ApplicationEventPublisher eventPublisher;
 
     @InjectMocks UserServiceImpl sut;
 
@@ -294,6 +297,44 @@ class UserServiceImplTest {
         sut.withdrawUser(USER_ID);
 
         assertThat(user.getDeletedAt()).isNotNull();
+    }
+
+    // createUser() — SignupCompletedEvent
+
+    @Test
+    @DisplayName("createUser 신규 가입 시 SignupCompletedEvent가 발행된다")
+    void createUser_신규가입_SignupCompletedEvent_발행() {
+        when(userRepository.findByEmailIncludeDeleted("new@test.com")).thenReturn(Optional.empty());
+        when(userRepository.existsByEmail("new@test.com")).thenReturn(false);
+        when(userRepository.existsByNickname("새닉네임")).thenReturn(false);
+        when(passwordEncoder.encode(anyString())).thenReturn("encoded");
+        User newUser = User.builder().id(2L).email("new@test.com").build();
+        when(userMapper.toEntity(any())).thenReturn(newUser);
+        when(userRepository.save(any())).thenReturn(newUser);
+        when(userMapper.toResult(any())).thenReturn(UserResult.builder().userId(2L).build());
+        when(userRepository.count()).thenReturn(100L);
+
+        UserCreateCommand command = new UserCreateCommand("new@test.com", "pass", "새닉네임", null, null, null, null, null, null, null, null);
+        sut.createUser(command);
+
+        verify(eventPublisher).publishEvent(any(SignupCompletedEvent.class));
+    }
+
+    @Test
+    @DisplayName("createUser 탈퇴 계정 재활성화 시 SignupCompletedEvent가 발행되지 않는다")
+    void createUser_재활성화시_SignupCompletedEvent_미발행() {
+        User deleted = User.builder().id(USER_ID).email("test@test.com").nickname("기존닉네임").build();
+        deleted.withdraw();
+
+        when(userRepository.findByEmailIncludeDeleted("test@test.com")).thenReturn(Optional.of(deleted));
+        when(passwordEncoder.encode(anyString())).thenReturn("encoded");
+        when(userRepository.save(any())).thenReturn(deleted);
+        when(userMapper.toResult(any())).thenReturn(UserResult.builder().userId(USER_ID).build());
+
+        UserCreateCommand command = new UserCreateCommand("test@test.com", "pass", "닉네임", null, null, null, null, null, null, null, null);
+        sut.createUser(command);
+
+        verify(eventPublisher, never()).publishEvent(any(SignupCompletedEvent.class));
     }
 
     @Test
