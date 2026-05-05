@@ -10,6 +10,7 @@ import com.fitpet.server.user.application.dto.UserCreateCommand;
 import com.fitpet.server.user.application.dto.UserInputInfoCommand;
 import com.fitpet.server.user.application.dto.UserResult;
 import com.fitpet.server.user.application.dto.UserUpdateCommand;
+import com.fitpet.server.user.domain.event.SignupCompletedEvent;
 import com.fitpet.server.user.application.mapper.UserMapper;
 import com.fitpet.server.user.domain.entity.RegistrationStatus;
 import com.fitpet.server.user.domain.entity.User;
@@ -25,6 +26,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.http.HttpStatus;
@@ -48,6 +50,7 @@ public class UserServiceImpl implements UserService {
     @Qualifier("hsetWithExpireScript")
     private final RedisScript<Long> hsetWithExpireScript;
     private final UserProfileImageRepository profileImageRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     private static final String USER_IMAGE_KEY = "user:images";
     private static final String USER_PROFILE_KEY = "user:profiles";
@@ -65,7 +68,10 @@ public class UserServiceImpl implements UserService {
                     validateUserCreateRequest(command);
                     User user = userMapper.toEntity(command);
                     user.changePassword(passwordEncoder.encode(command.password()));
-                    return userMapper.toResult(userRepository.save(user));
+                    User saved = userRepository.save(user);
+                    long totalCount = userRepository.count();
+                    eventPublisher.publishEvent(new SignupCompletedEvent(saved.getId(), totalCount));
+                    return userMapper.toResult(saved);
                 });
     }
 

@@ -52,4 +52,6 @@ public interface UserRepository {
     long countByDailyStepCountGreaterThan(int dailyStepCount);
 
     List<User> findAllById(Iterable<Long> ids);
+
+    long count();
 }
