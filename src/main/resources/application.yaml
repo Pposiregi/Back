@@ -95,6 +95,12 @@ springdoc:
   swagger-ui:
     disable-swagger-default-url: true
 
+notification:
+  discord:
+    enabled: ${DISCORD_WEBHOOK_ENABLED:false}
+    error-webhook-url: ${DISCORD_ERROR_WEBHOOK_URL:}
+    signup-webhook-url: ${DISCORD_SIGNUP_WEBHOOK_URL:}
+
 management:
   endpoints:
     web:
