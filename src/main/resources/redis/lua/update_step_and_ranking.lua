@@ -14,6 +14,10 @@
 -- ARGV[5]: weightedScore (랭킹용 가중치 점수)
 -- ARGV[6]: TTL (초)
 
+-- 추월 감지를 위해 ZADD 이전 순위를 원자적으로 스냅샷
+-- ZREVRANK: 0-indexed (0 = 1위). 처음 진입이면 nil → -1 로 치환
+local prev_rank = redis.call('ZREVRANK', KEYS[5], ARGV[1])
+
 redis.call('HSET', KEYS[1], ARGV[1], ARGV[2])
 redis.call('HSET', KEYS[2], ARGV[1], ARGV[3])
 redis.call('HSET', KEYS[3], ARGV[1], ARGV[4])
@@ -31,4 +35,5 @@ if KEYS[6] then
     redis.call('EXPIRE', KEYS[6], ARGV[6])
 end
 
-return tonumber(ARGV[2])
+-- {이전 순위(없으면 -1), totalSteps} 반환
+return {prev_rank or -1, tonumber(ARGV[2])}

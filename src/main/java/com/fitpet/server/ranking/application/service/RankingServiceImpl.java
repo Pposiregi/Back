@@ -3,6 +3,7 @@ package com.fitpet.server.ranking.application.service;
 import com.fitpet.server.dailywalk.domain.entity.DailyWalk;
 import com.fitpet.server.dailywalk.domain.repository.DailyWalkRepository;
 import com.fitpet.server.ranking.application.dto.RankingDto;
+import com.fitpet.server.ranking.application.event.RankingScoreUpdatedEvent;
 import com.fitpet.server.ranking.domain.type.RankingFilter;
 import com.fitpet.server.shared.s3.S3Service;
 import com.fitpet.server.user.domain.entity.User;
@@ -38,7 +39,8 @@ public class RankingServiceImpl implements RankingService {
     private final S3Service s3Service;
     private final StringRedisTemplate redisTemplate;
     private final RedisScript<Long> updateRankingScript;
-    private final RedisScript<Long> updateStepAndRankingScript;
+    @SuppressWarnings("rawtypes")
+    private final RedisScript<List> updateStepAndRankingScript;
     private final ApplicationEventPublisher eventPublisher;
 
     private static final String DAILYWALK_STEPS_KEY = "dailywalk:steps:";
@@ -110,7 +112,8 @@ public class RankingServiceImpl implements RankingService {
                           DAILYWALK_CALORIES_KEY + dateStr, DAILYWALK_DIRTY_KEY + dateStr,
                           allRankingKey);
 
-        Long result = redisTemplate.execute(updateStepAndRankingScript,
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        List<Long> result = (List<Long>) redisTemplate.execute(updateStepAndRankingScript,
                 keys,
                 userIdStr,
                 String.valueOf(totalSteps),
@@ -120,8 +123,16 @@ public class RankingServiceImpl implements RankingService {
                 TTL_SECONDS
         );
 
+        Long rawPrevRank = (result != null && !result.isEmpty()) ? result.get(0) : null;
+        Long previousRank = (rawPrevRank == null || rawPrevRank == -1L) ? null : rawPrevRank;
+        long resultSteps = (result != null && result.size() > 1 && result.get(1) != null)
+                ? result.get(1) : totalSteps;
+
         log.info("[RankingService] 걸음수 Hash + 랭킹 ZSet SET 업데이트: userId={}, totalSteps={}", userId, totalSteps);
-        return result != null ? result : totalSteps;
+
+        eventPublisher.publishEvent(new RankingScoreUpdatedEvent(userId, previousRank, date));
+
+        return resultSteps;
     }
 
     @Override
