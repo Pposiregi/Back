@@ -1,27 +1,41 @@
 package com.fitpet.server.shared.exception;
 
-import java.util.LinkedHashMap;          
+import com.fitpet.server.shared.notification.ErrorContext;
+import com.fitpet.server.shared.notification.NotificationService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
+import java.util.LinkedHashMap;
 import java.util.Map;
-
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import jakarta.validation.ConstraintViolationException;
-
 @RestControllerAdvice
+@RequiredArgsConstructor
 public class GlobalExceptionHandler {
 
+    private final NotificationService notificationService;
+
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException e) {
+    public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException e, HttpServletRequest request) {
         ErrorCode errorCode = e.getErrorCode();
+        if (errorCode.getStatus().is5xxServerError()) {
+            notificationService.notifyError(e, ErrorContext.from(request));
+        }
         return ResponseEntity.status(errorCode.getStatus())
                 .body(new ErrorResponse(errorCode));
     }
 
-    /** @Valid @RequestBody 실패 */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleUnexpected(Exception e, HttpServletRequest request) {
+        notificationService.notifyError(e, ErrorContext.from(request));
+        return ResponseEntity.status(ErrorCode.INTERNAL_SERVER_ERROR.getStatus())
+                .body(new ErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Object> handleInvalidBody(MethodArgumentNotValidException e) {
         Map<String, String> errors = new LinkedHashMap<>();
@@ -36,7 +50,6 @@ public class GlobalExceptionHandler {
                 ));
     }
 
-    /** @Validated 파라미터/패스변수 실패 */
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<Object> handleConstraintViolation(ConstraintViolationException e) {
         Map<String, String> errors = new LinkedHashMap<>();
