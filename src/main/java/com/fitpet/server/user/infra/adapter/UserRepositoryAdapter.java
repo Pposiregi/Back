@@ -127,4 +127,9 @@ public class UserRepositoryAdapter implements UserRepository {
     public List<User> findAllById(Iterable<Long> ids) {
         return jpa.findAllById(ids);
     }
+
+    @Override
+    public long count() {
+        return jpa.count();
+    }
 }
