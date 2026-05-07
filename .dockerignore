@@ -1,0 +1,39 @@
+# Build artifacts
+build/
+out/
+.gradle/
+
+# IDE
+.idea/
+*.iml
+*.iws
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs (mounted at runtime)
+logs/
+
+# Test & coverage
+src/test/
+
+# Docs
+docs/
+*.md
+
+# Docker files (prevent recursive copy)
+Dockerfile
+.dockerignore
+docker-compose*.yml
+legacy/
+observability/
+
+# Git
+.git/
+.gitignore
+
+# Secrets (must be injected via env)
+.env
+.env.*
