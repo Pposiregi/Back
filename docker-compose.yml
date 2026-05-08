@@ -42,6 +42,7 @@ services:
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     container_name: fitpet-rabbitmq
+    hostname: fitpet-rabbitmq
     restart: unless-stopped
     # RABBITMQ_DEFAULT_USER/PASS도 .env에 별도 키로 노출되지 않도록 env_file 사용.
     env_file:
