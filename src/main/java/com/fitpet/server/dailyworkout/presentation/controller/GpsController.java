@@ -85,7 +85,7 @@ public class GpsController {
         return ResponseEntity.ok(response);
     }
 
-    @DeleteMapping("/session/{sessionId}")
+    @DeleteMapping("/sessions/{sessionId}")
     public ResponseEntity<Void> deleteSession(
             @AuthUser Long userId,
             @PathVariable Long sessionId
