@@ -20,4 +20,9 @@ public class TermsAgreementRepositoryAdapter implements TermsAgreementRepository
     public void saveAll(List<TermsAgreement> termsAgreements) {
         jpaRepository.saveAll(termsAgreements);
     }
+
+    @Override
+    public List<TermsAgreement> findAllByUserId(Long userId) {
+        return jpaRepository.findAllByUserId(userId);
+    }
 }

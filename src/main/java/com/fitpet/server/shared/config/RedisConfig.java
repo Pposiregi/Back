@@ -73,6 +73,14 @@ public class RedisConfig {
     }
 
     @Bean
+    public RedisScript<Long> hsetWithExpireScript() {
+        DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+        script.setLocation(new ClassPathResource("redis/lua/hset_with_expire.lua"));
+        script.setResultType(Long.class);
+        return script;
+    }
+
+    @Bean
     public RedisTemplate<String, Object> redisTemplate() {
         RedisTemplate<String, Object> redisTemplate = new RedisTemplate<>();
         redisTemplate.setConnectionFactory(redisConnectionFactory());

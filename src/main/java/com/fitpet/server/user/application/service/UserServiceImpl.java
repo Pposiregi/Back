@@ -6,6 +6,7 @@ import com.fitpet.server.shared.exception.ErrorCode;
 import com.fitpet.server.shared.s3.S3Service;
 import com.fitpet.server.shared.s3.type.ImageType;
 import com.fitpet.server.user.application.dto.PetSummaryResult;
+import com.fitpet.server.user.application.dto.ProfileImageHistoryResult;
 import com.fitpet.server.user.application.dto.ProfileImageUpdateResult;
 import com.fitpet.server.user.application.dto.UserCreateCommand;
 import com.fitpet.server.user.application.dto.UserInputInfoCommand;
@@ -14,13 +15,20 @@ import com.fitpet.server.user.application.dto.UserUpdateCommand;
 import com.fitpet.server.user.application.mapper.UserMapper;
 import com.fitpet.server.user.domain.entity.RegistrationStatus;
 import com.fitpet.server.user.domain.entity.User;
+import com.fitpet.server.user.domain.entity.UserProfileImage;
 import com.fitpet.server.user.domain.exception.DuplicateEmailException;
 import com.fitpet.server.user.domain.exception.DuplicateNicknameException;
+import com.fitpet.server.user.domain.exception.ProfileImageAccessDeniedException;
+import com.fitpet.server.user.domain.exception.ProfileImageNotFoundException;
 import com.fitpet.server.user.domain.exception.UserNotFoundException;
+import com.fitpet.server.user.domain.repository.UserProfileImageRepository;
 import com.fitpet.server.user.domain.repository.UserRepository;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -40,16 +48,34 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final S3Service s3Service;
     private final StringRedisTemplate redisTemplate;
+    @Qualifier("hsetWithExpireScript")
+    private final RedisScript<Long> hsetWithExpireScript;
+    private final UserProfileImageRepository profileImageRepository;
 
     private static final String USER_IMAGE_KEY = "user:images";
     private static final String PROFILE_PRESET_PREFIX = "profile-presets/";
+    private static final String USER_PROFILE_KEY = "user:profiles";
+    private static final String USER_GENDER_KEY = "user:genders";
+    private static final String USER_PROFILE_TTL_SECONDS = "259200"; // 3일
+    private static final int MAX_PROFILE_IMAGE_HISTORY = 10;
 
     @Override
     @Transactional
     public UserResult createUser(UserCreateCommand command) {
-        validateUserCreateRequest(command);
-        User user = userMapper.toEntity(command);
-        user.changePassword(passwordEncoder.encode(command.password()));
+        return userRepository.findByEmailIncludeDeleted(command.email())
+                .filter(u -> u.getDeletedAt() != null)
+                .map(u -> reactivateUser(u, command.password()))
+                .orElseGet(() -> {
+                    validateUserCreateRequest(command);
+                    User user = userMapper.toEntity(command);
+                    user.changePassword(passwordEncoder.encode(command.password()));
+                    return userMapper.toResult(userRepository.save(user));
+                });
+    }
+
+    private UserResult reactivateUser(User user, String newPassword) {
+        user.changePassword(passwordEncoder.encode(newPassword));
+        user.reactivate();
         return userMapper.toResult(userRepository.save(user));
     }
 
@@ -105,8 +131,18 @@ public class UserServiceImpl implements UserService {
             command.targetStepCount()
         );
 
+        if (StringUtils.hasText(command.nickname())) {
+            putUserProfileCache(userId, command.nickname());
+        }
+
         if (StringUtils.hasText(command.profileImageKey())) {
-            updateProfileImageKey(userId, user, command.profileImageKey());
+            String imageKey = command.profileImageKey();
+            if (!isPresetProfileImage(imageKey)) {
+                validateImageOwnership(userId, imageKey);
+            }
+            switchCurrentProfileImage(userId, imageKey);
+            user.updateProfileImageUrl(imageKey);
+            redisTemplate.opsForHash().put(USER_IMAGE_KEY, String.valueOf(userId), imageKey);
         }
 
         return enrichWithPresignedUrl(userMapper.toResult(user), user.getProfileImageUrl());
@@ -117,9 +153,13 @@ public class UserServiceImpl implements UserService {
     public ProfileImageUpdateResult updateProfileImage(Long userId) {
         User user = findUserById(userId);
 
-        deleteOwnedProfileImageIfPresent(userId, user.getProfileImageUrl());
+        profileImageRepository.findCurrentByUserId(userId).ifPresent(current -> {
+            evictOldestIfFull(userId);
+            current.deactivate();
+        });
 
         String newImageKey = s3Service.createImageKey(userId, ImageType.PROFILE);
+        profileImageRepository.save(UserProfileImage.createCurrent(userId, newImageKey));
         user.updateProfileImageUrl(newImageKey);
 
         redisTemplate.opsForHash().put(USER_IMAGE_KEY, String.valueOf(userId), newImageKey);
@@ -130,22 +170,61 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @Transactional
-    public void deleteProfileImage(Long userId) {
-        User user = findUserById(userId);
-
-        if (user.getProfileImageUrl() != null && !user.getProfileImageUrl().isBlank()) {
-            deleteOwnedProfileImageIfPresent(userId, user.getProfileImageUrl());
-            user.updateProfileImageUrl(null);
-            redisTemplate.opsForHash().delete(USER_IMAGE_KEY, String.valueOf(userId));
+    public void checkHistoryImageAccess(Long userId, String imageKey) {
+        validateImageOwnership(userId, imageKey);
+        if (!s3Service.doesObjectExist(imageKey)) {
+            throw new ProfileImageNotFoundException();
         }
     }
 
     @Override
     @Transactional
-    public void deleteUser(Long userId) {
+    public void applyHistoryImage(Long userId, String imageKey) {
         User user = findUserById(userId);
-        userRepository.delete(user);
+        switchCurrentProfileImage(userId, imageKey);
+        user.updateProfileImageUrl(imageKey);
+        redisTemplate.opsForHash().put(USER_IMAGE_KEY, String.valueOf(userId), imageKey);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProfileImageHistoryResult> getProfileImageHistory(Long userId) {
+        return profileImageRepository.findTop10ByUserIdOrderByCreatedAtDesc(userId)
+                .stream()
+                .map(img -> new ProfileImageHistoryResult(
+                        img.getImageKey(),
+                        s3Service.generatePresignedGetUrl(img.getImageKey()),
+                        img.isCurrent()
+                ))
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public void deleteProfileImage(Long userId) {
+        User user = findUserById(userId);
+
+        profileImageRepository.findCurrentByUserId(userId).ifPresent(current -> {
+            deleteOwnedProfileImageIfPresent(userId, current.getImageKey());
+            profileImageRepository.delete(current);
+        });
+
+        user.updateProfileImageUrl(null);
+        redisTemplate.opsForHash().delete(USER_IMAGE_KEY, String.valueOf(userId));
+    }
+
+    @Override
+    @Transactional
+    public void withdrawUser(Long userId) {
+        User user = findUserById(userId);
+        profileImageRepository.deleteAllByUserId(userId);
+
+        redisTemplate.opsForHash().delete(USER_IMAGE_KEY, String.valueOf(userId));
+        redisTemplate.opsForHash().delete(USER_PROFILE_KEY, String.valueOf(userId));
+        redisTemplate.opsForHash().delete(USER_GENDER_KEY, String.valueOf(userId));
+
+        user.withdraw();
+        userRepository.save(user);
     }
 
     @Override
@@ -173,7 +252,9 @@ public class UserServiceImpl implements UserService {
             command.targetStepCount()
         );
 
-        return userMapper.toResult(userRepository.save(user));
+        User saved = userRepository.save(user);
+        putUserProfileCache(userId, saved.getNickname());
+        return userMapper.toResult(saved);
     }
 
     @Override
@@ -208,31 +289,6 @@ public class UserServiceImpl implements UserService {
         }
     }
 
-    private void updateProfileImageKey(Long userId, User user, String profileImageKey) {
-        validateProfileImageKey(userId, profileImageKey);
-        String previousProfileImageKey = user.getProfileImageUrl();
-        user.updateProfileImageUrl(profileImageKey);
-        redisTemplate.opsForHash().put(USER_IMAGE_KEY, String.valueOf(userId), profileImageKey);
-        if (!profileImageKey.equals(previousProfileImageKey)) {
-            deleteOwnedProfileImageIfPresent(userId, previousProfileImageKey);
-        }
-    }
-
-    private void validateProfileImageKey(Long userId, String profileImageKey) {
-        if (!isPresetProfileImage(profileImageKey) && !isOwnedProfileImage(userId, profileImageKey)) {
-            throw new BusinessException(ErrorCode.USER_PROFILE_IMAGE_ACCESS_DENIED);
-        }
-
-        try {
-            s3Service.existsObject(profileImageKey);
-        } catch (S3Exception e) {
-            if (e.statusCode() != 403 && e.statusCode() != 404) {
-                throw e;
-            }
-            throw new BusinessException(ErrorCode.USER_PROFILE_IMAGE_ACCESS_DENIED);
-        }
-    }
-
     private void deleteOwnedProfileImageIfPresent(Long userId, String profileImageKey) {
         if (isOwnedProfileImage(userId, profileImageKey)) {
             s3Service.deleteObject(profileImageKey);
@@ -248,5 +304,46 @@ public class UserServiceImpl implements UserService {
             return false;
         }
         return profileImageKey.startsWith("user/" + userId + "/" + ImageType.PROFILE.getPath() + "/");
+    }
+
+    /**
+     * 지정 imageKey를 is_current=true로 전환하고 기존 current를 deactivate한다.
+     * imageKey 레코드가 없으면 새로 생성한다.
+     */
+    private void switchCurrentProfileImage(Long userId, String imageKey) {
+        profileImageRepository.findCurrentByUserId(userId)
+                .ifPresent(UserProfileImage::deactivate);
+
+        profileImageRepository.findByUserIdAndImageKey(userId, imageKey)
+                .ifPresentOrElse(
+                        UserProfileImage::activate,
+                        () -> profileImageRepository.save(UserProfileImage.createCurrent(userId, imageKey))
+                );
+    }
+
+    private void evictOldestIfFull(Long userId) {
+        if (profileImageRepository.countByUserId(userId) >= MAX_PROFILE_IMAGE_HISTORY) {
+            profileImageRepository.findOldestByUserId(userId).ifPresent(oldest -> {
+                s3Service.deleteObject(oldest.getImageKey());
+                profileImageRepository.delete(oldest);
+            });
+        }
+    }
+
+    private void validateImageOwnership(Long userId, String imageKey) {
+        String expectedPrefix = "user/" + userId + "/profile/";
+        if (imageKey == null || !imageKey.startsWith(expectedPrefix)) {
+            throw new ProfileImageAccessDeniedException();
+        }
+    }
+
+    private void putUserProfileCache(Long userId, String nickname) {
+        redisTemplate.execute(
+                hsetWithExpireScript,
+                List.of(USER_PROFILE_KEY),
+                String.valueOf(userId),
+                nickname,
+                USER_PROFILE_TTL_SECONDS
+        );
     }
 }

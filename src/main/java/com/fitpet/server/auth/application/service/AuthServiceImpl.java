@@ -3,6 +3,7 @@ package com.fitpet.server.auth.application.service;
 import com.fitpet.server.auth.domain.exception.InvalidAccessTokenException;
 import com.fitpet.server.auth.domain.exception.InvalidLoginException;
 import com.fitpet.server.auth.domain.exception.InvalidRefreshTokenException;
+import com.fitpet.server.auth.domain.exception.OAuthProviderMismatchException;
 import com.fitpet.server.auth.infra.GoogleTokenVerifier;
 import com.fitpet.server.auth.infra.KakaoClient;
 import com.fitpet.server.auth.infra.KakaoClient.KakaoProfile;
@@ -100,37 +101,51 @@ public class AuthServiceImpl implements AuthService {
         return issueTokens(user);
     }
 
-    // 구글, 카카오 로그인으로 한 사용자가 없으면 새로 만들어 저장 , 있으면 그대로 사용(업데이트x)
     private User upsertOAuthUser(String email, String provider, String providerUid) {
-        // 1) provider+uid로 1차 조회
-        Optional<User> byProvider = userRepository.findByProviderAndProviderUid(provider, providerUid);
+        // 1) provider+uid로 조회 (탈퇴 계정 포함)
+        Optional<User> byProvider = userRepository.findByOAuthIncludeDeleted(provider, providerUid);
         if (byProvider.isPresent()) {
-            return byProvider.get();
+            User user = byProvider.get();
+            if (user.getDeletedAt() != null) {
+                user.reactivate();
+                return userRepository.save(user);
+            }
+            return user;
         }
 
-        // 2) 이메일로 기존 계정이 있으면 연결(정책상 허용 시)
+        // 2) 이메일로 기존 계정이 있으면 연결 (탈퇴 계정 포함)
         if (email != null && !email.isBlank()) {
-            Optional<User> byEmail = userRepository.findByEmail(email);
+            Optional<User> byEmail = userRepository.findByEmailIncludeDeleted(email);
             if (byEmail.isPresent()) {
-                var u = byEmail.get();
-                u.linkSocial(provider, providerUid);
-                return userRepository.save(u);
+                User user = byEmail.get();
+                boolean noProvider = user.getProvider() == null || user.getProvider().isBlank();
+                boolean sameProvider = provider.equals(user.getProvider());
+
+                if (!noProvider && !sameProvider) {
+                    throw new OAuthProviderMismatchException();
+                }
+                if (noProvider) {
+                    user.linkSocial(provider, providerUid);
+                }
+                if (user.getDeletedAt() != null) {
+                    user.reactivate();
+                }
+                return userRepository.save(user);
             }
         }
 
         // 3) 신규 생성
         String dummyPw = passwordEncoder.encode(UUID.randomUUID().toString());
-        User u = User.builder()
+        User user = User.builder()
             .email(email != null ? email : ("anon+" + provider + "-" + providerUid + "@local"))
             .password(dummyPw)
             .nickname((email != null && email.contains("@")) ? email.substring(0, email.indexOf('@'))
                 : (provider.toLowerCase() + "_" + providerUid))
             .provider(provider)
             .providerUid(providerUid)
-            // 정보 입력 받은 후 COMPLETE로 변경
             .registrationStatus(RegistrationStatus.INCOMPLETE)
             .build();
-        return userRepository.save(u);
+        return userRepository.save(user);
     }
 
     private TokenResponse issueTokens(User user) {
@@ -138,6 +153,11 @@ public class AuthServiceImpl implements AuthService {
         String refresh = jwtTokenProvider.generateRefreshToken(user.getId(), user.getEmail());
         redisTokenRepository.save(user.getId(), refresh, jwtTokenProvider.getRefreshExpirationMs());
         return TokenResponse.success(resolveRegistrationStatus(user), access, refresh);
+    }
+
+    @Override
+    public void revokeTokens(Long userId) {
+        redisTokenRepository.delete(userId);
     }
 
     private RegistrationStatus resolveRegistrationStatus(User user) {

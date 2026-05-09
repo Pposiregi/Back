@@ -8,13 +8,6 @@ import org.springframework.data.repository.query.Param;
 
 public interface RankingOvertakeOutboxJpaRepository extends JpaRepository<RankingOvertakeOutbox, Long> {
 
-    /**
-     * PENDING 상태 행을 최대 {@code limit}건 비관적 락으로 조회한다.
-     *
-     * <p>FOR UPDATE SKIP LOCKED 덕분에 다른 인스턴스가 이미 처리 중인 행은
-     * 건너뛰어 멀티 인스턴스 환경에서 중복 발행을 방지한다.
-     * 호출부에 반드시 {@code @Transactional}이 존재해야 트랜잭션 종료 시까지 락이 유지된다.</p>
-     */
     @Query(value = """
             SELECT *
             FROM ranking_overtake_outbox

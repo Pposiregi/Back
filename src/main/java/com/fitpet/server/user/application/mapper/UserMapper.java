@@ -25,7 +25,8 @@ public interface UserMapper {
             @Mapping(target = "dailyStepCount", ignore = true),
             @Mapping(target = "allowActivityNotification", ignore = true),
             @Mapping(target = "lastAccessedAt", ignore = true),
-            @Mapping(target = "profileImageUrl", ignore = true)
+            @Mapping(target = "profileImageUrl", ignore = true),
+            @Mapping(target = "deletedAt", ignore = true)
     })
     User toEntity(UserCreateCommand command);
  

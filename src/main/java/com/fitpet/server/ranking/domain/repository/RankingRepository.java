@@ -9,7 +9,6 @@ import org.springframework.data.repository.query.Param;
 
 public interface RankingRepository extends JpaRepository<Ranking, Long> {
 
-    // Write-Back 동기화용 (100명씩 Bulk 조회)
     List<Ranking> findAllByUserIdInAndDateKey(List<Long> userIds, String dateKey);
 
     @Query("SELECT r FROM Ranking r WHERE r.dateKey = :dateKey ORDER BY r.score DESC, r.updatedAt ASC")

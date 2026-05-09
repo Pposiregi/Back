@@ -10,7 +10,9 @@ public enum ErrorCode {
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U001", "사용자를 찾을 수 없습니다."),
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "U002", "이미 존재하는 이메일입니다."),
     DUPLICATE_NICKNAME(HttpStatus.CONFLICT, "U003", "이미 존재하는 닉네임입니다."),
-    USER_PROFILE_IMAGE_ACCESS_DENIED(HttpStatus.FORBIDDEN, "U005", "해당 프로필 이미지에 대한 권한이 없습니다."),
+    PROFILE_IMAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "U004", "해당 프로필 이미지를 찾을 수 없습니다."),
+    PROFILE_IMAGE_ACCESS_DENIED(HttpStatus.FORBIDDEN, "U005", "해당 프로필 이미지에 대한 권한이 없습니다."),
+    USER_PROFILE_IMAGE_ACCESS_DENIED(HttpStatus.FORBIDDEN, "U006", "해당 프로필 이미지에 대한 권한이 없습니다."),
 
     DAILY_WALK_NOT_FOUND(HttpStatus.NOT_FOUND, "D001", "해당 걸음 기록을 찾을 수 없습니다."),
     DAILY_WALK_ALREADY_EXISTS(HttpStatus.CONFLICT, "D002", "해당 날짜의 걸음 기록이 이미 존재합니다."),
@@ -53,9 +55,12 @@ public enum ErrorCode {
     OAUTH_INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "A004", "유효하지 않은 소셜 토큰입니다."),
     OAUTH_VERIFICATION_FAILED(HttpStatus.BAD_GATEWAY, "A005", "소셜 토큰 검증에 실패했습니다."),
     OAUTH_PROFILE_NOT_FOUND(HttpStatus.BAD_GATEWAY, "A006", "소셜 사용자 정보를 확인할 수 없습니다."),
+    OAUTH_PROVIDER_MISMATCH(HttpStatus.CONFLICT, "A007", "해당 이메일은 다른 소셜 계정으로 연결되어 있습니다."),
 
     TERMS_NOT_FOUND(HttpStatus.NOT_FOUND, "T001", "해당 약관을 찾을 수 없습니다."),
-    REQUIRED_TERMS_NOT_AGREED(HttpStatus.BAD_REQUEST, "T002", "필수 약관에 동의해야 합니다.");
+    REQUIRED_TERMS_NOT_AGREED(HttpStatus.BAD_REQUEST, "T002", "필수 약관에 동의해야 합니다."),
+    INVALID_TERMS_REQUEST(HttpStatus.BAD_REQUEST, "T003", "약관 요청에 중복된 항목이 있습니다."),
+    DUPLICATE_TERMS(HttpStatus.CONFLICT, "T004", "이미 존재하는 버전의 약관입니다.");
 
 
     private final HttpStatus status;

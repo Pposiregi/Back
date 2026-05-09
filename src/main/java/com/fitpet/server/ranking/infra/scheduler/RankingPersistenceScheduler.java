@@ -1,7 +1,5 @@
 package com.fitpet.server.ranking.infra.scheduler;
 
-// [변경 1] RankingService -> RankingSyncService로 변경
-
 import com.fitpet.server.ranking.application.service.RankingSyncService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
