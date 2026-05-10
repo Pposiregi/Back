@@ -13,6 +13,8 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+      valkey:
+        condition: service_healthy
     # 시크릿(JWT/SECURITY/AWS/GOOGLE/KAKAO/RABBITMQ/DISCORD/DB/VALKEY 등)은
     # env_file로 주입 → `docker compose config` 출력 및 YAML 평문 노출 방지.
     env_file:
@@ -61,6 +63,40 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # ── Valkey (Redis OSS-compatible cache/store) ──────────────────────────────
+  valkey:
+    image: valkey/valkey:7.2-alpine
+    container_name: fitpet-valkey
+    hostname: fitpet-valkey
+    restart: unless-stopped
+    # VALKEY_PASSWORD 등 시크릿은 env_file로 주입 → 평문 노출 방지.
+    env_file:
+      - .env
+    # AOF + RDB 동시 사용, LRU eviction, 256MB 캐시 상한.
+    command:
+      - sh
+      - -c
+      - >
+        exec valkey-server
+        --requirepass "$$VALKEY_PASSWORD"
+        --appendonly yes
+        --save "900 1 300 10 60 10000"
+        --maxmemory 256mb
+        --maxmemory-policy allkeys-lru
+    # 외부 노출 차단. app 컨테이너는 fitpet 네트워크 내부에서 접근.
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - valkey-data:/data
+    networks:
+      - fitpet
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli -a \"$$VALKEY_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   # ── Prometheus ──────────────────────────────────────────────────────────────
   prometheus:
@@ -152,6 +188,7 @@ networks:
 
 volumes:
   rabbitmq-data:
+  valkey-data:
   prometheus-data:
   loki-data:
   grafana-data:
