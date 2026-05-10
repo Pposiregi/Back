@@ -1,6 +1,8 @@
 package com.fitpet.server.user.application.service;
 
 import com.fitpet.server.pet.domain.repository.PetRepository;
+import com.fitpet.server.shared.exception.BusinessException;
+import com.fitpet.server.shared.exception.ErrorCode;
 import com.fitpet.server.shared.s3.S3Service;
 import com.fitpet.server.shared.s3.type.ImageType;
 import com.fitpet.server.user.application.dto.PetSummaryResult;
@@ -33,6 +35,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 @Service
 @RequiredArgsConstructor
@@ -50,6 +53,7 @@ public class UserServiceImpl implements UserService {
     private final UserProfileImageRepository profileImageRepository;
 
     private static final String USER_IMAGE_KEY = "user:images";
+    private static final String PROFILE_PRESET_PREFIX = "profile-presets/";
     private static final String USER_PROFILE_KEY = "user:profiles";
     private static final String USER_GENDER_KEY = "user:genders";
     private static final String USER_PROFILE_TTL_SECONDS = "259200"; // 3일
@@ -132,12 +136,10 @@ public class UserServiceImpl implements UserService {
         }
 
         if (StringUtils.hasText(command.profileImageKey())) {
-            switchCurrentProfileImage(userId, command.profileImageKey());
-            user.updateProfileImageUrl(command.profileImageKey());
-            redisTemplate.opsForHash().put(USER_IMAGE_KEY, String.valueOf(userId), command.profileImageKey());
+            updateProfileImageKey(userId, user, command.profileImageKey());
         }
 
-        return userMapper.toResult(user);
+        return enrichWithPresignedUrl(userMapper.toResult(user), user.getProfileImageUrl());
     }
 
     @Override
@@ -197,7 +199,7 @@ public class UserServiceImpl implements UserService {
         User user = findUserById(userId);
 
         profileImageRepository.findCurrentByUserId(userId).ifPresent(current -> {
-            s3Service.deleteObject(current.getImageKey());
+            deleteOwnedProfileImageIfPresent(userId, current.getImageKey());
             profileImageRepository.delete(current);
         });
 
@@ -281,6 +283,64 @@ public class UserServiceImpl implements UserService {
         }
     }
 
+    private void deleteOwnedProfileImageIfPresent(Long userId, String profileImageKey) {
+        if (isOwnedProfileImage(userId, profileImageKey)) {
+            s3Service.deleteObject(profileImageKey);
+        }
+    }
+
+    private void updateProfileImageKey(Long userId, User user, String profileImageKey) {
+        validateProfileImageKey(userId, profileImageKey);
+
+        String previousProfileImageKey = user.getProfileImageUrl();
+
+        switchCurrentProfileImage(userId, profileImageKey);
+        user.updateProfileImageUrl(profileImageKey);
+        redisTemplate.opsForHash().put(USER_IMAGE_KEY, String.valueOf(userId), profileImageKey);
+
+        deletePreviousProfileImageIfOrphan(userId, previousProfileImageKey, profileImageKey);
+    }
+
+    private void validateProfileImageKey(Long userId, String profileImageKey) {
+        if (!isPresetProfileImage(profileImageKey) && !isOwnedProfileImage(userId, profileImageKey)) {
+            throw new BusinessException(ErrorCode.USER_PROFILE_IMAGE_ACCESS_DENIED);
+        }
+
+        try {
+            s3Service.existsObject(profileImageKey);
+        } catch (S3Exception e) {
+            if (e.statusCode() != 403 && e.statusCode() != 404) {
+                throw e;
+            }
+            throw new BusinessException(ErrorCode.USER_PROFILE_IMAGE_ACCESS_DENIED);
+        }
+    }
+
+    private void deletePreviousProfileImageIfOrphan(Long userId, String previousProfileImageKey,
+                                                    String currentProfileImageKey) {
+        if (!StringUtils.hasText(previousProfileImageKey) || previousProfileImageKey.equals(currentProfileImageKey)) {
+            return;
+        }
+        if (!isOwnedProfileImage(userId, previousProfileImageKey)) {
+            return;
+        }
+        if (profileImageRepository.findByUserIdAndImageKey(userId, previousProfileImageKey).isPresent()) {
+            return;
+        }
+        s3Service.deleteObject(previousProfileImageKey);
+    }
+
+    private boolean isPresetProfileImage(String profileImageKey) {
+        return StringUtils.hasText(profileImageKey) && profileImageKey.startsWith(PROFILE_PRESET_PREFIX);
+    }
+
+    private boolean isOwnedProfileImage(Long userId, String profileImageKey) {
+        if (!StringUtils.hasText(profileImageKey)) {
+            return false;
+        }
+        return profileImageKey.startsWith("user/" + userId + "/" + ImageType.PROFILE.getPath() + "/");
+    }
+
     /**
      * 지정 imageKey를 is_current=true로 전환하고 기존 current를 deactivate한다.
      * imageKey 레코드가 없으면 새로 생성한다.
@@ -299,7 +359,7 @@ public class UserServiceImpl implements UserService {
     private void evictOldestIfFull(Long userId) {
         if (profileImageRepository.countByUserId(userId) >= MAX_PROFILE_IMAGE_HISTORY) {
             profileImageRepository.findOldestByUserId(userId).ifPresent(oldest -> {
-                s3Service.deleteObject(oldest.getImageKey());
+                deleteOwnedProfileImageIfPresent(userId, oldest.getImageKey());
                 profileImageRepository.delete(oldest);
             });
         }

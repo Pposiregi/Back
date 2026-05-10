@@ -90,6 +90,19 @@ public class S3Service {
         s3Client.deleteObject(deleteObjectRequest);
     }
 
+    public boolean existsObject(String objectKey) {
+        if (objectKey == null || objectKey.isBlank()) {
+            return false;
+        }
+
+        HeadObjectRequest headObjectRequest = HeadObjectRequest.builder()
+                .bucket(bucketName)
+                .key(objectKey)
+                .build();
+        s3Client.headObject(headObjectRequest);
+        return true;
+    }
+
     //이미지 타입에 따라 경로 분기 처리
     public String createImageKey(Long userId, ImageType imageType) {
         return String.format("user/%d/%s/%s.jpg",
