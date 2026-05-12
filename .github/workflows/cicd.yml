@@ -17,6 +17,7 @@ jobs:
           host: ${{ secrets.GCP_HOST }}
           username: ${{ secrets.GCP_USERNAME }}
           key: ${{ secrets.GCP_SSH_KEY }}
+          command_timeout: 30m
           script: |
             # 에러 발생 시 즉시 중단
             set -e 
