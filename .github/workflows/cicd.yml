@@ -2,7 +2,7 @@ name: FitPet CI/CD Pipeline
 
 on:
   push:
-    branches: [ "refactor/cicd-gcp" ]
+    branches: [ "dev" ]
 
 jobs:
   deploy:
@@ -26,8 +26,8 @@ jobs:
             
             echo ">>> 1. 최신 코드 가져오기"
             sudo git fetch origin
-            sudo git checkout refactor/cicd-gcp
-            sudo git pull origin refactor/cicd-gcp
+            sudo git checkout dev
+            sudo git pull origin dev
             
             echo ">>> 2. 앱 컨테이너만 빌드 (서버 자원 100% 사용 구간)"
             sudo docker compose build app
