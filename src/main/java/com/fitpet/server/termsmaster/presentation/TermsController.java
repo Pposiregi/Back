@@ -35,6 +35,12 @@ public class TermsController {
             summary = "약관 목록 조회",
             description = "version 파라미터가 없으면 현재 유효한 최신 약관을 반환합니다. version을 지정하면 해당 버전의 약관을 반환합니다."
     )
+
+    @GetMapping("/test")
+    public String testcicd(){
+        return "cicd";
+    }
+    
     @GetMapping
     public ResponseEntity<List<TermsResponse>> getTerms(
             @Parameter(description = "조회할 약관 버전 (예: 1.0, 2.0). 미입력 시 최신 약관 반환")
