@@ -25,7 +25,7 @@ jobs:
             cd ~/fitpet
             
             echo ">>> 1. 최신 코드 가져오기 (git pull)"
-            git pull origin main
+            git pull origin refactor/cicd-gcp
             
             echo ">>> 2. 앱 컨테이너만 재빌드 및 실행"
             # --build: 코드가 변경되었으니 다시 빌드
