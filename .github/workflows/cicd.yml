@@ -22,7 +22,7 @@ jobs:
           key: ${{ secrets.GCP_SSH_KEY }}
           script: |
             # GCP VM 내부의 프로젝트 폴더로 이동 (경로가 다르면 수정하세요)
-            cd ~/fitpet
+            cd ~/Back
             
             echo ">>> 1. 최신 코드 가져오기 (git pull)"
             git pull origin refactor/cicd-gcp
