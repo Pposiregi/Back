@@ -18,7 +18,7 @@ jobs:
           username: ${{ secrets.GCP_USERNAME }}
           key: ${{ secrets.GCP_SSH_KEY }}
           command_timeout: 30m
-         script: |
+          script: |
             set -e 
             PROJECT_PATH="/home/cky4594709/Back"
             sudo git config --global --add safe.directory $PROJECT_PATH
@@ -30,11 +30,9 @@ jobs:
             sudo git pull origin refactor/cicd-gcp
             
             echo ">>> 2. 앱 컨테이너만 빌드 (서버 자원 100% 사용 구간)"
-            # 바로 띄우지 않고 빌드만 먼저 수행합니다.
             sudo docker compose build app
             
             echo ">>> 3. 서버 숨 고르기 (헬스체크 회복 대기)"
-            # 빌드로 인한 과부하가 가라앉고 RabbitMQ/Valkey가 Healthy 상태를 회복하도록 30초 대기합니다.
             sleep 30
             
             echo ">>> 4. 전체 컨테이너 상태 점검 및 앱 실행"
