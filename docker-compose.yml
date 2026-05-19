@@ -18,8 +18,9 @@ services:
     env_file:
       - .env
     environment:
-      ACTIVE_PROFILE: ${ACTIVE_PROFILE:-local}
-      SPRING_PROFILES_ACTIVE: ${ACTIVE_PROFILE:-local}
+      ACTIVE_PROFILE: ${ACTIVE_PROFILE:-dev}
+      SPRING_PROFILES_ACTIVE: ${ACTIVE_PROFILE:-dev}
+      VALKEY_HOST: valkey
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       LOG_PATH: /app/logs

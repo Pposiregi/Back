@@ -110,6 +110,11 @@ notification:
     error-webhook-url: ${DISCORD_ERROR_WEBHOOK_URL:}
     signup-webhook-url: ${DISCORD_SIGNUP_WEBHOOK_URL:}
 
+gemini:
+  api-key: ${GEMINI_API_KEY:}
+  enabled: ${GEMINI_ENABLED:true}
+  model: ${GEMINI_MODEL:gemini-2.5-flash}
+
 management:
   endpoints:
     web:

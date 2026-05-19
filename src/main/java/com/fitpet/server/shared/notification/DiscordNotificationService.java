@@ -6,11 +6,13 @@ import com.fitpet.server.shared.notification.dto.DiscordEmbedField;
 import com.fitpet.server.shared.notification.dto.DiscordWebhookPayload;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 @Slf4j
 @Service
@@ -23,13 +25,15 @@ public class DiscordNotificationService implements NotificationService {
 
     private final DiscordWebhookClient webhookClient;
     private final DiscordWebhookProperties properties;
+    private final GeminiErrorAnalyzer geminiErrorAnalyzer;
 
     @Override
     @Async("notificationExecutor")
     public void notifyError(Throwable throwable, ErrorContext context) {
         if (!properties.isEnabled()) return;
         try {
-            webhookClient.send(properties.getErrorWebhookUrl(), buildErrorPayload(throwable, context));
+            String aiAnalysis = geminiErrorAnalyzer.analyze(throwable, context);
+            webhookClient.send(properties.getErrorWebhookUrl(), buildErrorPayload(throwable, context, aiAnalysis));
         } catch (Exception e) {
             log.error("Discord error notification failed", e);
         }
@@ -45,11 +49,13 @@ public class DiscordNotificationService implements NotificationService {
         }
     }
 
-    private DiscordWebhookPayload buildErrorPayload(Throwable throwable, ErrorContext context) {
-        List<DiscordEmbedField> fields = List.of(
-                new DiscordEmbedField("URI", context.uri(), true),
-                new DiscordEmbedField("Method", context.method(), true)
-        );
+    private DiscordWebhookPayload buildErrorPayload(Throwable throwable, ErrorContext context, String aiAnalysis) {
+        List<DiscordEmbedField> fields = new ArrayList<>();
+        fields.add(new DiscordEmbedField("URI", context.uri(), true));
+        fields.add(new DiscordEmbedField("Method", context.method(), true));
+        if (StringUtils.hasText(aiAnalysis)) {
+            fields.add(new DiscordEmbedField("🤖 AI 분석", aiAnalysis, false));
+        }
         DiscordEmbed embed = new DiscordEmbed(
                 "🚨 " + throwable.getClass().getSimpleName(),
                 "```" + truncateStackTrace(throwable) + "```",

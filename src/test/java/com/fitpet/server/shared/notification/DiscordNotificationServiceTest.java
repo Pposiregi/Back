@@ -22,6 +22,7 @@ class DiscordNotificationServiceTest {
 
     @Mock DiscordWebhookClient webhookClient;
     @Mock DiscordWebhookProperties properties;
+    @Mock GeminiErrorAnalyzer geminiErrorAnalyzer;
     @InjectMocks DiscordNotificationService sut;
 
     @Test
