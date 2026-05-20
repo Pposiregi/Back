@@ -26,6 +26,16 @@ public class DiscordNotificationConfig {
     }
 
     @Bean
+    public RestClient discordRestClient() {
+        var factory = ClientHttpRequestFactories.get(
+                ClientHttpRequestFactorySettings.DEFAULTS
+                        .withConnectTimeout(Duration.ofSeconds(3))
+                        .withReadTimeout(Duration.ofSeconds(5))
+        );
+        return RestClient.builder().requestFactory(factory).build();
+    }
+
+    @Bean
     public RestClient geminiRestClient() {
         var factory = ClientHttpRequestFactories.get(
                 ClientHttpRequestFactorySettings.DEFAULTS
