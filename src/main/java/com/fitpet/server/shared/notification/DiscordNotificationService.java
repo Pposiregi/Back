@@ -32,6 +32,10 @@ public class DiscordNotificationService implements NotificationService {
     @Async("notificationExecutor")
     public void notifyError(Throwable throwable, ErrorContext context) {
         if (!properties.isEnabled()) return;
+        if (!StringUtils.hasText(properties.getErrorWebhookUrl())) {
+            log.warn("Discord error webhook URL is not configured");
+            return;
+        }
         try {
             String aiAnalysis = geminiErrorAnalyzer.analyze(throwable, context);
             webhookClient.send(properties.getErrorWebhookUrl(), buildErrorPayload(throwable, context, aiAnalysis));
@@ -43,6 +47,10 @@ public class DiscordNotificationService implements NotificationService {
     @Override
     public void notifySignup(Long userId, long totalCount) {
         if (!properties.isEnabled()) return;
+        if (!StringUtils.hasText(properties.getSignupWebhookUrl())) {
+            log.warn("Discord signup webhook URL is not configured");
+            return;
+        }
         try {
             webhookClient.send(properties.getSignupWebhookUrl(), buildSignupPayload(userId, totalCount));
         } catch (Exception e) {
