@@ -56,7 +56,12 @@ public class GeminiErrorAnalyzer {
         List<GeminiResponse.Candidate> candidates = response.candidates();
         if (candidates == null || candidates.isEmpty()) return null;
 
-        String text = candidates.get(0).content().parts().get(0).text();
+        GeminiResponse.Candidate candidate = candidates.get(0);
+        if (candidate.content() == null) return null;
+        List<GeminiResponse.Part> parts = candidate.content().parts();
+        if (parts == null || parts.isEmpty()) return null;
+        String text = parts.get(0).text();
+        if (!StringUtils.hasText(text)) return null;
         return text.length() > MAX_ANALYSIS_LENGTH ? text.substring(0, MAX_ANALYSIS_LENGTH) + "..." : text;
     }
 
