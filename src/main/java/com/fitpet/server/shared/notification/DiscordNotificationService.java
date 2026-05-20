@@ -22,6 +22,7 @@ public class DiscordNotificationService implements NotificationService {
     private static final int ERROR_COLOR = 0xED4245;
     private static final int SIGNUP_COLOR = 0x57F287;
     private static final int MAX_STACK_LENGTH = 1900;
+    private static final int STACK_TOP_LINES = 5;
 
     private final DiscordWebhookClient webhookClient;
     private final DiscordWebhookProperties properties;
@@ -78,7 +79,10 @@ public class DiscordNotificationService implements NotificationService {
     private String truncateStackTrace(Throwable throwable) {
         StringWriter sw = new StringWriter();
         throwable.printStackTrace(new PrintWriter(sw));
-        String stack = sw.toString();
+        String stack = sw.toString().lines()
+                .limit(STACK_TOP_LINES)
+                .reduce("", (acc, line) -> acc + line + "\n")
+                .strip();
         return stack.length() > MAX_STACK_LENGTH ? stack.substring(0, MAX_STACK_LENGTH) + "..." : stack;
     }
 }
