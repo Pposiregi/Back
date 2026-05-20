@@ -54,6 +54,10 @@ public class DiscordNotificationService implements NotificationService {
         List<DiscordEmbedField> fields = new ArrayList<>();
         fields.add(new DiscordEmbedField("URI", context.uri(), true));
         fields.add(new DiscordEmbedField("Method", context.method(), true));
+        fields.add(new DiscordEmbedField("User", context.userId() != null ? "#" + context.userId() : "비인증", true));
+        if (StringUtils.hasText(context.queryString())) {
+            fields.add(new DiscordEmbedField("Query", context.queryString(), false));
+        }
         if (StringUtils.hasText(aiAnalysis)) {
             fields.add(new DiscordEmbedField("🤖 AI 분석", aiAnalysis, false));
         }

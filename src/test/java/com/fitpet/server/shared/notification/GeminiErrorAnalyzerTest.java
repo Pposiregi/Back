@@ -37,7 +37,7 @@ class GeminiErrorAnalyzerTest {
 
     @InjectMocks GeminiErrorAnalyzer sut;
 
-    private final ErrorContext context = new ErrorContext("/api/test", "GET", null);
+    private final ErrorContext context = new ErrorContext("/api/test", "GET", null, null);
     private final RuntimeException throwable = new RuntimeException("test error");
 
     @BeforeEach

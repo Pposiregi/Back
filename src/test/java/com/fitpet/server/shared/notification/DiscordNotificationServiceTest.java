@@ -31,7 +31,7 @@ class DiscordNotificationServiceTest {
         when(properties.isEnabled()).thenReturn(true);
         when(properties.getErrorWebhookUrl()).thenReturn("https://discord.test/error");
 
-        sut.notifyError(new RuntimeException("test"), new ErrorContext("/api/test", "GET", null));
+        sut.notifyError(new RuntimeException("test"), new ErrorContext("/api/test", "GET", null, null));
 
         verify(webhookClient).send(eq("https://discord.test/error"), any(DiscordWebhookPayload.class));
     }
@@ -52,7 +52,7 @@ class DiscordNotificationServiceTest {
     void notifyError_disabled이면_웹훅_미전송() {
         when(properties.isEnabled()).thenReturn(false);
 
-        sut.notifyError(new RuntimeException("test"), new ErrorContext("/api/test", "GET", null));
+        sut.notifyError(new RuntimeException("test"), new ErrorContext("/api/test", "GET", null, null));
 
         verify(webhookClient, never()).send(any(), any());
     }
@@ -65,7 +65,7 @@ class DiscordNotificationServiceTest {
         doThrow(new RuntimeException("webhook failed")).when(webhookClient).send(any(), any());
 
         assertThatNoException().isThrownBy(() ->
-                sut.notifyError(new RuntimeException("test"), new ErrorContext("/api/test", "GET", null))
+                sut.notifyError(new RuntimeException("test"), new ErrorContext("/api/test", "GET", null, null))
         );
     }
 }

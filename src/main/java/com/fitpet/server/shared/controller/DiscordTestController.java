@@ -18,7 +18,7 @@ public class DiscordTestController {
     public String testError() {
         notificationService.notifyError(
                 new RuntimeException("Discord 에러 훅 테스트"),
-                new ErrorContext("/api/test/discord/error", "POST", null)
+                new ErrorContext("/api/test/discord/error", "POST", null, null)
         );
         return "error notification sent";
     }
