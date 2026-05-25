@@ -2,7 +2,7 @@ name: FitPet CI/CD Pipeline
 
 on:
   push:
-    branches: [ "dev", "ci/disk-optimization" ]
+    branches: [ "dev" ]
 
 jobs:
   deploy:
