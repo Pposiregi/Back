@@ -33,14 +33,14 @@ public class DiscordNotificationService implements NotificationService {
     public void notifyError(Throwable throwable, ErrorContext context) {
         if (!properties.isEnabled()) return;
         if (!StringUtils.hasText(properties.getErrorWebhookUrl())) {
-            log.warn("Discord error webhook URL is not configured");
+            log.warn("[DiscordNotificationService] 에러 webhookURL이 확인되지 않습니다");
             return;
         }
         try {
             String aiAnalysis = geminiErrorAnalyzer.analyze(throwable, context);
             webhookClient.send(properties.getErrorWebhookUrl(), buildErrorPayload(throwable, context, aiAnalysis));
         } catch (Exception e) {
-            log.error("Discord error notification failed", e);
+            log.error("[DiscordNotificationService] 에러 알림 전송 실패", e);
         }
     }
 
@@ -48,13 +48,13 @@ public class DiscordNotificationService implements NotificationService {
     public void notifySignup(Long userId, long totalCount) {
         if (!properties.isEnabled()) return;
         if (!StringUtils.hasText(properties.getSignupWebhookUrl())) {
-            log.warn("Discord signup webhook URL is not configured");
+            log.warn("[DiscordNotificationService] 회원가입 webhookURL이 확인되지 않습니다");
             return;
         }
         try {
             webhookClient.send(properties.getSignupWebhookUrl(), buildSignupPayload(userId, totalCount));
         } catch (Exception e) {
-            log.error("Discord signup notification failed", e);
+            log.error("[DiscordNotificationService] 회원가입 알림 전송 실패", e);
         }
     }
 

@@ -37,7 +37,7 @@ public class GeminiErrorAnalyzer {
         try {
             return callGemini(throwable, context);
         } catch (Exception e) {
-            log.warn("Gemini analysis failed, proceeding without AI analysis", e);
+            log.warn("[GeminiErrorAnalyzer] AI 분석 실패, AI 분석 없이 진행합니다", e);
             return null;
         }
     }
