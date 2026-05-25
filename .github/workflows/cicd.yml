@@ -18,7 +18,7 @@ jobs:
           username: ${{ secrets.GCP_USERNAME }}
           key: ${{ secrets.GCP_SSH_KEY }}
           command_timeout: 30m
-          envs: GITHUB_REF_NAME
+          envs: GITHUB_REF_NAME,ENV_FILE_B64
           script: |
             set -e
             PROJECT_PATH="/home/cky4594709/Back"
@@ -31,7 +31,30 @@ jobs:
             sudo git checkout "$TARGET_BRANCH"
             sudo git pull origin "$TARGET_BRANCH"
 
-            echo ">>> 2. 빌드 전 디스크 정리"
+            echo ">>> 2. .env 파일 재생성 (Secrets 기반)"
+            if [ -z "$ENV_FILE_B64" ]; then
+              echo "ERROR: ENV_FILE_B64 secret이 비어 있습니다. 워크플로를 중단합니다."
+              exit 1
+            fi
+
+            if [ -f .env ]; then
+              sudo cp .env .env.bak
+            fi
+
+            if ! echo "$ENV_FILE_B64" | base64 -d | sudo tee .env > /dev/null; then
+              echo "ERROR: .env 생성 실패, 백업 복원"
+              if [ -f .env.bak ]; then
+                sudo mv .env.bak .env
+              fi
+              exit 1
+            fi
+
+            sudo chmod 600 .env
+            sudo chown root:root .env
+            sudo rm -f .env.bak
+            echo ".env 재생성 완료 ($(sudo wc -l < .env) lines)"
+
+            echo ">>> 3. 빌드 전 디스크 정리"
             echo "--- 정리 전 디스크 사용량 ---"
             df -h /
             sudo docker system df || true
@@ -49,16 +72,16 @@ jobs:
             df -h /
             sudo docker system df || true
 
-            echo ">>> 3. 앱 컨테이너만 빌드 (서버 자원 100% 사용 구간)"
+            echo ">>> 4. 앱 컨테이너만 빌드 (서버 자원 100% 사용 구간)"
             sudo docker compose build app
 
-            echo ">>> 4. 서버 숨 고르기 (헬스체크 회복 대기)"
+            echo ">>> 5. 서버 숨 고르기 (헬스체크 회복 대기)"
             sleep 30
 
-            echo ">>> 5. 전체 컨테이너 상태 점검 및 앱 실행"
+            echo ">>> 6. 전체 컨테이너 상태 점검 및 앱 실행"
             sudo docker compose up -d
 
-            echo ">>> 6. 빌드 후 사용하지 않는 이미지 정리"
+            echo ">>> 7. 빌드 후 사용하지 않는 이미지 정리"
             sudo docker image prune -af --filter "until=168h"
 
             echo ">>> 배포 완료!"
