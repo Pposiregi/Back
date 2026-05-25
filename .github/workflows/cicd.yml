@@ -31,28 +31,33 @@ jobs:
             sudo git checkout "$TARGET_BRANCH"
             sudo git pull origin "$TARGET_BRANCH"
 
-            echo ">>> 2. .env 파일 재생성 (Secrets 기반)"
+            echo ">>> 2. .env 파일 준비"
             if [ -z "$ENV_FILE_B64" ]; then
-              echo "ERROR: ENV_FILE_B64 secret이 비어 있습니다. 워크플로를 중단합니다."
-              exit 1
-            fi
-
-            if [ -f .env ]; then
-              sudo cp .env .env.bak
-            fi
-
-            if ! echo "$ENV_FILE_B64" | base64 -d | sudo tee .env > /dev/null; then
-              echo "ERROR: .env 생성 실패, 백업 복원"
-              if [ -f .env.bak ]; then
-                sudo mv .env.bak .env
+              echo "INFO: ENV_FILE_B64 secret 미설정 → 기존 .env 유지"
+              if [ ! -f .env ]; then
+                echo "ERROR: 기존 .env도 없어 빌드 진행 불가."
+                exit 1
               fi
-              exit 1
-            fi
+              echo "기존 .env 사용 ($(sudo wc -l < .env) lines)"
+            else
+              echo "Secrets 기반 .env 재생성 시도"
+              if [ -f .env ]; then
+                sudo cp .env .env.bak
+              fi
 
-            sudo chmod 600 .env
-            sudo chown root:root .env
-            sudo rm -f .env.bak
-            echo ".env 재생성 완료 ($(sudo wc -l < .env) lines)"
+              if ! echo "$ENV_FILE_B64" | base64 -d | sudo tee .env > /dev/null; then
+                echo "ERROR: .env 생성 실패, 백업 복원"
+                if [ -f .env.bak ]; then
+                  sudo mv .env.bak .env
+                fi
+                exit 1
+              fi
+
+              sudo chmod 600 .env
+              sudo chown root:root .env
+              sudo rm -f .env.bak
+              echo ".env 재생성 완료 ($(sudo wc -l < .env) lines)"
+            fi
 
             echo ">>> 3. 빌드 전 디스크 정리"
             echo "--- 정리 전 디스크 사용량 ---"
