@@ -13,32 +13,90 @@ jobs:
 
       - name: Deploy to GCP VM
         uses: appleboy/ssh-action@master
+        env:
+          ENV_FILE_B64: ${{ secrets.ENV_FILE_B64 }}
         with:
           host: ${{ secrets.GCP_HOST }}
           username: ${{ secrets.GCP_USERNAME }}
           key: ${{ secrets.GCP_SSH_KEY }}
           command_timeout: 30m
+          envs: GITHUB_REF_NAME,ENV_FILE_B64
           script: |
-            set -e 
+            set -euo pipefail
             PROJECT_PATH="/home/cky4594709/Back"
             sudo git config --global --add safe.directory $PROJECT_PATH
             cd $PROJECT_PATH
-            
-            echo ">>> 1. 최신 코드 가져오기"
+
+            echo ">>> 1. 최신 코드 가져오기 (브랜치: ${GITHUB_REF_NAME:-dev})"
+            TARGET_BRANCH="${GITHUB_REF_NAME:-dev}"
             sudo git fetch origin
-            sudo git checkout dev
-            sudo git pull origin dev
-            
-            echo ">>> 2. 앱 컨테이너만 빌드 (서버 자원 100% 사용 구간)"
+            sudo git checkout "$TARGET_BRANCH"
+            sudo git pull origin "$TARGET_BRANCH"
+
+            echo ">>> 2. .env 파일 준비"
+            if [ -z "${ENV_FILE_B64:-}" ]; then
+              echo "INFO: ENV_FILE_B64 secret 미설정 → 기존 .env 유지"
+              if [ ! -f .env ]; then
+                echo "ERROR: 기존 .env도 없어 빌드 진행 불가."
+                exit 1
+              fi
+              echo "기존 .env 사용 ($(sudo wc -l < .env | awk '{print $1}') lines)"
+            else
+              echo "Secrets 기반 .env 재생성 시도"
+
+              TMP_ENV="$(mktemp)"
+              if ! printf '%s' "$ENV_FILE_B64" | base64 -d > "$TMP_ENV" 2>/dev/null; then
+                echo "ERROR: ENV_FILE_B64 base64 디코딩 실패 → 기존 .env 유지"
+                rm -f "$TMP_ENV"
+                exit 1
+              fi
+
+              if [ ! -s "$TMP_ENV" ]; then
+                echo "ERROR: 디코딩 결과가 비어 있음 → 기존 .env 유지"
+                rm -f "$TMP_ENV"
+                exit 1
+              fi
+
+              if [ -f .env ]; then
+                sudo cp .env .env.bak
+              fi
+
+              sudo mv "$TMP_ENV" .env
+              sudo chmod 600 .env
+              sudo chown root:root .env
+              sudo rm -f .env.bak
+              echo ".env 재생성 완료 ($(sudo wc -l < .env | awk '{print $1}') lines)"
+            fi
+
+            echo ">>> 3. 빌드 전 디스크 정리"
+            echo "--- 정리 전 디스크 사용량 ---"
+            df -h /
+            sudo docker system df || true
+
+            echo "--- 중단 컨테이너 정리 ---"
+            sudo docker container prune -f
+
+            echo "--- 24시간 이상 미사용 이미지 정리 ---"
+            sudo docker image prune -af --filter "until=24h"
+
+            echo "--- 24시간 이상 미사용 빌드 캐시 정리 ---"
+            sudo docker builder prune -af --filter "until=24h"
+
+            echo "--- 정리 후 디스크 사용량 ---"
+            df -h /
+            sudo docker system df || true
+
+            echo ">>> 4. 앱 컨테이너만 빌드 (서버 자원 100% 사용 구간)"
             sudo docker compose build app
-            
-            echo ">>> 3. 서버 숨 고르기 (헬스체크 회복 대기)"
+
+            echo ">>> 5. 서버 숨 고르기 (헬스체크 회복 대기)"
             sleep 30
-            
-            echo ">>> 4. 전체 컨테이너 상태 점검 및 앱 실행"
+
+            echo ">>> 6. 전체 컨테이너 상태 점검 및 앱 실행"
             sudo docker compose up -d
-            
-            echo ">>> 5. 사용하지 않는 이전 이미지 정리"
-            sudo docker image prune -f
-            
+
+            echo ">>> 7. 빌드 후 사용하지 않는 이미지 정리"
+            sudo docker image prune -af --filter "until=168h"
+
             echo ">>> 배포 완료!"
+            df -h /
