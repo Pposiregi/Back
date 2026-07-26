@@ -1,6 +1,7 @@
 package com.fitpet.server.shared.interceptor;
 
 import com.fitpet.server.security.jwt.JwtTokenProvider;
+import com.fitpet.server.shared.metrics.UserActivityMetrics;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 public class AuthInterceptor implements HandlerInterceptor {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final UserActivityMetrics userActivityMetrics;
     public static final String DEV_HEADER = "dev-user-id";
 
     @Value("${spring.profiles.active:prod}")
@@ -29,7 +31,9 @@ public class AuthInterceptor implements HandlerInterceptor {
             String devUserId = request.getHeader(DEV_HEADER);
             if (StringUtils.hasText(devUserId)) {
                 try {
-                    request.setAttribute("userId", Long.parseLong(devUserId));
+                    Long userId = Long.parseLong(devUserId);
+                    request.setAttribute("userId", userId);
+                    userActivityMetrics.recordActiveUser(userId);
                     return true;
                 } catch (NumberFormatException e) {
                     log.warn("Invalid dev-user-id header value: {}", devUserId);
@@ -48,6 +52,7 @@ public class AuthInterceptor implements HandlerInterceptor {
 
         Long userId = jwtTokenProvider.getUserId(token, false);
         request.setAttribute("userId", userId);
+        userActivityMetrics.recordActiveUser(userId);
 
         return true;
     }
